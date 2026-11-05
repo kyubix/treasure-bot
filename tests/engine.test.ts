@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {addGuest,applyAction,createPlayer,newGame,PROVISIONAL_RULES} from '../src/engine/game';
+import {addGuest,applyAction,createPlayer,newGame,PROVISIONAL_RULES,getRobotStats} from '../src/engine/game';
 import {ROBOTS,TILES} from '../src/engine/types';
 import {initialIsland,battleVictory,searchSuccess} from '../src/engine/island';
 const setup=()=>{const s=newGame('ABC123',createPlayer('a','Ada'));addGuest(s,createPlayer('b','Bima'));applyAction(s,'a',{type:'START',bots:0});return s;};
@@ -40,6 +40,27 @@ describe('faithful gameplay vertical slice',()=>{
    expect(searchSuccess(100,.5)).toBe(true);
    expect(searchSuccess(20,.9)).toBe(false);
    expect(battleVictory(100,20,.2)).toBe(true);
+ });
+ it('can explore all island cells, including unmarked ones',()=>{
+   expect(initialIsland()).toHaveLength(25);
+   const s=setup();s.players[0].gateCards=1;
+   applyAction(s,'a',{type:'SEND_ROBOT',siteId:'survey-0-0'});
+   expect(s.players[0].robot.mission?.siteId).toBe('survey-0-0');
+ });
+ it('adds upgrades to four robot stat groups via shop',()=>{
+   const s=setup();applyAction(s,'a',{type:'ROLL'},()=>.2);
+   const before=getRobotStats(s.players[0].robot);
+   applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'});
+   expect(getRobotStats(s.players[0].robot).search).toBe(before.search+25);
+   expect(s.players[0].gold).toBe(1950);
+   expect(()=>applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'})).toThrow();
+ });
+ it('resolves encounters at the same location',()=>{
+   const s=setup();s.currentPlayerIndex=1;
+   s.players[0].robot.mission={siteId:'relic',phase:'SEARCH',turnsRemaining:0,transitTotal:2};
+   s.players[1].robot.mission={siteId:'relic',phase:'OUTBOUND',turnsRemaining:1,transitTotal:2};
+   applyAction(s,'b',{type:'ROLL'},()=>0);
+   expect(s.players[0].robot.mission).toBeNull();
  });
  it('marks provisional values separately',()=>{
    expect(PROVISIONAL_RULES.galleryFeeRatio).toBe(.2);
