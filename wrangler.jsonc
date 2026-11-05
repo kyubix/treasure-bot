@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "treasure-bots",
+  "main": "src/server/worker.ts",
+  "compatibility_date": "2026-11-05",
+  "assets": { "directory": "./dist", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [{ "name": "GAME_ROOMS", "class_name": "GameRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GameRoom"] }]
+}
