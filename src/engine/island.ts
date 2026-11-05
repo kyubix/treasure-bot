@@ -39,7 +39,18 @@ export const STARTING_SPOTS: readonly Omit<IslandSpot,'depleted'>[] = [
   {id:'valley',x:2,y:3,ground:'GRASS',kind:'LOCATION',label:'Quiet Valley',value:800,keeperPower:0},
   {id:'cave',x:2,y:1,ground:'GRASS',kind:'LOCATION',label:'Cave Mouth',value:950,keeperPower:0}
 ];
-export function initialIsland():IslandSpot[] { return STARTING_SPOTS.map(spot=>({...spot,depleted:false})); }
+export function initialIsland():IslandSpot[] {
+  const featured=STARTING_SPOTS.map(spot=>({...spot,depleted:false}));
+  // PROVISIONAL unmarked-area scouting: these map cells/payouts are not PS1 data.
+  const locations:IslandSpot[]=[];
+  for(let y=0;y<ISLAND_SIZE;y++)for(let x=0;x<ISLAND_SIZE;x++){
+    if(featured.some(s=>s.x===x&&s.y===y))continue;
+    locations.push({id:`survey-${x}-${y}`,x,y,ground:ISLAND_TERRAIN[y][x],kind:'LOCATION',
+      label:`Unexplored location (${x+1},${y+1})`,
+      value:600+95*((x*7+y*3)%9),keeperPower:0,depleted:false});
+  }
+  return featured.concat(locations);
+}
 export function findSpot(spots:readonly IslandSpot[],id:string):IslandSpot {
   const spot=spots.find(s=>s.id===id);
   if(!spot)throw new Error('Unknown treasure map destination.');
