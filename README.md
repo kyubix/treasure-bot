@@ -1,15 +1,15 @@
-# Treasure Bots — Mobile Multiplayer Board Game (Alpha v0.1)
+# Treasure Bots — Mobile Multiplayer Board Game (Rebuild v0.2 preview)
 
 An **original-art prototype** inspired by the board, robot-exploration and gallery-economy design of the 1999 PlayStation game *Glint Glitters*. No Konami characters, audio, graphics, original code or trademarks are included.
 
-**Current status:** playable early milestone, **not** a faithful/complete recreation yet. Contains original-source documented robot base stats and 20% gallery base fee. The board geometry, treasure tables, probabilistic exploration, shop rewards, prices, victory threshold and event effects are **provisional** until verified against primary gameplay evidence. The code intentionally keeps gameplay rules isolated for future revision.
+**Current status:** faithful gameplay vertical-slice rebuild (experimental), **not** a faithful/complete recreation yet. Contains original-source documented robot base stats and 20% gallery base fee. The board geometry, treasure tables, probabilistic exploration, shop rewards, prices, victory threshold and event effects are **provisional** until verified against primary gameplay evidence. The code intentionally keeps gameplay rules isolated for future revision.
 
 ## Implemented
 
-- Responsive Phaser 3 board (28 alpha-design tiles), mobile-friendly interface.
+- Responsive Phaser 3 board with independently visible perimeter and 5×5 inner exploration map (provisional map layout).
 - Create/join private room (2–4 total players), guest session tokens and invite URLs.
 - Authoritative two-dice rolls, turns, cash, galleries, visit fees, assets and win condition.
-- Robot missions, 7 recorded robot chassis base stats, treasure inventory and displays.
+- Spatial robot missions with selectable treasure targets, travel → search/battle → return → inventory, 7 documented robot chassis base stats. Travel/search/battle equations are provisional.
 - CPU opponents, live multiplayer synchronization via Cloudflare Durable Object WebSockets.
 - Durable Object state persistence, reconnect snapshots and polling fallback.
 - Indonesian, English and Japanese interface strings; locale selection per client.
@@ -17,11 +17,11 @@ An **original-art prototype** inspired by the board, robot-exploration and galle
 
 ## Not implemented / needs verification
 
-- Exact four original map layouts and tile positions; original map textures.
+- Exact four original map layouts and tile positions; original map textures. The new 5×5 board is a demonstration, not a PS1 reconstruction.
 - All 1,024 treasure identities, set bonuses, prices, robot component customization.
 - Real original Search/Walk/Battle equations, terrain grades and trouble probabilities.
 - Treasure Keepers, robot-versus-robot battles, detailed tournaments and missions.
-- Accurate PS1 turn phase ordering, all original events and local multiplayer.
+- Accurate PS1 turn phase ordering, all original events and local multiplayer. Gallery color assignments in the demo are provisional.
 - Security/production hardening: authentication model, anti-abuse, rate limiting, operation idempotency and advanced reconnection.
 
 ## Run on local PC

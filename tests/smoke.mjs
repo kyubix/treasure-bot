@@ -1,14 +1,35 @@
 import assert from 'node:assert/strict';
-import {addGuest,applyAction,createPlayer,currentPlayer,newGame,netWorth,PROVISIONAL_RULES} from '../src/engine/game.ts';
+import {addGuest,applyAction,createPlayer,currentPlayer,newGame,PROVISIONAL_RULES} from '../src/engine/game.ts';
 import {ROBOTS,TILES} from '../src/engine/types.ts';
+import {initialIsland,travelTurns,searchSuccess,battleVictory} from '../src/engine/island.ts';
 let passed=0;
 function check(name,run){run();console.log('✓',name);passed++;}
-const setup=()=>{const state=newGame('ABC123',createPlayer('a','Ada'));addGuest(state,createPlayer('b','Bima'));return state;};
-check('7 robot chassis and original base stats',()=>{assert.equal(Object.keys(ROBOTS).length,7);assert.deepEqual(ROBOTS.NORMAL,{energy:50,walk:50,search:50,battle:50});});
-check('28 provisional tiles, 6 galleries',()=>{assert.equal(TILES.length,28);assert.equal(setup().galleries.length,6);});
-check('cannot start opponent game',()=>{const state=setup();assert.throws(()=>applyAction(state,'b',{type:'START',bots:0}));assert.equal(state.phase,'lobby');});
-check('server dice 1-6, no double roll, alternate turn',()=>{const state=setup();applyAction(state,'a',{type:'START',bots:0});applyAction(state,'a',{type:'ROLL'},()=>0);assert.deepEqual(state.dice,[1,1]);assert.throws(()=>applyAction(state,'a',{type:'ROLL'},()=>.3));applyAction(state,'a',{type:'END_TURN'});assert.equal(currentPlayer(state).id,'b');});
-check('gallery fee 20% to owner',()=>{const state=setup();applyAction(state,'a',{type:'START',bots:0});const g=state.galleries[0];g.ownerId='b';g.displayed.push({id:'treasure',name:'Ruby',category:'Gems',value:1500});applyAction(state,'a',{type:'ROLL'},()=>.2);assert.equal(state.players[0].gold,2100);assert.equal(state.players[1].gold,2700);});
-check('robot missions, gallery ownership, treasures',()=>{const state=setup();applyAction(state,'a',{type:'START',bots:0});applyAction(state,'a',{type:'SEND_ROBOT',terrain:'RUINS'});applyAction(state,'a',{type:'ROLL'},()=>.2);applyAction(state,'a',{type:'CLAIM_GALLERY'});applyAction(state,'a',{type:'END_TURN'});applyAction(state,'b',{type:'ROLL'},()=>.1);applyAction(state,'b',{type:'END_TURN'});applyAction(state,'a',{type:'ROLL'},()=>.1);assert.equal(state.players[0].inventory.length,1);const id=state.players[0].inventory[0].id;applyAction(state,'a',{type:'DISPLAY_TREASURE',treasureId:id});assert.equal(state.galleries[0].displayed.length,1);assert.ok(netWorth(state,state.players[0])>1000);});
-check('provisional rules clearly exposed',()=>assert.equal(PROVISIONAL_RULES.galleryFeeRatio,.2));
-console.log(`PASS ${passed} engine smoke checks`);
+const setup=()=>{const s=newGame('ABC123',createPlayer('a','Ada'));addGuest(s,createPlayer('b','Bima'));return s;};
+const start=s=>applyAction(s,'a',{type:'START',bots:0});
+const roll=(s,who,rand=()=>.2)=>applyAction(s,who,{type:'ROLL'},rand);
+const end=(s,who)=>applyAction(s,who,{type:'END_TURN'});
+check('seven documented robot chassis',()=>{assert.equal(Object.keys(ROBOTS).length,7);assert.deepEqual(ROBOTS.NORMAL,{energy:50,walk:50,search:50,battle:50});});
+check('spatial treasure map with guardians and hidden locations',()=>{const spots=initialIsland();assert.ok(spots.some(s=>s.kind==='KEEPER'));assert.ok(spots.some(s=>s.kind==='LOCATION'));assert.ok(travelTurns(spots[0],50)>=1);});
+check('gallery colors assigned at game start, not claimable properties',()=>{const s=setup();start(s);assert.equal(TILES.length,28);assert.equal(s.galleries.length,20);assert.ok(s.galleries.every(g=>g.ownerId));assert.equal(s.galleries[0].ownerId,'a');assert.equal(s.galleries[1].ownerId,'b');});
+check('cannot start a room without host',()=>{const s=setup();assert.throws(()=>applyAction(s,'b',{type:'START',bots:0}));assert.equal(s.phase,'lobby');});
+check('two server dice and turn ordering',()=>{const s=setup();start(s);roll(s,'a',()=>0);assert.deepEqual(s.dice,[1,1]);assert.throws(()=>roll(s,'a'));end(s,'a');assert.equal(currentPlayer(s).id,'b');});
+check('20% gallery transfer',()=>{const s=setup();start(s);s.galleries[1].displayed.push({id:'ruby',name:'Ruby',category:'Gems',value:1500});roll(s,'a',()=>0);assert.equal(s.players[0].gold,2100);assert.equal(s.players[1].gold,2700);});
+check('passing a shop enables purchasing an actual gate card',()=>{const s=setup();start(s);assert.equal(s.players[0].gateCards,0);roll(s,'a',()=>.2);assert.equal(s.shopAccess,true);applyAction(s,'a',{type:'BUY_GATE_CARD'});assert.equal(s.players[0].gateCards,1);assert.equal(s.players[0].gold,2100);});
+check('destination must exist and a gate card must be bought',()=>{const s=setup();start(s);assert.throws(()=>applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'}),/Buy a gate card/);s.players[0].gateCards=1;assert.throws(()=>applyAction(s,'a',{type:'SEND_ROBOT',siteId:'mars'}),/valid map destination/);});
+check('travel then search then return delivers treasure',()=>{
+  const s=setup();start(s);s.players[0].gateCards=1;
+  applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'});
+  assert.equal(s.players[0].robot.mission.phase,'OUTBOUND');
+  for(let i=0;i<7;i++){
+    roll(s,'a',()=>0);if(i<6){end(s,'a');roll(s,'b',()=>0);end(s,'b');}
+  }
+  assert.equal(s.players[0].robot.mission,null);
+  assert.equal(s.players[0].inventory.length,1);
+  assert.equal(s.islandSpots.find(site=>site.id==='relic').depleted,true);
+  const id=s.players[0].inventory[0].id;
+  applyAction(s,'a',{type:'DISPLAY_TREASURE',treasureId:id});
+  assert.equal(s.galleries[0].displayed.length,1);
+});
+check('search and battle depend on capability (formulas provisional)',()=>{assert.ok(searchSuccess(100,.5));assert.ok(!searchSuccess(20,.9));assert.ok(battleVictory(100,20,.2));assert.ok(!battleVictory(10,200,.8));});
+check('unknowns explicitly marked provisional',()=>assert.equal(PROVISIONAL_RULES.galleryFeeRatio,.2));
+console.log(`PASS ${passed} faithful-slice smoke checks`);
