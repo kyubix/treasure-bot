@@ -1,9 +1,10 @@
+import type { Expedition, IslandSpot } from './island.ts';
 export type TileType = 'START' | 'SHOP' | 'GALLERY' | 'EVENT' | 'SUPPORT' | 'PLAIN';
 export type Terrain = 'RUINS' | 'FOREST' | 'COAST';
 export type RobotType = 'NORMAL' | 'FIGHTER' | 'SEARCHER' | 'DIVER' | 'MULTI' | 'HUNTER' | 'DASH';
 export interface RobotStats { energy: number; walk: number; search: number; battle: number }
-export interface RobotMission { terrain: Terrain; remaining: number }
-export interface Robot { chassis: RobotType; energy: number; mission: RobotMission | null }
+export type RobotMission = Expedition
+export interface Robot { chassis: RobotType; energy: number; mission: RobotMission | null; cargo: Treasure[] }
 export interface Treasure { id: string; name: string; value: number; category: string }
 export interface Player {
   id: string; name: string; color: string; isBot: boolean; position: number;
@@ -15,23 +16,25 @@ export interface GameState {
   code: string; hostId: string; phase: 'lobby' | 'playing' | 'finished';
   players: Player[]; galleries: Gallery[]; currentPlayerIndex: number;
   turn: number; version: number; rolled: boolean; dice: [number, number] | null;
-  winnerId: string | null; logs: GameLog[];
+  winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
 }
 export type GameAction =
   | { type: 'START'; bots: number }
   | { type: 'ROLL' }
   | { type: 'END_TURN' }
-  | { type: 'CLAIM_GALLERY' }
+  | { type: 'BUY_GATE_CARD' }
+  | { type: 'RETURN_ROBOT' }
   | { type: 'DISPLAY_TREASURE'; treasureId: string }
-  | { type: 'SEND_ROBOT'; terrain: Terrain };
+  | { type: 'SEND_ROBOT'; siteId: string };
 export interface GameRequest { token: string; expectedVersion: number; action: GameAction }
 export type PublicPlayer = Omit<Player, never>;
 export type PublicState = GameState & { yourId: string };
+// PROVISIONAL perimeter geometry; colored galleries are assigned at match start.
 export const TILES: TileType[] = [
-  'START','PLAIN','SHOP','PLAIN','GALLERY','EVENT','PLAIN',
-  'SUPPORT','GALLERY','PLAIN','SHOP','PLAIN','GALLERY','EVENT',
-  'SUPPORT','PLAIN','GALLERY','SHOP','PLAIN','EVENT','PLAIN',
-  'GALLERY','SUPPORT','PLAIN','SHOP','PLAIN','GALLERY','EVENT'
+  'START','GALLERY','GALLERY','SHOP','GALLERY','GALLERY','GALLERY',
+  'GALLERY','EVENT','GALLERY','GALLERY','GALLERY','SHOP','GALLERY',
+  'GALLERY','GALLERY','GALLERY','SUPPORT','GALLERY','GALLERY','GALLERY',
+  'SHOP','GALLERY','GALLERY','EVENT','GALLERY','GALLERY','SUPPORT'
 ];
 export const ROBOTS: Record<RobotType, RobotStats> = {
   NORMAL: { energy: 50, walk: 50, search: 50, battle: 50 },

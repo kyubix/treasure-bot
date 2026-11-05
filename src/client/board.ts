@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
+import { ISLAND_TERRAIN, ISLAND_SIZE, expeditionProgress } from '../engine/island.ts';
 import type { GameState, TileType } from '../engine/types.ts';
+import type { Ground } from '../engine/island.ts';
 
 const TILE_COLORS:Record<TileType,number>={
   START:0x59cbbf,SHOP:0xf2be75,GALLERY:0xb7a1f2,EVENT:0xf18b9c,SUPPORT:0x82b8e9,PLAIN:0x283754
 };
 const TILE_ICONS:Record<TileType,string>={START:'★',SHOP:'⌂',GALLERY:'◆',EVENT:'!',SUPPORT:'+',PLAIN:'·'};
+const TERRAIN_COLORS:Record<Ground,number>={GRASS:0x407e64,CLIFF:0x777b89,DESERT:0xbca066,WATER:0x3e829f,VOLCANO:0xa4645d,ICE:0x91bdd0};
 function cellFor(i:number):[number,number]{
   if(i<8)return [i,0];
   if(i<14)return [7,i-7];
@@ -16,12 +19,12 @@ function cellFor(i:number):[number,number]{
 export class BoardScene extends Phaser.Scene {
   private match:GameState|null=null;
   private drawing?:Phaser.GameObjects.Container;
-  constructor(){super('Board');}
-  create():void {
-    this.scale.on('resize',()=>this.paint());
-    this.paint();
-  }
+  private onSelect:(id:string)=>void;
+  private selectedSpot:string|null=null;
+  constructor(onSelect:(id:string)=>void){super('Board');this.onSelect=onSelect;}
+  create():void {this.scale.on('resize',()=>this.paint());this.paint();}
   setMatch(state:GameState):void {this.match=state;if(this.sys.isActive())this.paint();}
+  selectSpot(id:string):void{this.selectedSpot=id;if(this.sys.isActive())this.paint();}
   private paint():void {
     const {width,height}=this.scale;
     if(width<10||height<10)return;
@@ -31,63 +34,75 @@ export class BoardScene extends Phaser.Scene {
     const cellSize=Math.min((width-28)/8,(height-28)/8);
     const startX=(width-8*cellSize)/2;
     const startY=(height-8*cellSize)/2;
-    const centerX=width/2,centerY=height/2;
-    const bg=this.add.graphics();
-    bg.fillStyle(0x1a2941,1).fillRoundedRect(startX+cellSize*1.05,startY+cellSize*1.05,5.9*cellSize,5.9*cellSize,Math.max(8,cellSize*.35));
-    bg.lineStyle(2,0x3b5d70,.7).strokeRoundedRect(startX+cellSize*1.25,startY+cellSize*1.25,5.5*cellSize,5.5*cellSize,Math.max(8,cellSize*.35));
-    parent.add(bg);
-    const deco=this.add.graphics();
-    deco.fillStyle(0x26585c,.4).fillCircle(centerX,centerY+cellSize*.9,cellSize*1.85);
-    deco.fillStyle(0x2d7776,.3).fillCircle(centerX-cellSize*.9,centerY-cellSize*.5,cellSize*1.3);
-    parent.add(deco);
-    const centerLabel=this.add.text(centerX,centerY-cellSize*.65,'TREASURE\nISLAND',{
-      fontSize:`${Math.max(16,cellSize*.4)}px`,fontFamily:'sans-serif',fontStyle:'bold',align:'center',color:'#d8eceb',lineSpacing:6
-    }).setOrigin(.5);
-    parent.add(centerLabel);
-    const centerSub=this.add.text(centerX,centerY+cellSize*.1,'✦  ✦  ✦',{
-      fontSize:`${Math.max(10,cellSize*.3)}px`,color:'#f3c47b'
-    }).setOrigin(.5);
-    parent.add(centerSub);
+    const addText=(x:number,y:number,text:string,size:number,color='#fff')=>{
+      const label=this.add.text(x,y,text,{fontFamily:'sans-serif',fontStyle:'bold',fontSize:`${size}px`,color}).setOrigin(.5);
+      parent.add(label);return label;
+    };
+    // A real second play-space: treasure exploration coordinates inside the street perimeter.
+    const innerStep=cellSize*.94;
+    const innerX=startX+cellSize*1.65;
+    const innerY=startY+cellSize*1.65;
+    const root=this.match;
+    for(let y=0;y<ISLAND_SIZE;y++)for(let x=0;x<ISLAND_SIZE;x++){
+      const px=innerX+x*innerStep,py=innerY+y*innerStep;
+      const bg=this.add.rectangle(px,py,innerStep-2,innerStep-2,TERRAIN_COLORS[ISLAND_TERRAIN[y][x]],.9)
+        .setOrigin(0,0);
+      parent.add(bg);
+      const spot=root?.islandSpots.find(s=>s.x===x&&s.y===y);
+      if(spot){
+        const icon=spot.depleted?'·':spot.kind==='KEEPER'?'⚔':spot.kind==='TREASURE'?'◆':'?';
+        addText(px+innerStep*.5,py+innerStep*.46,icon,Math.max(11,cellSize*.30),spot.depleted?'#a9b8c3':spot.kind==='KEEPER'?'#ffd78b':'#effaf7');
+        if(this.selectedSpot===spot.id){
+          const halo=this.add.rectangle(px+innerStep/2,py+innerStep/2,innerStep-2,innerStep-2)
+            .setStrokeStyle(3,0xffe49a).setFillStyle(0,0);
+          parent.add(halo);
+        }
+        const hit=this.add.rectangle(px+innerStep/2,py+innerStep/2,innerStep-2,innerStep-2,0,0)
+          .setInteractive({useHandCursor:true});
+        hit.on('pointerdown',()=>{this.selectedSpot=spot.id;this.onSelect(spot.id);this.paint();});
+        parent.add(hit);
+      }
+    }
+    if(root){
+      root.players.forEach(p=>{
+        const m=p.robot.mission;
+        if(!m)return;
+        const site=root.islandSpots.find(s=>s.id===m.siteId);
+        if(!site)return;
+        const frac=m.phase==='OUTBOUND'?expeditionProgress(m):m.phase==='SEARCH'?1:1-expeditionProgress(m);
+        const gx=2+(site.x-2)*frac,gy=2+(site.y-2)*frac;
+        const x=innerX+(gx+.5)*innerStep,y=innerY+(gy+.5)*innerStep;
+        const dot=this.add.circle(x,y,Math.max(5,cellSize*.14),Phaser.Display.Color.HexStringToColor(p.color).color).setStrokeStyle(2,0x141e2c);
+        parent.add(dot);
+      });
+    }
     for(let i=0;i<TILES.length;i++){
-      const [col,row]=cellFor(i); const x=startX+col*cellSize,y=startY+row*cellSize;
-      const box=this.add.graphics();
-      const isCurrent=this.match?.players.some(p=>p.position===i && p.id===this.match?.players[this.match?.currentPlayerIndex]?.id);
-      box.fillStyle(TILE_COLORS[TILES[i]],1).fillRoundedRect(x+2,y+2,cellSize-4,cellSize-4,Math.max(3,cellSize*.12));
-      if(isCurrent){box.lineStyle(3,0xffe6a2,1).strokeRoundedRect(x+2,y+2,cellSize-4,cellSize-4,Math.max(3,cellSize*.12));}
-      parent.add(box);
-      const icon=this.add.text(x+cellSize/2,y+cellSize*.40,TILE_ICONS[TILES[i]],{
-        fontSize:`${Math.max(13,cellSize*.35)}px`,fontFamily:'sans-serif',fontStyle:'bold',color:TILES[i]==='PLAIN'?'#6e89a9':'#14223a'
-      }).setOrigin(.5);
-      parent.add(icon);
-      const no=this.add.text(x+cellSize*.11,y+cellSize*.85,String(i+1),{fontSize:`${Math.max(8,cellSize*.17)}px`,color:'#071626'});
-      parent.add(no);
-      if(this.match) {
-        const players=this.match.players.filter(p=>p.position===i);
-        players.forEach((p,j)=>{
-          const px=x+cellSize*(.68-j%2*.24);const py=y+cellSize*(.70-Math.floor(j/2)*.26);
-          const pawn=this.add.circle(px,py,Math.max(4,cellSize*.11),Phaser.Display.Color.HexStringToColor(p.color).color);
-          pawn.setStrokeStyle(2,0x102033);
+      const [col,row]=cellFor(i);
+      const x=startX+col*cellSize,y=startY+row*cellSize;
+      const isCurrent=root?.players.some(p=>p.position===i&&p.id===root.players[root.currentPlayerIndex]?.id);
+      const g=this.add.graphics();
+      g.fillStyle(TILE_COLORS[TILES[i]],1).fillRoundedRect(x+2,y+2,cellSize-4,cellSize-4,Math.max(3,cellSize*.12));
+      if(isCurrent)g.lineStyle(3,0xffe6a2,1).strokeRoundedRect(x+2,y+2,cellSize-4,cellSize-4,Math.max(3,cellSize*.12));
+      parent.add(g);
+      addText(x+cellSize*.5,y+cellSize*.41,TILE_ICONS[TILES[i]],Math.max(13,cellSize*.35),'#16253a');
+      if(root){
+        const gallery=root.galleries.find(g=>g.tile===i);
+        if(gallery?.ownerId){
+          const owner=root.players.find(p=>p.id===gallery.ownerId);
+          if(owner){const rect=this.add.rectangle(x+cellSize*.85,y+cellSize*.18,Math.max(5,cellSize*.15),Math.max(5,cellSize*.15),Phaser.Display.Color.HexStringToColor(owner.color).color);parent.add(rect);}
+        }
+        root.players.filter(p=>p.position===i).forEach((p,j)=>{
+          const pawn=this.add.circle(x+cellSize*(.66-(j%2)*.25),y+cellSize*(.69-Math.floor(j/2)*.25),Math.max(4,cellSize*.11),Phaser.Display.Color.HexStringToColor(p.color).color).setStrokeStyle(2,0x102033);
           parent.add(pawn);
         });
-        const gallery=this.match.galleries.find(g=>g.tile===i);
-        if(gallery?.ownerId) {
-          const owner=this.match.players.find(p=>p.id===gallery.ownerId);
-          if(owner){ const marker=this.add.rectangle(x+cellSize*.86,y+cellSize*.18,Math.max(6,cellSize*.14),Math.max(6,cellSize*.14),Phaser.Display.Color.HexStringToColor(owner.color).color);parent.add(marker); }
-        }
       }
     }
   }
 }
-
-export function mountBoard(element:HTMLElement):{update(state:GameState):void;destroy():void}{
-  const scene=new BoardScene();
-  const game=new Phaser.Game({
-    type:Phaser.AUTO,
-    parent:element,
-    backgroundColor:'#101a2e',
+export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{update(state:GameState):void;select(id:string):void;destroy():void}{
+  const scene=new BoardScene(onSelect);
+  const game=new Phaser.Game({type:Phaser.AUTO,parent:element,backgroundColor:'#101a2e',
     scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:600,height:600},
-    render:{pixelArt:false,antialias:true},
-    scene:[scene]
-  });
-  return {update(state){scene.setMatch(state);},destroy(){game.destroy(true);}};
+    render:{pixelArt:false,antialias:true},scene:[scene]});
+  return {update(state){scene.setMatch(state);},select(id){scene.selectSpot(id);},destroy(){game.destroy(true);}};
 }

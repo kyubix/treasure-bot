@@ -16,6 +16,13 @@ function validateName(value:unknown):string {
   if(name.length<2)throw new GameError('Name must contain at least two characters.');
   return name;
 }
+function ensureCurrentRoom(state:GameState):void {
+  // v0.1 rooms predate spatial robot state. Reject them rather than corrupt stored games.
+  if (!Array.isArray(state.islandSpots) || typeof state.shopAccess !== 'boolean' ||
+      !Array.isArray(state.players) || state.players.some(p => !p.robot || !Array.isArray(p.robot.cargo))) {
+    throw new GameError('This room uses the old v0.1 game format. Please create a new room to play v0.2.');
+  }
+}
 function snapshot(state:GameState, yourId:string):PublicState {return {...state,yourId};}
 function randomCode():string {
   const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -39,6 +46,7 @@ export class GameRoom extends DurableObject<Env> {
     const actorId=Object.hasOwn(auth,token)?auth[token]:undefined;
     const state=await this.ctx.storage.get<GameState>('game');
     if(!state||!actorId)throw new GameError('Invalid room access token.');
+    ensureCurrentRoom(state);
     return {state,actorId};
   }
   private broadcast(state:GameState):void {
@@ -72,6 +80,7 @@ export class GameRoom extends DurableObject<Env> {
         await this.ctx.storage.transaction(async txn=>{
           const state=await txn.get<GameState>('game');
           if(!state)throw new GameError('Room not found.');
+          ensureCurrentRoom(state);
           const auth=await txn.get<Sessions>('auth')||{};
           addGuest(state,createPlayer(playerId,name));
           auth[token]=playerId;
@@ -96,6 +105,7 @@ export class GameRoom extends DurableObject<Env> {
           const actorId=Object.hasOwn(auth,token)?auth[token]:undefined;
           const state=await txn.get<GameState>('game');
           if(!state||!actorId)throw new GameError('Invalid room access token.');
+    ensureCurrentRoom(state);
           if(!Number.isInteger(body.expectedVersion)||body.expectedVersion!==state.version)throw new StaleVersionError('State changed; refresh and try again.');
           applyAction(state,actorId,action,cryptoRandom);
           await txn.put('game',state);
