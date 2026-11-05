@@ -28,6 +28,8 @@ jobs:
           test -f src/server/worker.ts
           test -f src/client/main.ts
           rm -rf .bootstrap
+          # GITHUB_TOKEN cannot introduce new workflow files. CI will be added separately.
+          rm -f .github/workflows/ci.yml
 
       - name: Commit unpacked source files
         shell: bash
