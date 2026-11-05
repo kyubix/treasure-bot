@@ -32,4 +32,27 @@ check('travel then search then return delivers treasure',()=>{
 });
 check('search and battle depend on capability (formulas provisional)',()=>{assert.ok(searchSuccess(100,.5));assert.ok(!searchSuccess(20,.9));assert.ok(battleVictory(100,20,.2));assert.ok(!battleVictory(10,200,.8));});
 check('unknowns explicitly marked provisional',()=>assert.equal(PROVISIONAL_RULES.galleryFeeRatio,.2));
+check('unmarked island locations can be selected for exploration',()=>{
+  const spots=initialIsland();assert.equal(spots.length,25);
+  const survey=spots.find(s=>s.id==='survey-0-0');assert.ok(survey);
+  const state=setup();start(state);state.players[0].gateCards=1;
+  applyAction(state,'a',{type:'SEND_ROBOT',siteId:survey.id});
+  assert.equal(state.players[0].robot.mission.siteId,survey.id);
+});
+check('shop equips robot parts and updates capabilities',()=>{
+  const s=setup();start(s);roll(s,'a',()=>.2);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_PART',slot:'WINGS'}),/Unknown robot part/);
+  applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'});
+  assert.equal(s.players[0].robot.parts.HEAD,true);
+  assert.equal(s.players[0].gold,1950);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'}),/already installed/);
+});
+check('robots can battle when reaching the same treasure location',()=>{
+  const s=setup();start(s);s.currentPlayerIndex=1;
+  s.players[0].robot.mission={siteId:'relic',phase:'SEARCH',turnsRemaining:0,transitTotal:2};
+  s.players[1].robot.mission={siteId:'relic',phase:'OUTBOUND',turnsRemaining:1,transitTotal:2};
+  roll(s,'b',()=>0);
+  assert.equal(s.players[0].robot.mission,null);
+  assert.ok(s.logs.some(e=>e.message.includes('defeated Ada')));
+});
 console.log(`PASS ${passed} faithful-slice smoke checks`);
