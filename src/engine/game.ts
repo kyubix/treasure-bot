@@ -1,12 +1,26 @@
 import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory } from './island.ts';
 import { ROBOTS, TILES } from './types.ts';
-import type { GameAction, GameLog, GameState, Player, Terrain, Treasure } from './types.ts';
+import type { GameAction, GameLog, GameState, Player, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
 
 export type Random = () => number;
 const COLORS = ['#69d7ce', '#f4be70', '#dba5ed', '#94abfa'];
 const START_GOLD = 2400;
 const WIN_ASSETS = 20_000;
 const GATE_PRICE = 300; // PROVISIONAL price
+const PART_PRICE = 450; // PROVISIONAL price
+const PART_SLOTS:PartSlot[]=['HEAD','BODY','ARM','LEG'];
+const PART_BONUS:Record<PartSlot,Partial<RobotStats>>={
+  HEAD:{search:25},BODY:{energy:25},ARM:{battle:25},LEG:{walk:25}
+};
+export function getRobotStats(robot:Robot):RobotStats{
+  const stats={...ROBOTS[robot.chassis]};
+  for(const slot of PART_SLOTS){
+    if(!robot.parts?.[slot])continue;
+    for(const [key,amount] of Object.entries(PART_BONUS[slot]))
+      stats[key as keyof RobotStats]+=amount;
+  }
+  return stats;
+}
 const SHOP_FEE = 0;
 const CATEGORY = ['Relics', 'Artworks', 'Gems', 'Documents', 'Fossils', 'Food', 'Creatures', 'Junk'];
 export class GameError extends Error { constructor(message: string) { super(message); this.name='GameError'; } }
@@ -15,7 +29,7 @@ export function createPlayer(id: string, name: string, isBot = false, colorIndex
   return {
     id, name: name.trim().slice(0, 22) || 'Explorer', color: COLORS[colorIndex % COLORS.length], isBot,
     position: 0, gold: START_GOLD, gateCards: 0,
-    robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [] }, inventory: []
+    robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [], parts:{HEAD:false,BODY:false,ARM:false,LEG:false} }, inventory: []
   };
 }
 export function newGame(code: string, player: Player): GameState {
@@ -76,6 +90,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     case 'SEND_ROBOT': sendRobot(state, player, action.siteId); break;
     case 'RETURN_ROBOT': returnRobot(state,player); break;
     case 'BUY_GATE_CARD': buyGate(state,player); break;
+    case 'BUY_PART': buyPart(state,player,action.slot); break;
     case 'DISPLAY_TREASURE': displayTreasure(state,player,action.treasureId); break;
     default: throw new GameError('Unknown action.');
   }
@@ -92,7 +107,7 @@ function sendRobot(state:GameState, player:Player, siteId:string):void {
   catch { throw new GameError('Select a valid map destination.'); }
   if(site.depleted) throw new GameError('This treasure has already been discovered.');
   player.gateCards--;
-  const steps=travelTurns(site,ROBOTS[player.robot.chassis].walk);
+  const steps=travelTurns(site,getRobotStats(player.robot).walk);
   player.robot.mission={siteId,phase:'OUTBOUND',turnsRemaining:steps,transitTotal:steps};
   log(state,`${player.name} launched a robot toward ${site.label} (${steps} travel turns).`);
 }
@@ -111,6 +126,17 @@ function buyGate(state:GameState,player:Player):void {
   if(player.gateCards>=5)throw new GameError('Gate card limit reached.');
   player.gold-=GATE_PRICE;player.gateCards++;
   log(state,`${player.name} purchased a gate card for ${GATE_PRICE} G.`);
+}
+function buyPart(state:GameState,player:Player,slot:PartSlot):void{
+  if(!PART_SLOTS.includes(slot))throw new GameError('Unknown robot part.');
+  if(!state.rolled||!state.shopAccess)throw new GameError('Visit a robot shop to purchase parts.');
+  if(!player.robot.parts)player.robot.parts={HEAD:false,BODY:false,ARM:false,LEG:false};
+  if(player.robot.parts[slot])throw new GameError('Part already installed.');
+  if(player.gold<PART_PRICE)throw new GameError('Insufficient gold to upgrade robot.');
+  player.gold-=PART_PRICE;
+  player.robot.parts[slot]=true;
+  if(slot==='BODY')player.robot.energy+=PART_BONUS.BODY.energy??0;
+  log(state,`${player.name} equipped improved ${slot.toLowerCase()} (+25 stat, provisional balance).`);
 }
 function displayTreasure(state:GameState, player:Player, treasureId:string):void {
   const gallery=state.galleries.find(g=>g.ownerId===player.id && g.displayed.length<10);
@@ -136,9 +162,22 @@ function robotTick(state:GameState,player:Player,random:Random):void {
   if(m.phase==='OUTBOUND'){
     m.turnsRemaining--;
     if(m.turnsRemaining>0)return;
+    // PROVISIONAL: same-location robot encounter; PS1 battle timing needs validation.
+    const rival=state.players.find(other=>other.id!==player.id &&
+      other.robot.mission?.siteId===m.siteId && other.robot.mission.phase==='SEARCH');
+    if(rival){
+      const won=battleVictory(getRobotStats(player.robot).battle,getRobotStats(rival.robot).battle,random());
+      if(!won){
+        player.robot.mission=null;player.robot.cargo=[];
+        log(state,`${player.name}'s robot lost an encounter with ${rival.name} at ${site.label}.`);
+        return;
+      }
+      rival.robot.mission=null;rival.robot.cargo=[];
+      log(state,`${player.name}'s robot defeated ${rival.name}'s robot at ${site.label}.`);
+    }
     if(site.kind==='KEEPER'){
       if(site.depleted){m.phase='INBOUND';m.turnsRemaining=m.transitTotal;return;}
-      const won=battleVictory(ROBOTS[player.robot.chassis].battle,site.keeperPower,random());
+      const won=battleVictory(getRobotStats(player.robot).battle,site.keeperPower,random());
       if(won){
         const loot={id:`${site.id}-${state.turn}`,name:site.label,category:'Relics',value:site.value};
         player.robot.cargo.push(loot);site.depleted=true;
@@ -154,7 +193,7 @@ function robotTick(state:GameState,player:Player,random:Random):void {
     return;
   }
   if(m.phase==='SEARCH'){
-    if(!site.depleted&&searchSuccess(ROBOTS[player.robot.chassis].search,random())){
+    if(!site.depleted&&searchSuccess(getRobotStats(player.robot).search,random())){
       const loot={id:`${site.id}-${state.turn}`,name:site.label,category:'Relics',value:site.value};
       player.robot.cargo.push(loot);site.depleted=true;
       m.phase='INBOUND';m.turnsRemaining=m.transitTotal;
@@ -230,7 +269,7 @@ function resolveTile(state:GameState,player:Player,random:Random):void {
     const event=Math.floor(random()*3);
     if(event===0){player.gold+=350;log(state,`Lucky find! ${player.name} gained 350 G.`);}
     else if(event===1){const loss=Math.min(player.gold,150);player.gold-=loss;log(state,`Bad weather! ${player.name} lost ${loss} G.`);}
-    else {player.robot.energy=Math.min(ROBOTS[player.robot.chassis].energy,player.robot.energy+15);log(state,`Maintenance bonus! ${player.name}'s robot regained energy.`);}
+    else {player.robot.energy=Math.min(getRobotStats(player.robot).energy,player.robot.energy+15);log(state,`Maintenance bonus! ${player.name}'s robot regained energy.`);}
   }else if(tile==='START') {
     player.gold+=START_GOLD;log(state,`${player.name} stopped at the Robot Center (+${START_GOLD*2} G total for passing and stopping).`);
   }
@@ -247,5 +286,5 @@ function autoPlayBots(state:GameState,random:Random):void {
 }
 export const PROVISIONAL_RULES = {
   startingGold:START_GOLD, winAssets:WIN_ASSETS, gatePrice:GATE_PRICE,
-  shopFee:SHOP_FEE, galleryFeeRatio:0.2, robotSearchFormula:'provisional'
+  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, robotSearchFormula:'provisional'
 } as const;
