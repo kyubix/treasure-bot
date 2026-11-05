@@ -4,7 +4,9 @@ export type Terrain = 'RUINS' | 'FOREST' | 'COAST';
 export type RobotType = 'NORMAL' | 'FIGHTER' | 'SEARCHER' | 'DIVER' | 'MULTI' | 'HUNTER' | 'DASH';
 export interface RobotStats { energy: number; walk: number; search: number; battle: number }
 export type RobotMission = Expedition
-export interface Robot { chassis: RobotType; energy: number; mission: RobotMission | null; cargo: Treasure[] }
+export type PartSlot = 'HEAD' | 'BODY' | 'ARM' | 'LEG';
+export interface RobotParts { HEAD:boolean; BODY:boolean; ARM:boolean; LEG:boolean }
+export interface Robot { chassis: RobotType; energy: number; mission: RobotMission | null; cargo: Treasure[]; parts?: RobotParts }
 export interface Treasure { id: string; name: string; value: number; category: string }
 export interface Player {
   id: string; name: string; color: string; isBot: boolean; position: number;
@@ -23,6 +25,7 @@ export type GameAction =
   | { type: 'ROLL' }
   | { type: 'END_TURN' }
   | { type: 'BUY_GATE_CARD' }
+  | { type: 'BUY_PART'; slot: PartSlot }
   | { type: 'RETURN_ROBOT' }
   | { type: 'DISPLAY_TREASURE'; treasureId: string }
   | { type: 'SEND_ROBOT'; siteId: string };
