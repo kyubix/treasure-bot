@@ -94,51 +94,65 @@ function robot(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,fill:num
   g.lineStyle(2,0xc2d8df);g.lineBetween(x,y-r*.86,x,y-r*1.27);
   g.fillStyle(0xffdd67);g.fillCircle(x,y-r*1.35,r*.2);
 }
+
 function mountain(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void{
-  // Hand-drawn stepped mesa. Layers share a ground anchor, so the same mesa
-  // can be re-projected at 0/90/180/270 degrees without alternate images.
-  g.fillStyle(0x214f47,.29);g.fillEllipse(x,y+r*.30,r*2.25,r*.53);
-  const tier=(cx:number,base:number,half:number,height:number,tint:number)=>{
+  // Stylized stacked sandstone mesa: a single original Phaser model rendered
+  // at each projected island anchor, with no orientation-specific bitmaps.
+  g.fillStyle(0x244c44,.27);
+  g.fillEllipse(x,y+r*.32,r*2.32,r*.53);
+  const tier=(cx:number,base:number,half:number,height:number,grass:number)=>{
     const top=base-height;
-    // Dark left and sunlit right cliff faces with irregular facet edges.
-    g.fillStyle(0x71543e);
+    // Faceted silhouette: the near wall is deep and wider at the foot.
+    g.fillStyle(0x674b3a);
     g.fillPoints([
-      point(cx-half,top+r*.065),point(cx-half*.23,top-r*.095),
-      point(cx,top-r*.055),point(cx,base+r*.08),
-      point(cx-half*.56,base+r*.17),point(cx-half*.96,base-r*.01)
+      point(cx-half*.93,top+r*.025),point(cx-half*.64,top-r*.11),
+      point(cx-half*.10,top-r*.06),point(cx+half*.52,top-r*.12),
+      point(cx+half*.96,top+r*.03),point(cx+half*1.06,base-r*.11),
+      point(cx+half*.65,base+r*.16),point(cx-half*.40,base+r*.20),
+      point(cx-half*1.03,base-r*.09)
     ],true);
-    g.fillStyle(0xb08b61);
+    // West wall and eroded ledges, from cool shade into warm highlights.
+    g.fillStyle(0x856447);
     g.fillPoints([
-      point(cx,top-r*.055),point(cx+half*.44,top-r*.12),
-      point(cx+half,top+r*.025),point(cx+half*.89,base-r*.12),
-      point(cx+half*.42,base+r*.13),point(cx,base+r*.08)
+      point(cx-half*.94,top+r*.03),point(cx-half*.53,top-r*.075),
+      point(cx-half*.19,top-r*.06),point(cx-half*.36,base+r*.12),
+      point(cx-half*.79,base+r*.09),point(cx-half,base-r*.09)
     ],true);
-    g.fillStyle(0x896b4e);
+    g.fillStyle(0xb58c60);
     g.fillPoints([
-      point(cx-half*.45,top-r*.03),point(cx-half*.12,top-r*.09),
-      point(cx+half*.08,base+r*.06),point(cx-half*.16,base+r*.12)
+      point(cx-half*.16,top-r*.08),point(cx+half*.53,top-r*.13),
+      point(cx+half*.95,top+r*.03),point(cx+half*.84,base-r*.09),
+      point(cx+half*.45,base+r*.15),point(cx+half*.07,base+r*.14)
     ],true);
-    g.fillStyle(0xc8a77a,.75);
+    g.fillStyle(0xd4ae78,.78);
     g.fillPoints([
-      point(cx+half*.44,top-r*.12),point(cx+half*.65,top-r*.035),
-      point(cx+half*.43,base+r*.10),point(cx+half*.28,base+r*.10)
+      point(cx+half*.39,top-r*.12),point(cx+half*.57,top-r*.10),
+      point(cx+half*.40,base+r*.14),point(cx+half*.25,base+r*.14)
     ],true);
-    // Flattened grassy top is the defining characteristic of the reference.
-    g.fillStyle(0x365a42);
-    g.fillEllipse(cx,top-r*.02,half*2.05,r*.30);
-    g.fillStyle(tint);
-    g.fillEllipse(cx-r*.015,top-r*.06,half*1.86,r*.20);
-    g.lineStyle(Math.max(1,r*.022),0xe5c796,.50);
-    g.lineBetween(cx-half*.60,top+r*.08,cx-half*.35,top+r*.10);
-    g.lineBetween(cx+half*.33,top+r*.08,cx+half*.61,top+r*.02);
+    // Broken flat strata give volume without adding expensive sprites.
+    g.lineStyle(Math.max(1,r*.018),0x5a473a,.55);
+    g.lineBetween(cx-half*.74,top+height*.37,cx-half*.48,top+height*.42);
+    g.lineBetween(cx+half*.57,top+height*.53,cx+half*.84,top+height*.48);
+    g.lineBetween(cx-half*.40,top+height*.79,cx-half*.10,top+height*.76);
+    g.lineStyle(Math.max(1,r*.014),0xebc895,.55);
+    g.lineBetween(cx+half*.60,top+height*.24,cx+half*.68,top+height*.42);
+    g.lineBetween(cx+half*.18,top+height*.68,cx+half*.25,top+height*.79);
+    // Grassy rim casts a lip shadow over the almost vertical rock face.
+    g.fillStyle(0x4a5139);g.fillEllipse(cx,top+r*.075,half*2.04,r*.30);
+    g.fillStyle(0x51764d);g.fillEllipse(cx,top-r*.025,half*2.04,r*.255);
+    g.fillStyle(grass);g.fillEllipse(cx-half*.035,top-r*.07,half*1.89,r*.18);
+    g.fillStyle(0xb4c785,.52);g.fillEllipse(cx-half*.30,top-r*.09,half*.65,r*.075);
   };
-  tier(x,y+r*.16,r*.90,r*.72,0x6e9257);
-  tier(x+r*.07,y-r*.30,r*.67,r*.67,0x829d63);
-  tier(x-r*.03,y-r*.82,r*.40,r*.60,0x8fa771);
-  // Narrow vertical rock fractures, never a raster texture.
-  g.lineStyle(Math.max(1,r*.022),0x604b3c,.38);
-  g.lineBetween(x-r*.52,y-r*.23,x-r*.43,y+r*.04);
-  g.lineBetween(x+r*.56,y-r*.20,x+r*.49,y+r*.04);
+  tier(x,y+r*.18,r*.94,r*.78,0x729658);
+  tier(x+r*.10,y-r*.31,r*.70,r*.71,0x81a465);
+  tier(x-r*.055,y-r*.84,r*.44,r*.65,0x92ae72);
+  // Loose rocks at the base reinforce scale while remaining decorative.
+  for(let i=0;i<5;i++){
+    const dx=(i-2)*r*.38,dy=(i%2)*r*.09;
+    g.fillStyle(i%2?0x8f7355:0xb19a71,.94);
+    g.fillTriangle(x+dx-r*.11,y+r*.23+dy,x+dx+r*.07,y+r*.08+dy,
+      x+dx+r*.21,y+r*.25+dy);
+  }
 }
 function ruins(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void{
   g.fillStyle(0x254d46,.2);g.fillEllipse(x,y+6,r*2.4,r*.45);
@@ -203,6 +217,36 @@ function coast(g:Phaser.GameObjects.Graphics,cx:number,cy:number,rx:number,ry:nu
  * through the same quarter-turn convention as mapProjection().
  * No downloaded textures, sprites or independent camera images are involved.
  */
+
+/**
+ * A short foreground rock wall connects the top meadow to the lower sand rim.
+ * It is sampled from the same coastline function at every quarter turn.
+ * Pure scenery: board cells and marker coordinates are drawn afterward.
+ */
+function coastalRockWall(
+  g:Phaser.GameObjects.Graphics,cx:number,cy:number,rx:number,ry:number,rotation:number
+):void{
+  const segments=26;
+  const turn=rotation*Math.PI*.5;
+  const shape=(theta:number)=>{
+    const world=theta+turn;
+    const uneven=1+.014*Math.sin(world*5+.3)+.012*Math.sin(world*9+1.7);
+    return point(cx+Math.cos(theta)*rx*.935*uneven,
+      cy-10+Math.sin(theta)*ry*.895*uneven);
+  };
+  for(let i=0;i<segments;i++){
+    const a=i*Math.PI/segments,b=(i+1)*Math.PI/segments;
+    const p=shape(a),q=shape(b);
+    const drop=11+3*Math.sin(a*3+.6);
+    const color=[0x856647,0x957350,0x755b42,0xa18459][i%4];
+    g.fillStyle(color,.95);
+    g.fillPoints([p,q,point(q.x,q.y+drop),point(p.x,p.y+drop)],true);
+    if(i%3===0){
+      g.lineStyle(1,0xd6b78b,.53);
+      g.lineBetween(p.x*.55+q.x*.45,p.y+3,p.x*.48+q.x*.52,p.y+drop*.77);
+    }
+  }
+}
 function drawProceduralGrass(
   g:Phaser.GameObjects.Graphics,
   cx:number,cy:number,rx:number,ry:number,rotation:number
@@ -284,6 +328,8 @@ export function drawWorldIsland(args:{
   g.fillStyle(0x74b85f);g.fillEllipse(cx-rx*.20,cy-ry*.25,rx*1.26,ry*1.04);
   g.fillStyle(0x438e63);g.fillEllipse(cx+rx*.27,cy+ry*.18,rx*1.30,ry*.89);
   g.fillStyle(0xa3d27b,.37);g.fillEllipse(cx-rx*.23,cy-ry*.24,rx*.72,ry*.48);
+  // Raised front cliff band belongs to scenery, under the colored board.
+  coastalRockWall(g,cx,cy,rx,ry,rotation);
 
   // Procedural grass is part of the same rotating master-space scenery.
   // The former AI-generated WebP is intentionally not loaded or rendered.
