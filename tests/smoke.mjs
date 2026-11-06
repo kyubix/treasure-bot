@@ -7,14 +7,14 @@ function check(name,run){run();console.log('✓',name);passed++;}
 const setup=()=>{const s=newGame('ABC123',createPlayer('a','Ada'));addGuest(s,createPlayer('b','Bima'));return s;};
 const start=s=>applyAction(s,'a',{type:'START',bots:0});
 const roll=(s,who,rand=()=>.2)=>applyAction(s,who,{type:'ROLL'},rand);
-const end=(s,who)=>applyAction(s,who,{type:'END_TURN'});
+const end=(s,who)=>{while(s.shopOffer)applyAction(s,who,{type:'SKIP_SHOP'});if(s.shopAccess)applyAction(s,who,{type:'CLOSE_SHOP'});return applyAction(s,who,{type:'END_TURN'});};
 check('seven documented robot chassis',()=>{assert.equal(Object.keys(ROBOTS).length,7);assert.deepEqual(ROBOTS.NORMAL,{energy:50,walk:50,search:50,battle:50});});
 check('spatial treasure map with guardians and hidden locations',()=>{const spots=initialIsland();assert.ok(spots.some(s=>s.kind==='KEEPER'));assert.ok(spots.some(s=>s.kind==='LOCATION'));assert.ok(travelTurns(spots[0],50)>=1);});
 check('gallery colors assigned at game start, not claimable properties',()=>{const s=setup();start(s);assert.equal(TILES.length,28);assert.equal(s.galleries.length,20);assert.ok(s.galleries.every(g=>g.ownerId));assert.equal(s.galleries[0].ownerId,'a');assert.equal(s.galleries[1].ownerId,'b');});
 check('cannot start a room without host',()=>{const s=setup();assert.throws(()=>applyAction(s,'b',{type:'START',bots:0}));assert.equal(s.phase,'lobby');});
 check('two server dice and turn ordering',()=>{const s=setup();start(s);roll(s,'a',()=>0);assert.deepEqual(s.dice,[1,1]);assert.throws(()=>roll(s,'a'));end(s,'a');assert.equal(currentPlayer(s).id,'b');});
 check('20% gallery transfer',()=>{const s=setup();start(s);s.galleries[1].displayed.push({id:'ruby',name:'Ruby',category:'Gems',value:1500});roll(s,'a',()=>0);assert.equal(s.players[0].gold,2100);assert.equal(s.players[1].gold,2700);});
-check('passing a shop enables purchasing an actual gate card',()=>{const s=setup();start(s);assert.equal(s.players[0].gateCards,0);roll(s,'a',()=>.2);assert.equal(s.shopAccess,true);applyAction(s,'a',{type:'BUY_GATE_CARD'});assert.equal(s.players[0].gateCards,1);assert.equal(s.players[0].gold,2100);});
+check('passing a shop enables purchasing an actual gate card',()=>{const s=setup();start(s);assert.equal(s.players[0].gateCards,0);roll(s,'a',()=>.2);assert.equal(s.shopOffer,true);assert.equal(s.shopAccess,false);applyAction(s,'a',{type:'ENTER_SHOP'});assert.equal(s.shopAccess,true);applyAction(s,'a',{type:'BUY_GATE_CARD'});assert.equal(s.players[0].gateCards,1);assert.equal(s.players[0].gold,2100);});
 check('destination must exist and a gate card must be bought',()=>{const s=setup();start(s);assert.throws(()=>applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'}),/Buy a gate card/);s.players[0].gateCards=1;assert.throws(()=>applyAction(s,'a',{type:'SEND_ROBOT',siteId:'mars'}),/valid map destination/);});
 check('travel then search then return delivers treasure',()=>{
   const s=setup();start(s);s.players[0].gateCards=1;
@@ -43,7 +43,10 @@ check('shop cannot be accessed any time: close it and require another encounter'
   const s=setup();start(s);
   assert.throws(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'}),/pass or stop at a shop/);
   assert.throws(()=>applyAction(s,'a',{type:'CLOSE_SHOP'}),/No active shop encounter/);
-  roll(s,'a',()=>.2);assert.equal(s.shopAccess,true);
+  roll(s,'a',()=>.2);assert.equal(s.shopOffer,true);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'}),/pass or stop at a shop/);
+  assert.throws(()=>applyAction(s,'a',{type:'END_TURN'}),/Finish or skip/);
+  applyAction(s,'a',{type:'ENTER_SHOP'});
   applyAction(s,'a',{type:'BUY_GATE_CARD'});
   applyAction(s,'a',{type:'CLOSE_SHOP'});
   assert.equal(s.shopAccess,false);
@@ -53,6 +56,7 @@ check('shop cannot be accessed any time: close it and require another encounter'
 });
 check('shop equips robot parts and updates capabilities',()=>{
   const s=setup();start(s);roll(s,'a',()=>.2);
+  applyAction(s,'a',{type:'ENTER_SHOP'});
   assert.throws(()=>applyAction(s,'a',{type:'BUY_PART',slot:'WINGS'}),/Unknown robot part/);
   applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'});
   assert.equal(s.players[0].robot.parts.HEAD,true);
@@ -66,5 +70,34 @@ check('robots can battle when reaching the same treasure location',()=>{
   roll(s,'b',()=>0);
   assert.equal(s.players[0].robot.mission,null);
   assert.ok(s.logs.some(e=>e.message.includes('defeated Ada')));
+});
+check('skipping shop resumes remaining movement and forbids purchase',()=>{
+ const s=setup();start(s);
+ roll(s,'a',()=>.2); // 2+2: shop on square 4, one remaining
+ assert.equal(s.players[0].position,3);
+ assert.equal(s.pendingSteps,1);
+ assert.equal(s.shopOffer,true);
+ applyAction(s,'a',{type:'SKIP_SHOP'});
+ assert.equal(s.players[0].position,4);
+ assert.equal(s.pendingSteps,0);
+ assert.equal(s.shopAccess,false);
+ assert.throws(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'}),/pass or stop/);
+ end(s,'a');
+});
+check('shop inventory supplies and use at base',()=>{
+ const s=setup();start(s);s.players[0].robot.energy=10;
+ roll(s,'a',()=>.2);applyAction(s,'a',{type:'ENTER_SHOP'});
+ applyAction(s,'a',{type:'BUY_SUPPLY',supply:'ENERGY_CELL'});
+ assert.equal(s.players[0].robot.energy,35);
+ applyAction(s,'a',{type:'BUY_SUPPLY',supply:'REPAIR_KIT'});
+ assert.equal(s.players[0].repairKits,1);
+ applyAction(s,'a',{type:'CLOSE_SHOP'});
+ assert.throws(()=>applyAction(s,'a',{type:'USE_REPAIR_KIT'}),/before rolling/);
+ end(s,'a');
+ roll(s,'b',()=>0);end(s,'b');
+ const before=s.players[0].robot.energy;
+ applyAction(s,'a',{type:'USE_REPAIR_KIT'});
+ assert.equal(s.players[0].repairKits,0);
+ assert.equal(s.players[0].robot.energy,Math.min(50,before+35));
 });
 console.log(`PASS ${passed} faithful-slice smoke checks`);
