@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type {GameState} from '../engine/types.ts';
+import {createWorldBoard3D,BOARD_SURFACE_Y} from './world-map-board.ts';
+import {createCascadingWaterfall} from './world-map-waterfall.ts';
 import {createWorldAmbience} from './world-map-environment.ts';
 import {createWorldActors} from './world-map-actors.ts';
 import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
@@ -13,16 +15,21 @@ import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from
 export type ScreenPoint={x:number;y:number};
 
 /** The one shared mapping between authoritative logical coordinates and 3D. */
-export function siteWorldPosition(x:number,y:number,elevation=.48):THREE.Vector3{
-  return new THREE.Vector3((x-2)*1.16,elevation,(y-2)*1.16);
+export function siteWorldPosition(x:number,y:number,elevation?:number):THREE.Vector3{
+  const wx=(x-2)*1.16,wz=(y-2)*1.16;
+  // The interactive target is a point ON the island surface, not inside
+  // a mountain. The explicit elevation override remains available.
+  const surfaceY=Math.max(.48,terrainHeight(wx,wz)+.10);
+  return new THREE.Vector3(wx,elevation??surfaceY,wz);
 }
-export function boardTileWorldPosition(index:number,radius=3.48,elevation=.49):THREE.Vector3{
+export function boardTileWorldPosition(index:number,radius=3.48,elevation=BOARD_SURFACE_Y+.015):THREE.Vector3{
   // The first tile is at the camera-near end with the default 45° azimuth.
   const angle=(index/28)*Math.PI*2+Math.PI/2-Math.PI/4;
   return new THREE.Vector3(Math.cos(angle)*radius,elevation,Math.sin(angle)*radius);
 }
 export interface WorldThreeLayer {
   readonly actors3D:true;
+  readonly board3D:true;
   syncActors(state:GameState|null):void;
   draw(width:number,height:number):boolean;
   projectSite(x:number,y:number,elevation?:number):ScreenPoint;
@@ -215,10 +222,8 @@ function island(scene:THREE.Scene):THREE.Group{
   root.add(disk(.59,water,.459,.75,.61));
   const pondFoam=new THREE.Mesh(new THREE.RingGeometry(.54,.62,36),foam);
   pondFoam.rotation.x=-Math.PI/2;place(pondFoam,.75,.464,.61);root.add(pondFoam);
-  const fall=new THREE.Mesh(new THREE.BoxGeometry(.17,.75,.12),water);
-  place(fall,.53,.80,.42);root.add(fall);
-  const fallBright=new THREE.Mesh(new THREE.BoxGeometry(.045,.73,.125),white);
-  place(fallBright,.50,.79,.47);root.add(fallBright);
+  // V6 waterfall follows the same heightfield as the cliff and ends inside
+  // the lagoon. The previous free-standing vertical blue boxes are removed.
 
   forest(root,-1.64,-.52,11,7);
   forest(root,-2.02,1.25,11,18);
@@ -284,6 +289,8 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const ocean=createAnimatedOcean(scene);
   const land=island(scene);
+  const waterfall=createCascadingWaterfall(land);
+  const board3D=createWorldBoard3D(scene);
   const ambience=createWorldAmbience(land,new THREE.Vector3(1.86,terrainHeight(1.86,2.28)+.63,2.28));
   // The same coordinates drive both the 3D characters and the 2D overlays.
   // No per-angle screenspace offsets or actor images are needed.
@@ -325,6 +332,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       if(!reducedMotion.matches){
         animationTime+=delta;
         ambience.update(animationTime);
+        waterfall.update(animationTime);
         ocean.update(animationTime);
       }
       try{renderer.render(scene,camera);}
@@ -366,7 +374,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   };
   // Game model coordinates are mapped ONCE onto the Three island. They are
   // never rotated independently of the orbit camera.
-  const sitePoint=(x:number,y:number,elevation=.48)=>{
+  const sitePoint=(x:number,y:number,elevation?:number)=>{
     const p=siteWorldPosition(x,y,elevation);
     return screen(p.x,p.y,p.z);
   };
@@ -393,7 +401,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
 
   const stage:WorldThreeLayer={
     actors3D:true,
-    syncActors(state){if(!dead)actors.sync(state);},
+    board3D:true,
+    syncActors(state){
+      if(dead)return;
+      actors.sync(state);
+      board3D.sync(state);
+    },
     draw(width,height){
       if(dead||contextIsLost)return false;
       const w=Math.round(width),h=Math.round(height);
@@ -415,8 +428,8 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
         canvas.style.display='none';return false;
       }
     },
-    projectSite(x,y,elevation=.48){return sitePoint(x,y,elevation);},
-    projectTile(index,elevation=.50){
+    projectSite(x,y,elevation){return sitePoint(x,y,elevation);},
+    projectTile(index,elevation=BOARD_SURFACE_Y+.015){
       const theta=(index/28)*Math.PI*2+Math.PI/2;
       const v=boardTileWorldPosition(index,3.48,elevation);
       return screen(v.x,v.y,v.z);
@@ -425,10 +438,10 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       const theta=(index/28)*Math.PI*2+Math.PI/2;
       const half=(Math.PI*2/28)*.48;
       const points=[
-        tileWorld(theta-half,3.68,.49),
-        tileWorld(theta+half,3.68,.49),
-        tileWorld(theta+half,3.29,.49),
-        tileWorld(theta-half,3.29,.49)
+        tileWorld(theta-half,3.68,BOARD_SURFACE_Y),
+        tileWorld(theta+half,3.68,BOARD_SURFACE_Y),
+        tileWorld(theta+half,3.29,BOARD_SURFACE_Y),
+        tileWorld(theta-half,3.29,BOARD_SURFACE_Y)
       ];
       return points.map(v=>screen(v.x,v.y,v.z));
     },

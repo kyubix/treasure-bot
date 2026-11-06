@@ -435,8 +435,9 @@ export function drawWorldIsland(args:{
     }
   }
   }
-  // The decorative board route follows the entire coastline; every tile
-  // is real TILES data. Avatars are taken from the authoritative game state.
+  // In Three preview, 3D depth-tested board meshes replace these flat tiles.
+  // Phaser still renders interactive markers and robot route overlays.
+  if(!args.project3D?.board3D){
   for(let i=0;i<TILES.length;i++){
     const p=tilePoint(i);
     let shape:Phaser.Geom.Point[];
@@ -472,6 +473,8 @@ export function drawWorldIsland(args:{
       g.fillStyle(TILES[i]==='START'?0xffef95:0xc26f40);
       g.fillCircle(p.x,p.y,3.4*scale);
     }
+  }
+
   }
 
   // Read-only active robot routes start at the owner's actual board tile,

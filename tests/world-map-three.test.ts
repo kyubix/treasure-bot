@@ -18,6 +18,13 @@ describe('Three.js World Map V2 model coordinates',()=>{
     expect(ring[0].x).toBeCloseTo(ring[0].z,5);
     expect(new Set(ring.map(p=>p.x.toFixed(4)+':'+p.z.toFixed(4))).size).toBe(28);
   });
+  it('anchors destinations above their actual terrain, even on cliffs',()=>{
+    const summit=siteWorldPosition(1,3);
+    expect(summit.y).toBeGreaterThan(.65);
+    const lowland=siteWorldPosition(4,4);
+    expect(lowland.y).toBeGreaterThanOrEqual(.48);
+    expect(siteWorldPosition(1,3,1.23).y).toBeCloseTo(1.23,6);
+  });
   it('preserves marker projection when the same camera rotates 360 degrees',()=>{
     const target=siteWorldPosition(3,3);
     const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);

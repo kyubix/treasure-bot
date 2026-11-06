@@ -53,3 +53,44 @@ Implementation commit: `fd3b17a3569da9e48ed41accd1bef6ee28812f9b`.
 - Independent HTTPS reads from `treasure.endeavor.lt`: production HTML references `index-ESH5VRD2.js`; browser loads `world-map-three-DKAx0Qbq.js`, matching the local build. Both public glTF responses are byte-for-byte identical to repository files (avatar 114,776 bytes; robot 76,667 bytes).
 - Browser smoke: create room, start with three CPUs, enter World Map. Cloud browser reports WebGL disabled / context creation failure; Phaser fallback displays the map, actors, markers, energy and existing controls. This verifies fallback, **not** Three.js visual quality. Real-device Android 3D/gesture/FPS verification remains open.
 - Review fixes are covered by regression tests: retain return animation through repeated redraws; discard stale hidden-tab routes; honor reduced-motion cosmetic animation. No outstanding review findings.
+
+## V6 visual correction — depth and waterfall (2026-11-06)
+
+User Android screenshots showed a mountain summit and other landmarks
+appearing in front of/behind the colored board incorrectly, plus an
+unnatural floating waterfall. This change addresses underlying geometry,
+not just a screenshot-specific camera mask.
+
+- `src/client/world-map-board.ts` renders the 28 real colored perimeter
+  tiles as a depth-tested Three.js board ring. Tiles are updated from
+  `GameState.galleries`, `GameState.players[].color`, and `TILES`; no
+  false Gallery numbering or buildings are introduced. START/SHOP marker
+  discs are included in the Three board mesh. Board geometry is batched
+  (skirt, trim, colored top, markers), avoiding a separate draw per tile.
+- `world-map.ts` skips **only** the old screen-space Phaser tile polygons
+  while the Three board is active. Dynamic treasure locations, selection
+  hit targets, robot paths, mission origin A, HUD, multiplayer state and
+  all gameplay remain Phaser/server-owned. The normal Phaser mode and
+  WebGL failure fallback still draw the full old board.
+- `siteWorldPosition` now takes default elevation from the shared terrain
+  heightfield, keeping location/robot target projection on the mountain
+  surface rather than buried at a flat y-height. Explicit elevations
+  remain supported.
+- `src/client/world-map-waterfall.ts` creates a curved water ribbon
+  computed from the mountain heightfield, flowing toward the existing
+  lagoon. Vertex colors create moving foam/highlights, and a compact
+  impact ring and spray are anchored near the waterfall's end.
+  The old floating blue waterfall boxes and V5 independently placed
+  waterfall streak/spray system were removed.
+- The cascade uses the existing capped 24 FPS, visibility-aware Three
+  rendering loop. No new buttons, rotation behavior, engine rules,
+  remote model dependencies, or additional WebGL contexts.
+- Automated tests cover board geometry/color sync, depth-tested physical
+  tile ring, exact marker/terrain projection, heightfield-following water,
+  stable animation buffers, and ambience cleanup. These tests don't
+  substitute for real Android visual QA at different camera angles.
+
+QA on Android: validate the **rear ring behind the cliff and the front
+ring in front of the terrain**, make a full 360-degree orbit, inspect both
+the waterfall source and lagoon impact from all angles, select a treasure
+location, dispatch/return a robot, and verify FPS and responsive sizing.
