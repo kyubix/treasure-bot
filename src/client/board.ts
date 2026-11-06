@@ -2,9 +2,8 @@ import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
 import type { BoardBiome } from './board-environment.ts';
-import { ISLAND_SIZE, ISLAND_TERRAIN, expeditionProgress } from '../engine/island.ts';
 import type { GameState, TileType } from '../engine/types.ts';
-import type { Ground } from '../engine/island.ts';
+import { drawWorldIsland } from './world-map.ts';
 
 export type GameView = 'board' | 'world';
 
@@ -14,10 +13,6 @@ const TILE_COLORS: Record<TileType,number> = {
 };
 const ICON: Record<TileType,string> = {
   START:'★', SHOP:'S', GALLERY:'G', EVENT:'!', SUPPORT:'+', PLAIN:'·'
-};
-const GROUND: Record<Ground,number> = {
-  GRASS:0x76b96b,CLIFF:0x8b9b88,DESERT:0xe9c584,
-  WATER:0x6bb8d8,VOLCANO:0xc37a67,ICE:0xb0dceb
 };
 const asColor=(s:string):number=>Phaser.Display.Color.HexStringToColor(s).color;
 const pt=(x:number,y:number)=>new Phaser.Geom.Point(x,y);
@@ -29,6 +24,7 @@ export class BoardScene extends Phaser.Scene {
   private display?:Phaser.GameObjects.Container;
   private view:GameView='board';
   private selected:string|null=null;
+  private worldRotation=0;
   private travelingPlayer:string|null=null;
   private visualPosition:number|null=null;
   private movement?:Phaser.Tweens.Tween;
@@ -108,6 +104,11 @@ export class BoardScene extends Phaser.Scene {
     if(this.sys.isActive()){this.paint();this.cameras.main.fadeIn(170,20,40,48);}
   }
   selectSpot(value:string):void {this.selected=value;if(this.sys.isActive())this.paint();}
+  rotateMap(delta:number):void {
+    if(!Number.isFinite(delta))return;
+    this.worldRotation=((this.worldRotation+Math.sign(delta))%4+4)%4;
+    if(this.sys.isActive()&&this.view==='world')this.paint();
+  }
   private text(parent:Phaser.GameObjects.Container,x:number,y:number,value:string,
     size:number,color='#ffffff',stroke=false):Phaser.GameObjects.Text {
     const object=this.add.text(x,y,value,{
@@ -356,72 +357,15 @@ export class BoardScene extends Phaser.Scene {
     }
   }
   private world(parent:Phaser.GameObjects.Container,w:number,h:number):void {
-    const g=this.add.graphics();parent.add(g);
-    const s=Math.min(w/640,h/480);
-    g.fillGradientStyle(0x2e86a9,0x4cabc2,0x276989,0x184969,1);g.fillRect(0,0,w,h);
-    const size=Math.min((w-42*s)/ISLAND_SIZE,(h-87*s)/ISLAND_SIZE);
-    const x0=(w-size*ISLAND_SIZE)/2;
-    const y0=(h-size*ISLAND_SIZE)/2+9*s;
-    const cx=w*.5,cy=h*.5;
-    g.fillStyle(0x94dbd5,.68);g.fillEllipse(cx,cy,size*5.7,size*5.65);
-    g.fillStyle(0xf2e0ac);g.fillEllipse(cx,cy,size*5.38,size*5.28);
-    g.fillStyle(0x70b96f);g.fillEllipse(cx,cy,size*5.06,size*4.94);
-    for(let y=0;y<ISLAND_SIZE;y++)for(let x=0;x<ISLAND_SIZE;x++){
-      const spot=this.match?.islandSpots.find(k=>k.x===x&&k.y===y&&k.kind!=='LOCATION')
-        ??this.match?.islandSpots.find(k=>k.x===x&&k.y===y);
-      const terrain=ISLAND_TERRAIN[y][x];
-      const px=x0+x*size,py=y0+y*size;
-      const centerX=px+size*.5,centerY=py+size*.5;
-      g.fillStyle(GROUND[terrain],.78);
-      g.fillEllipse(centerX,centerY,size*1.08,size*1.07);
-      if(terrain==='GRASS')this.tree(g,centerX+size*.18,centerY+size*.2,size*.15);
-      if(terrain==='CLIFF'){
-        g.fillStyle(0x6c7b78,.78);
-        g.fillTriangle(px+size*.14,py+size*.8,px+size*.5,py+size*.15,px+size*.85,py+size*.8);
+    drawWorldIsland({
+      scene:this,parent,width:w,height:h,state:this.match,
+      rotation:this.worldRotation,selectedSpot:this.selected,
+      onSelect:id=>{
+        this.selected=id;
+        this.paint();
+        this.onSelect(id);
       }
-      if(terrain==='WATER'){
-        g.lineStyle(2*s,0xdbffff,.65);g.lineBetween(px+size*.1,centerY,px+size*.88,centerY);
-      }
-      if(terrain==='VOLCANO'){
-        g.fillStyle(0x994a42,.9);
-        g.fillTriangle(px+size*.14,py+size*.86,px+size*.5,py+size*.12,px+size*.86,py+size*.86);
-      }
-      if(!spot)continue;
-      if(!spot.depleted && spot.kind!=='LOCATION'){
-        g.fillStyle(spot.kind==='KEEPER'?0x563a68:0xf7d16a);
-        g.fillCircle(centerX,centerY,Math.max(11*s,size*.19));
-        g.lineStyle(3*s,0xffffff);g.strokeCircle(centerX,centerY,Math.max(11*s,size*.19));
-        this.text(parent,centerX,centerY,spot.kind==='KEEPER'?'⚔':'◆',size*.24,'#203d50');
-      }
-      if(this.selected===spot.id){
-        g.lineStyle(4*s,0xffee94);
-        g.strokeCircle(centerX,centerY,size*.43);
-        this.text(parent,centerX,centerY-size*.52,'▼',14*s,'#fff0ae',true);
-      }
-      const hit=this.add.rectangle(centerX,centerY,size*.93,size*.93,0,0)
-        .setInteractive({useHandCursor:true});
-      hit.on('pointerdown',()=>{
-        this.selected=spot.id;this.onSelect(spot.id);this.paint();
-      });
-      parent.add(hit);
-    }
-    if(this.match){
-      this.match.players.forEach(p=>{
-        const m=p.robot.mission;
-        if(!m)return;
-        const site=this.match?.islandSpots.find(q=>q.id===m.siteId);
-        if(!site)return;
-        const f=m.phase==='OUTBOUND'?expeditionProgress(m):m.phase==='SEARCH'?1:1-expeditionProgress(m);
-        const xx=x0+(2.5+(site.x-2)*f)*size;
-        const yy=y0+(2.5+(site.y-2)*f)*size;
-        g.fillStyle(asColor(p.color));g.fillRoundedRect(xx-10*s,yy-10*s,20*s,20*s,5*s);
-        g.lineStyle(2*s,0xffffff);g.strokeRoundedRect(xx-10*s,yy-10*s,20*s,20*s,5*s);
-        this.text(parent,xx,yy,'●',10*s,'#183446');
-      });
-    }
-    g.fillStyle(0x1a4268,.94);g.fillRoundedRect(9*s,9*s,w-18*s,39*s,10*s);
-    this.text(parent,w*.5,28*s,'WORLD MAP · SELECT DESTINATION',15*s,'#fff1ba');
-    this.text(parent,w*.5,h-17*s,'◆ TREASURE       ⚔ KEEPER       · EXPLORE',12*s,'#fff4c4');
+    });
   }
 }
 
@@ -429,6 +373,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   update(state:GameState):void;
   select(id:string):void;
   setView(mode:GameView):void;
+  rotateMap(delta:number):void;
   isMoving():boolean;
   isLaunching():boolean;
   launchRobot(playerId:string):void;
@@ -444,6 +389,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     update(state){scene.setMatch(state);},
     select(id){scene.selectSpot(id);},
     setView(mode){scene.setView(mode);},
+    rotateMap(delta){scene.rotateMap(delta);},
     isMoving(){return scene.isMoving();},
     isLaunching(){return scene.isLaunching();},
     launchRobot(id){scene.launchRobot(id);},
