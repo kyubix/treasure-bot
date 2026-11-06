@@ -164,3 +164,78 @@ footer{border-color:#a8cdb7;color:#709289}
     margin:9px -7px 0;
   }
 }
+
+
+/* v0.5 visual alignment study: native 4:3 game composition (as PS1 reference),
+   responsive board control shell for Android, and separated World Map. */
+#match[data-view="board"] .board-shell,
+#match[data-view="world"] .board-shell {
+  padding:6px;
+  border:5px solid #e7c575;
+  border-radius:13px;
+  background:#2d6170;
+  box-shadow:0 7px 0 #8b754b,0 14px 25px #23495555;
+}
+#match[data-view="board"] .board-shell #board,
+#match[data-view="world"] .board-shell #board {
+  aspect-ratio:4/3;
+  height:auto;
+  width:100%;
+  min-height:unset;
+  max-height:unset;
+  border:2px solid #344e62;
+  border-radius:4px;
+  overflow:hidden;
+  background:#397d97;
+  touch-action:manipulation;
+}
+#match .board-shell canvas {width:100%;height:100%;display:block}
+#match[data-view="board"] .legend{display:none}
+#match[data-view="board"] .map-caption small{color:#d8eff4}
+#match[data-view="board"] .map-caption h3,
+#match[data-view="world"] .map-caption h3{color:#fff0b4}
+#match[data-view="board"] .sidebar{gap:9px}
+#match[data-view="board"] .controls{margin-top:12px}
+#match[data-view="world"] .sidebar{display:none}
+#match[data-view="world"] .legend{display:none}
+#match[data-view="world"] .match-grid{grid-template-columns:minmax(0,1fr);max-width:840px;margin-inline:auto}
+#match[data-view="world"] .controls{max-width:840px;margin-inline:auto}
+#match[data-view="world"] #worldCommands{display:grid;grid-template-columns:minmax(115px,.8fr) minmax(130px,1.6fr) minmax(125px,.8fr)}
+@media(max-width:850px){
+  #match[data-view="board"] .match-grid{display:block}
+  #match[data-view="board"] .board-shell{position:static}
+  #match[data-view="board"] .sidebar{
+    display:grid;grid-template-columns:1fr 1fr;
+    margin-top:12px;
+  }
+  #match[data-view="board"] .sidebar .card:last-child{display:none}
+}
+@media(max-width:520px){
+  #match[data-view="board"] .match-head{margin-bottom:8px}
+  #match[data-view="board"] .board-shell,
+  #match[data-view="world"] .board-shell{padding:3px;border-width:3px}
+  #match[data-view="board"] .board-shell #board,
+  #match[data-view="world"] .board-shell #board{min-height:unset;max-height:unset;aspect-ratio:4/3}
+  #match[data-view="board"] .map-caption,
+  #match[data-view="world"] .map-caption{padding:3px 6px 6px}
+  #match[data-view="board"] .sidebar{grid-template-columns:1fr}
+  #match[data-view="board"] .sidebar .card:nth-child(n+2){display:none}
+  #match[data-view="board"] .controls{
+    position:sticky;bottom:0;z-index:15;
+    margin:9px -8px 0;padding:8px 10px max(9px,env(safe-area-inset-bottom));
+  }
+  #match[data-view="world"] .controls{
+    position:sticky;bottom:0;z-index:15;
+    margin:9px -7px 0;padding:8px 10px max(9px,env(safe-area-inset-bottom));
+  }
+  #match[data-view="world"] #worldCommands{
+    display:grid;grid-template-columns:1fr 1fr;
+  }
+  #match[data-view="world"] #selectedSite{grid-column:1/-1;grid-row:1}
+  #match[data-view="world"] #backBoard{grid-column:1;grid-row:2}
+  #match[data-view="world"] #sendRobot{grid-column:2;grid-row:2}
+  #match[data-view="board"] #boardCommands{
+    display:grid;grid-template-columns:1fr 1fr;
+  }
+  #match[data-view="board"] #openWorld{grid-column:1/-1}
+}

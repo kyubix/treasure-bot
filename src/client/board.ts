@@ -6,217 +6,227 @@ import type { Ground } from '../engine/island.ts';
 
 export type GameView = 'board' | 'world';
 
-const TILE_ICONS:Record<TileType,string>={
-  START:'★',SHOP:'⌂',GALLERY:'◆',EVENT:'!',SUPPORT:'+',PLAIN:'·'
+const TILE_COLORS: Record<TileType,number> = {
+  START:0xffd55e, SHOP:0xffdf32, GALLERY:0xf7f9ff,
+  EVENT:0xffa65c, SUPPORT:0x7bd9bc, PLAIN:0x85c5ff
 };
-const TILE_PALETTE:Record<TileType,number>={
-  START:0xf7d875,SHOP:0xe5a65f,GALLERY:0xe8c99b,EVENT:0xe88c92,
-  SUPPORT:0x7bcdb0,PLAIN:0xb7bb99
+const ICON: Record<TileType,string> = {
+  START:'★', SHOP:'S', GALLERY:'G', EVENT:'!', SUPPORT:'+', PLAIN:'·'
 };
-const GROUND:Record<Ground,number>={
-  GRASS:0x83bf7a,CLIFF:0x778e88,DESERT:0xe5bd77,
-  WATER:0x64bbca,VOLCANO:0xae6d60,ICE:0xa4d4df
+const GROUND: Record<Ground,number> = {
+  GRASS:0x76b96b,CLIFF:0x8b9b88,DESERT:0xe9c584,
+  WATER:0x6bb8d8,VOLCANO:0xc37a67,ICE:0xb0dceb
 };
-const lighten=(hex:number,value:number):number=>{
-  const c=Phaser.Display.Color.ValueToColor(hex);
-  return Phaser.Display.Color.GetColor(
-    Math.min(255,c.red+value),Math.min(255,c.green+value),Math.min(255,c.blue+value)
-  );
-};
-const playerColor=(hex:string):number=>Phaser.Display.Color.HexStringToColor(hex).color;
+const asColor=(s:string):number=>Phaser.Display.Color.HexStringToColor(s).color;
+const pt=(x:number,y:number)=>new Phaser.Geom.Point(x,y);
 
+// Original-art procedural visual study. PS1 references are composition only;
+// no Konami game assets, screenshots, logos or artwork are bundled.
 export class BoardScene extends Phaser.Scene {
-  private match:GameState|null=null;
-  private drawing?:Phaser.GameObjects.Container;
+  private match: GameState|null=null;
+  private display?:Phaser.GameObjects.Container;
   private view:GameView='board';
-  private selectedSpot:string|null=null;
-  private readonly onSelect:(id:string)=>void;
+  private selected:string|null=null;
 
-  constructor(onSelect:(id:string)=>void){super('Board');this.onSelect=onSelect;}
-  create():void {
-    this.scale.on('resize',()=>this.paint());
-    this.paint();
+  constructor(private readonly onSelect:(id:string)=>void) {super('Board');}
+  create():void {this.scale.on('resize',()=>this.paint());this.paint();}
+  setMatch(value:GameState):void {this.match=value;if(this.sys.isActive())this.paint();}
+  setView(value:GameView):void {
+    if(this.view===value)return;
+    this.view=value;
+    if(this.sys.isActive()){this.paint();this.cameras.main.fadeIn(170,20,40,48);}
   }
-  setMatch(state:GameState):void {
-    this.match=state;
-    if(this.sys.isActive())this.paint();
-  }
-  setView(next:GameView):void {
-    if(this.view===next)return;
-    this.view=next;
-    if(this.sys.isActive()){
-      this.paint();
-      this.cameras.main.fadeIn(180,12,26,42);
-    }
-  }
-  selectSpot(id:string):void {
-    this.selectedSpot=id;
-    if(this.sys.isActive())this.paint();
-  }
-  private label(parent:Phaser.GameObjects.Container,x:number,y:number,
-    text:string,size:number,color='#ffffff',stroke=false):Phaser.GameObjects.Text {
-    const obj=this.add.text(x,y,text,{
-      fontFamily:'system-ui, sans-serif',fontStyle:'bold',
-      fontSize:Math.round(size)+'px',color,
-      align:'center',stroke:stroke?'#163044':undefined,strokeThickness:stroke?3:0
+  selectSpot(value:string):void {this.selected=value;if(this.sys.isActive())this.paint();}
+  private text(parent:Phaser.GameObjects.Container,x:number,y:number,value:string,
+    size:number,color='#ffffff',stroke=false):Phaser.GameObjects.Text {
+    const object=this.add.text(x,y,value,{
+      fontFamily:'Trebuchet MS,Arial,sans-serif',fontStyle:'bold',
+      fontSize:Math.round(size)+'px',align:'center',color,
+      stroke:stroke?'#28404d':undefined,strokeThickness:stroke?3:0
     }).setOrigin(.5);
-    parent.add(obj);
-    return obj;
+    parent.add(object);return object;
   }
   private paint():void {
-    const {width,height}=this.scale;
-    if(width<10||height<10)return;
-    this.drawing?.destroy(true);
-    const parent=this.add.container(0,0);
-    this.drawing=parent;
-    if(this.view==='board')this.paintVerticalBoard(parent,width,height);
-    else this.paintWorldMap(parent,width,height);
+    const {width:w,height:h}=this.scale;
+    if(w<40||h<40)return;
+    this.display?.destroy(true);
+    const container=this.add.container(0,0);
+    this.display=container;
+    if(this.view==='world')this.world(container,w,h);
+    else this.board(container,w,h);
   }
-  // Main gameplay screen: vertical perspective follows the active board pawn.
-  // Art and road geometry are original placeholders, NOT ripped PS1 assets.
-  private paintVerticalBoard(parent:Phaser.GameObjects.Container,w:number,h:number):void {
+  private tree(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void {
+    g.fillStyle(0x394e37,.45);g.fillEllipse(x,y+r*.75,r*2.1,r*.45);
+    g.fillStyle(0x705738);g.fillRoundedRect(x-r*.16,y-r*.5,r*.32,r*1.12,r*.12);
+    g.fillStyle(0x2e744a);g.fillCircle(x-r*.55,y-r*.55,r*.67);
+    g.fillStyle(0x357e4d);g.fillCircle(x+r*.5,y-r*.65,r*.73);
+    g.fillStyle(0x489e62);g.fillCircle(x,y-r*1.05,r*.9);
+    g.fillStyle(0x7eba68,.55);g.fillEllipse(x-r*.2,y-r*1.3,r*.7,r*.45);
+  }
+  private chibi(g:Phaser.GameObjects.Graphics,x:number,y:number,scale:number,color:number):void {
+    const r=scale;
+    g.fillStyle(0x243c45,.35);g.fillEllipse(x,y+r*.4,r*1.8,r*.42);
+    g.lineStyle(Math.max(1,r*.09),0x27374a,.8);
+    g.fillStyle(0x344c75);g.fillRoundedRect(x-r*.48,y-r*.35,r*.39,r*.75,r*.13);
+    g.fillRoundedRect(x+r*.1,y-r*.35,r*.39,r*.75,r*.13);
+    g.fillStyle(color);g.fillRoundedRect(x-r*.66,y-r*1.25,r*1.32,r*1.12,r*.3);
+    g.lineStyle(Math.max(1,r*.07),0xffffff,.8);g.strokeRoundedRect(x-r*.66,y-r*1.25,r*1.32,r*1.12,r*.3);
+    g.fillStyle(0xf8d6a5);g.fillCircle(x,y-r*1.87,r*.75);
+    g.fillStyle(0x293750);g.fillEllipse(x,y-r*2.42,r*1.56,r*.58);
+    g.fillStyle(color);g.fillEllipse(x,y-r*2.49,r*1.69,r*.4);
+    g.fillStyle(0x202d36);g.fillCircle(x-r*.22,y-r*1.87,r*.07);g.fillCircle(x+r*.22,y-r*1.87,r*.07);
+    g.lineStyle(Math.max(1,r*.06),0x963f38);g.lineBetween(x-r*.12,y-r*1.56,x+r*.15,y-r*1.55);
+  }
+  private board(parent:Phaser.GameObjects.Container,w:number,h:number):void {
     const g=this.add.graphics();parent.add(g);
-    g.fillGradientStyle(0x76b9d7,0xa8dacc,0x609f7a,0x437d5f,1);
-    g.fillRect(0,0,w,h);
-    g.fillStyle(0x8bc184,.8);g.fillEllipse(w*.55,h*.36,w*1.25,h*.47);
-    g.fillStyle(0x356f71,.9);
-    g.fillEllipse(w*.84,h*.82,w*.8,h*.34);
-    g.fillStyle(0x8ec8bf,.75);g.fillEllipse(w*.80,h*.80,w*.65,h*.24);
-    for(let i=0;i<13;i++){
-      const x=(i*97+29)%w, y=(i*133+81)%h;
-      if(y<h*.14)continue;
-      g.fillStyle(0x335f52,.22);
-      g.fillEllipse(x+4,y+12,38,10);
-      g.fillStyle(0x387a55,.8);
-      g.fillTriangle(x-17,y+4,x,y-36,x+17,y+4);
-      g.fillStyle(0x5b9867,.9);
-      g.fillTriangle(x-13,y+2,x,y-26,x+13,y+2);
+    const s=Math.min(w/640,h/480);
+    g.fillGradientStyle(0x7fbadd,0xb8d8e6,0xf7e5b7,0xd2dda5,1);g.fillRect(0,0,w,h);
+    g.fillStyle(0xfff0b9,.65);g.fillCircle(w*.86,h*.16,48*s);
+    g.fillStyle(0xc4d9b4);g.fillEllipse(w*.5,h*.49,w*1.55,h*.43);
+    g.fillStyle(0x9ebf93);g.fillPoints([
+      pt(0,h*.5),pt(w*.14,h*.3),pt(w*.32,h*.4),pt(w*.44,h*.24),
+      pt(w*.60,h*.4),pt(w*.79,h*.30),pt(w,h*.44),pt(w,h*.67),pt(0,h*.67)
+    ],true);
+    g.fillStyle(0x6d9877);g.fillPoints([
+      pt(0,h*.58),pt(w*.14,h*.45),pt(w*.33,h*.55),pt(w*.52,h*.41),
+      pt(w*.73,h*.53),pt(w,h*.38),pt(w,h*.72),pt(0,h*.72)
+    ],true);
+    for(let i=0;i<11;i++){
+      const x=(i*.097+.01)*w;
+      const y=h*(.42+.05*Math.sin(i*2.1));
+      this.tree(g,x,y,(16+i%3*4)*s);
     }
-    if(!this.match){
-      this.label(parent,w/2,h/2,'BOARD VIEW',22,'#ffffff',true);
-      return;
-    }
-    const state=this.match;
-    const active=state.players[state.currentPlayerIndex];
-    const baseY=h*.59;
-    const spacing=Math.min(h*.137,83);
-    const baseW=Math.min(w*.61,280);
-    const activePosition=active?.position??0;
-    // Draw distant spaces before nearer spaces for a fake isometric 2.5D route.
-    for(let offset=4;offset>=-3;offset--){
-      const idx=(activePosition+offset+TILES.length)%TILES.length;
-      const y=baseY-offset*spacing;
-      if(y < -40||y > h+40)continue;
-      const x=w*.51+Math.sin(idx*.74)*w*.15;
-      const tw=baseW*(1-offset*.065);
-      const th=Math.max(27,tw*.28);
-      const tile=TILES[idx];
-      const gallery=state.galleries.find(a=>a.tile===idx);
-      const owner=gallery?.ownerId?state.players.find(p=>p.id===gallery.ownerId):null;
-      const color=owner?playerColor(owner.color):TILE_PALETTE[tile];
-      const shadow=Phaser.Display.Color.GetColor(31,66,68);
-      g.fillStyle(shadow,.65);
-      g.fillPoints([
-        new Phaser.Geom.Point(x-tw*.5,y+9),
-        new Phaser.Geom.Point(x,y-th*.48+9),
-        new Phaser.Geom.Point(x+tw*.5,y+9),
-        new Phaser.Geom.Point(x,y+th*.48+9)
-      ],true);
-      g.fillStyle(color,1);
-      g.fillPoints([
-        new Phaser.Geom.Point(x-tw*.5,y),
-        new Phaser.Geom.Point(x,y-th*.48),
-        new Phaser.Geom.Point(x+tw*.5,y),
-        new Phaser.Geom.Point(x,y+th*.48)
-      ],true);
-      g.lineStyle(offset===0?4:2,offset===0?0xfff2ab:0x315668,1);
-      g.strokePoints([
-        new Phaser.Geom.Point(x-tw*.5,y),
-        new Phaser.Geom.Point(x,y-th*.48),
-        new Phaser.Geom.Point(x+tw*.5,y),
-        new Phaser.Geom.Point(x,y+th*.48)
-      ],true);
-      const bright=lighten(color,35);
-      g.fillStyle(bright,.62);
-      g.fillTriangle(x-tw*.43,y-2,x,y-th*.43,x+tw*.43,y-2);
-      this.label(parent,x,y-1,TILE_ICONS[tile],Math.max(16,tw*.17),'#233a46');
-      this.label(parent,x,y+th*.36,String(idx+1),Math.max(9,tw*.056),'#264052');
-      if(offset===0){
-        const pawns=state.players.filter(p=>p.position===idx);
-        pawns.forEach((p,i)=>{
-          const xx=x+(i-(pawns.length-1)/2)*Math.min(28,tw*.13);
-          const yy=y-th*.24;
-          const body=playerColor(p.color);
-          g.fillStyle(0x183f51,.35);g.fillEllipse(xx,yy+24,27,10);
-          g.fillStyle(body,1);g.fillRoundedRect(xx-11,yy-1,22,26,7);
-          g.lineStyle(2,0xffffff,.85);g.strokeRoundedRect(xx-11,yy-1,22,26,7);
-          g.fillStyle(0xffdcc0,1);g.fillCircle(xx,yy-9,12);
-          g.fillStyle(0x304455,1);g.fillCircle(xx-4,yy-9,1.5);g.fillCircle(xx+4,yy-9,1.5);
+    // Three-quarter-view floor, like the original scene's low camera and broad road.
+    const roadTop=h*.57, roadBottom=h*.84;
+    g.fillStyle(0x45656b,.6);
+    g.fillPoints([pt(0,roadTop+7*s),pt(w,roadTop+7*s),pt(w,roadBottom+13*s),pt(0,roadBottom+13*s)],true);
+    g.fillStyle(0xe6f4fa);
+    g.fillRect(0,roadTop,w,roadBottom-roadTop);
+    if(this.match){
+      const state=this.match;
+      const me=state.players[state.currentPlayerIndex];
+      const focus=me?.position??0;
+      const count=7;
+      const stride=w/count;
+      const leftTile=focus-3;
+      for(let col=0;col<count;col++){
+        const idx=(leftTile+col+TILES.length*8)%TILES.length;
+        const tile=TILES[idx];
+        const x=col*stride;
+        const gallery=state.galleries.find(q=>q.tile===idx);
+        const owner=gallery?.ownerId?state.players.find(p=>p.id===gallery.ownerId):null;
+        let color=owner?asColor(owner.color):TILE_COLORS[tile];
+        if(tile==='GALLERY' && !owner)color=idx%2?0xe5f5ff:0xc0eaf9;
+        g.fillStyle(color,1);
+        g.fillPoints([
+          pt(x+3*s,roadTop+2*s),
+          pt(x+stride-2*s,roadTop+2*s),
+          pt(x+stride+12*s,roadBottom-2*s),
+          pt(x-8*s,roadBottom-2*s)
+        ],true);
+        g.lineStyle(3*s,0x274d63,1);
+        g.strokePoints([
+          pt(x+3*s,roadTop+2*s),
+          pt(x+stride-2*s,roadTop+2*s),
+          pt(x+stride+12*s,roadBottom-2*s),
+          pt(x-8*s,roadBottom-2*s)
+        ],true);
+        if(idx===focus){
+          g.lineStyle(4*s,0xffe048);g.strokeRect(x,roadTop+2*s,stride,roadBottom-roadTop-4*s);
+        }
+        if(tile==='SHOP'){
+          g.fillStyle(0x3458b7);g.fillRect(x+6*s,roadTop+10*s,stride-12*s,30*s);
+          this.text(parent,x+stride/2,roadTop+25*s,'SHOP',Math.max(12,17*s),'#fff987');
+        }else{
+          this.text(parent,x+stride/2,roadTop+33*s,tile==='GALLERY'?String(idx+1):ICON[tile],
+            Math.max(13,19*s),'#1c4b66');
+        }
+        const standing=state.players.filter(p=>p.position===idx);
+        standing.forEach((p,i)=>{
+          const px=x+stride*(.40+i*.13), py=roadTop+8*s;
+          this.chibi(g,px,py,Math.max(9,17*s),asColor(p.color));
         });
       }
+      // The small upper-right map shows all players and current board location.
+      const mmW=115*s,mmH=93*s,mmX=w-mmW-12*s,mmY=9*s;
+      g.fillStyle(0x1d4774,.94);g.fillRoundedRect(mmX-5*s,mmY-5*s,mmW+10*s,mmH+10*s,11*s);
+      g.fillStyle(0x74bc8c);g.fillRoundedRect(mmX+7*s,mmY+7*s,mmW-14*s,mmH-14*s,14*s);
+      g.fillStyle(0xe8e3b3);g.fillRoundedRect(mmX+18*s,mmY+17*s,mmW-36*s,mmH-34*s,11*s);
+      g.fillStyle(0x66ac90);g.fillCircle(mmX+mmW*.5,mmY+mmH*.52,19*s);
+      for(let i=0;i<TILES.length;i++){
+        const a=i/TILES.length*Math.PI*2-Math.PI/2;
+        const x=mmX+mmW/2+mmW*.42*Math.cos(a);
+        const y=mmY+mmH/2+mmH*.41*Math.sin(a);
+        const current=state.players.find(p=>p.position===i);
+        g.fillStyle(current?asColor(current.color):i===focus?0xffee6e:0x2c6780);
+        g.fillCircle(x,y,current?4.2*s:1.8*s);
+      }
+      // PS1-style compact command plaque: actions remain functional in HTML controls.
+      g.fillStyle(0x152d57,.94);g.fillRoundedRect(8*s,9*s,131*s,81*s,9*s);
+      g.lineStyle(3*s,0xe9c46a);g.strokeRoundedRect(8*s,9*s,131*s,81*s,9*s);
+      this.text(parent,73*s,25*s,'YOUR TURN',11*s,'#e8eab2');
+      this.text(parent,73*s,45*s,me?me.name:'EXPLORER',15*s,'#ffffff',true);
+      this.text(parent,73*s,69*s,'ROBOT · DICE · SHOP',10*s,'#b8f6e6');
+      // Thin lower status track for all players, not a stack of browser cards.
+      const barY=h*.855;
+      g.fillStyle(0x26384c);g.fillRect(0,barY,w,h-barY);
+      state.players.forEach((p,i)=>{
+        const pw=w/state.players.length,x=i*pw;
+        g.fillStyle(asColor(p.color));g.fillRect(x+2*s,barY+3*s,pw-4*s,6*s);
+        this.text(parent,x+pw*.5,barY+25*s,p.name.slice(0,11),Math.min(13*s,pw*.14),'#e9f6f4');
+        this.text(parent,x+pw*.5,barY+44*s,p.gold.toLocaleString()+' G',Math.min(13*s,pw*.13),'#ffe7a9');
+      });
+    }else{
+      this.text(parent,w/2,h*.6,'BOARD',24*s,'#1c4756');
     }
-    g.fillStyle(0x15394b,.88);g.fillRoundedRect(14,14,w-28,49,13);
-    this.label(parent,w/2,35,'BOARD · ROUND '+state.turn,Math.min(18,w*.041),'#fff1c1');
-    const tileName=TILES[activePosition]==='GALLERY'?'GALLERY':TILES[activePosition].replace('START','ROBOT CENTER');
-    g.fillStyle(0x102e40,.9);g.fillRoundedRect(w*.15,h-61,w*.70,46,12);
-    this.label(parent,w*.5,h-38,'◆ '+tileName+' · '+(activePosition+1)+' / '+TILES.length,
-      Math.min(15,w*.038),'#f4f4dc');
   }
-
-  // The WORLD MAP only appears after explicitly entering robot dispatch mode.
-  private paintWorldMap(parent:Phaser.GameObjects.Container,w:number,h:number):void {
+  private world(parent:Phaser.GameObjects.Container,w:number,h:number):void {
     const g=this.add.graphics();parent.add(g);
-    g.fillGradientStyle(0x246f8b,0x358da0,0x225b77,0x1a4a6b,1);g.fillRect(0,0,w,h);
-    const cell=Math.min((w-32)/ISLAND_SIZE,(h-120)/ISLAND_SIZE);
-    const left=(w-cell*ISLAND_SIZE)/2;
-    const top=Math.max(57,(h-cell*ISLAND_SIZE)/2+15);
-    // Soft shoreline surrounds the entire 5x5 island, without the board perimeter.
-    g.fillStyle(0x8ecac2,.85);g.fillRoundedRect(left-12,top-12,cell*5+24,cell*5+24,cell*.65);
-    g.fillStyle(0xf1dca0,1);g.fillRoundedRect(left-7,top-7,cell*5+14,cell*5+14,cell*.52);
+    const s=Math.min(w/640,h/480);
+    g.fillGradientStyle(0x2e86a9,0x4cabc2,0x276989,0x184969,1);g.fillRect(0,0,w,h);
+    const size=Math.min((w-42*s)/ISLAND_SIZE,(h-87*s)/ISLAND_SIZE);
+    const x0=(w-size*ISLAND_SIZE)/2;
+    const y0=(h-size*ISLAND_SIZE)/2+9*s;
+    const cx=w*.5,cy=h*.5;
+    g.fillStyle(0x94dbd5,.68);g.fillEllipse(cx,cy,size*5.7,size*5.65);
+    g.fillStyle(0xf2e0ac);g.fillEllipse(cx,cy,size*5.38,size*5.28);
+    g.fillStyle(0x70b96f);g.fillEllipse(cx,cy,size*5.06,size*4.94);
     for(let y=0;y<ISLAND_SIZE;y++)for(let x=0;x<ISLAND_SIZE;x++){
-      const px=left+x*cell,py=top+y*cell;
-      const ground=ISLAND_TERRAIN[y][x];
-      g.fillStyle(GROUND[ground],1);g.fillRect(px,py,cell+.5,cell+.5);
-      g.fillStyle(lighten(GROUND[ground],20),.38);
-      g.fillEllipse(px+cell*.38,py+cell*.34,cell*.55,cell*.36);
-      if(ground==='CLIFF'){
-        g.fillStyle(0x4f7067,.6);
-        g.fillTriangle(px+cell*.1,py+cell*.75,px+cell*.48,py+cell*.11,px+cell*.84,py+cell*.75);
-      }else if(ground==='WATER'){
-        g.lineStyle(2,0xd7ffff,.75);
-        g.lineBetween(px+cell*.14,py+cell*.45,px+cell*.72,py+cell*.45);
-      }else if(ground==='DESERT'){
-        g.lineStyle(2,0xc99852,.75);
-        g.beginPath();g.arc(px+cell*.5,py+cell*.7,cell*.27,Math.PI,0);g.strokePath();
-      }else if(ground==='ICE'){
-        g.lineStyle(2,0xf2ffff,.7);
-        g.lineBetween(px+cell*.2,py+cell*.75,px+cell*.77,py+cell*.2);
-      }else if(ground==='VOLCANO'){
-        g.fillStyle(0x90403d,.85);
-        g.fillTriangle(px+cell*.19,py+cell*.82,px+cell*.55,py+cell*.17,px+cell*.89,py+cell*.82);
-      }else{
-        g.fillStyle(0x447c55,.65);
-        g.fillTriangle(px+cell*.18,py+cell*.73,px+cell*.34,py+cell*.29,px+cell*.50,py+cell*.73);
+      const spot=this.match?.islandSpots.find(k=>k.x===x&&k.y===y&&k.kind!=='LOCATION')
+        ??this.match?.islandSpots.find(k=>k.x===x&&k.y===y);
+      const terrain=ISLAND_TERRAIN[y][x];
+      const px=x0+x*size,py=y0+y*size;
+      const centerX=px+size*.5,centerY=py+size*.5;
+      g.fillStyle(GROUND[terrain],.78);
+      g.fillEllipse(centerX,centerY,size*1.08,size*1.07);
+      if(terrain==='GRASS')this.tree(g,centerX+size*.18,centerY+size*.2,size*.15);
+      if(terrain==='CLIFF'){
+        g.fillStyle(0x6c7b78,.78);
+        g.fillTriangle(px+size*.14,py+size*.8,px+size*.5,py+size*.15,px+size*.85,py+size*.8);
       }
-      const spot=this.match?.islandSpots.find(s=>s.x===x&&s.y===y&&s.kind!=='LOCATION')
-        ??this.match?.islandSpots.find(s=>s.x===x&&s.y===y);
+      if(terrain==='WATER'){
+        g.lineStyle(2*s,0xdbffff,.65);g.lineBetween(px+size*.1,centerY,px+size*.88,centerY);
+      }
+      if(terrain==='VOLCANO'){
+        g.fillStyle(0x994a42,.9);
+        g.fillTriangle(px+size*.14,py+size*.86,px+size*.5,py+size*.12,px+size*.86,py+size*.86);
+      }
       if(!spot)continue;
-      const cx=px+cell*.5,cy=py+cell*.5;
-      if(!spot.depleted&&spot.kind!=='LOCATION'){
-        g.fillStyle(spot.kind==='KEEPER'?0x693c57:0xf2d06b,.97);
-        g.fillCircle(cx,cy,Math.max(12,cell*.19));
-        g.lineStyle(2,0xffffff,.95);g.strokeCircle(cx,cy,Math.max(12,cell*.19));
-        this.label(parent,cx,cy,spot.kind==='KEEPER'?'⚔':'◆',Math.max(14,cell*.24),'#243b44');
+      if(!spot.depleted && spot.kind!=='LOCATION'){
+        g.fillStyle(spot.kind==='KEEPER'?0x563a68:0xf7d16a);
+        g.fillCircle(centerX,centerY,Math.max(11*s,size*.19));
+        g.lineStyle(3*s,0xffffff);g.strokeCircle(centerX,centerY,Math.max(11*s,size*.19));
+        this.text(parent,centerX,centerY,spot.kind==='KEEPER'?'⚔':'◆',size*.24,'#203d50');
       }
-      if(this.selectedSpot===spot.id){
-        g.lineStyle(4,0xfff39c,1);g.strokeRoundedRect(px+3,py+3,cell-6,cell-6,10);
-        this.label(parent,cx,py+cell*.12,'▼',Math.max(12,cell*.22),'#fff4c0',true);
+      if(this.selected===spot.id){
+        g.lineStyle(4*s,0xffee94);
+        g.strokeCircle(centerX,centerY,size*.43);
+        this.text(parent,centerX,centerY-size*.52,'▼',14*s,'#fff0ae',true);
       }
-      const hit=this.add.rectangle(cx,cy,cell,cell,0,0).setInteractive({useHandCursor:true});
+      const hit=this.add.rectangle(centerX,centerY,size*.93,size*.93,0,0)
+        .setInteractive({useHandCursor:true});
       hit.on('pointerdown',()=>{
-        this.selectedSpot=spot.id;
-        this.onSelect(spot.id);
-        this.paint();
+        this.selected=spot.id;this.onSelect(spot.id);this.paint();
       });
       parent.add(hit);
     }
@@ -224,27 +234,23 @@ export class BoardScene extends Phaser.Scene {
       this.match.players.forEach(p=>{
         const m=p.robot.mission;
         if(!m)return;
-        const site=this.match?.islandSpots.find(s=>s.id===m.siteId);
+        const site=this.match?.islandSpots.find(q=>q.id===m.siteId);
         if(!site)return;
-        const progress=m.phase==='OUTBOUND'?expeditionProgress(m):m.phase==='SEARCH'?1:1-expeditionProgress(m);
-        const gx=2+(site.x-2)*progress,gy=2+(site.y-2)*progress;
-        const x=left+(gx+.5)*cell,y=top+(gy+.5)*cell;
-        g.fillStyle(playerColor(p.color),1);g.fillRoundedRect(x-10,y-10,20,20,6);
-        g.lineStyle(2,0xffffff,1);g.strokeRoundedRect(x-10,y-10,20,20,6);
-        this.label(parent,x,y,'●',10,'#23364b');
+        const f=m.phase==='OUTBOUND'?expeditionProgress(m):m.phase==='SEARCH'?1:1-expeditionProgress(m);
+        const xx=x0+(2.5+(site.x-2)*f)*size;
+        const yy=y0+(2.5+(site.y-2)*f)*size;
+        g.fillStyle(asColor(p.color));g.fillRoundedRect(xx-10*s,yy-10*s,20*s,20*s,5*s);
+        g.lineStyle(2*s,0xffffff);g.strokeRoundedRect(xx-10*s,yy-10*s,20*s,20*s,5*s);
+        this.text(parent,xx,yy,'●',10*s,'#183446');
       });
     }
-    g.fillStyle(0x102e45,.86);g.fillRoundedRect(12,10,w-24,41,11);
-    this.label(parent,w/2,30,'WORLD MAP · EXPEDITION',Math.min(17,w*.045),'#f9f3ca');
-    this.label(parent,w/2,Math.min(h-17,top+cell*5+23),
-      '◆ TREASURE    ⚔ KEEPER    · SCOUT',Math.min(12,w*.028),'#f9eec6');
+    g.fillStyle(0x1a4268,.94);g.fillRoundedRect(9*s,9*s,w-18*s,39*s,10*s);
+    this.text(parent,w*.5,28*s,'WORLD MAP · SELECT DESTINATION',15*s,'#fff1ba');
+    this.text(parent,w*.5,h-17*s,'◆ TREASURE       ⚔ KEEPER       · EXPLORE',12*s,'#fff4c4');
   }
 }
 
-export function mountBoard(
-  element:HTMLElement,
-  onSelect:(id:string)=>void
-):{
+export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{
   update(state:GameState):void;
   select(id:string):void;
   setView(mode:GameView):void;
@@ -252,12 +258,9 @@ export function mountBoard(
 }{
   const scene=new BoardScene(onSelect);
   const game=new Phaser.Game({
-    type:Phaser.AUTO,
-    parent:element,
-    backgroundColor:'#21455e',
-    scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:600,height:700},
-    render:{pixelArt:false,antialias:true},
-    scene:[scene]
+    type:Phaser.AUTO,parent:element,backgroundColor:'#245879',
+    scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
+    render:{pixelArt:false,antialias:true},scene:[scene]
   });
   return {
     update(state){scene.setMatch(state);},
