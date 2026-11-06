@@ -21,6 +21,8 @@ export interface GameState {
   winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
   /** The route is paused at a shop until its owner chooses to enter or pass. */
   shopOffer?: boolean; pendingSteps?: number; shopTile?: number | null;
+  /** Visible, server-owned CPU action; changes at each automation tick. */
+  botEvent?: {playerId:string; kind:'SEND'|'ROLL'|'ENTER_SHOP'|'BUY'|'SKIP_SHOP'|'LEAVE_SHOP'|'END'; step:number};
 }
 export type GameAction =
   | { type: 'START'; bots: number }
