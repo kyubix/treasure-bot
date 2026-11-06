@@ -1,5 +1,6 @@
 import './style.css';
 import './theme.css';
+import './mobile.css';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
 import { getRobotStats } from '../engine/game.ts';
@@ -7,9 +8,9 @@ import type { GameAction, PublicState } from '../engine/types.ts';
 
 type Lang='en'|'id'|'ja';
 const translations={
-  en:{tagline:'An online treasure-hunting board adventure',name:'Your nickname',room:'Room code',create:'Create room',join:'Join room',invite:'Share invite',start:'Start game',waiting:'Waiting for players',bots:'Computer players',turn:'Turn',current:'Playing',roll:'Roll dice',end:'End turn',send:'Send robot',claim:'Claim gallery',inventory:'Treasures',gallery:'Galleries',players:'Explorers',feed:'Activity log',leave:'Leave room',rules:'Alpha rules are provisional. Original-game formulas require verification.',lost:'Connection interrupted; trying to reconnect.',online:'Live',offline:'Reconnecting',solo:'Play against bots or invite friends',copy:'Copy invite',energy:'Energy',worth:'Assets',winner:'Winner',you:'you',robot:'Robot expedition',display:'Display',gold:'Gold',cards:'Gate cards',help:'First buy a Gate Card when passing a shop. Next turn select a treasure in the central map, launch, roll and watch the journey.',locale:'Language',workshop:'Robot workshop',head:'Sensor head',body:'Battery body',arm:'Power arm',leg:'Speed legs',shopHint:'Upgrades available when passing a robot shop',mapTitle:'TREASURE ISLAND',survey:'Tap any island tile to explore',mapSub:'Select treasure or an unmarked location',boardView:'BOARD VIEW',worldMap:'WORLD MAP',openMap:'Send robot / World map',backToBoard:'← Back to board',targetHint:'Choose a destination on the island map'},
-  id:{tagline:'Petualangan board game pencari harta online',name:'Nama pemain',room:'Kode room',create:'Buat room',join:'Gabung room',invite:'Bagikan undangan',start:'Mulai permainan',waiting:'Menunggu pemain',bots:'Jumlah pemain AI',turn:'Giliran',current:'Sedang bermain',roll:'Lempar dadu',end:'Akhiri giliran',send:'Kirim robot',claim:'Klaim galeri',inventory:'Harta',gallery:'Galeri',players:'Pemain',feed:'Aktivitas',leave:'Keluar room',rules:'Aturan alpha masih sementara. Rumus original perlu diverifikasi.',lost:'Koneksi terputus; menyambung kembali.',online:'Terhubung',offline:'Menyambung ulang',solo:'Main melawan AI atau undang teman',copy:'Salin undangan',energy:'Energi',worth:'Aset',winner:'Pemenang',you:'kamu',robot:'Ekspedisi robot',display:'Pajang',gold:'Emas',cards:'Gate Card',help:'Beli Gate Card saat melewati toko. Di giliran berikutnya, tap harta di peta tengah, kirim robot, lalu lempar dadu.',locale:'Bahasa',workshop:'Bengkel robot',head:'Kepala sensor',body:'Bodi baterai',arm:'Lengan tempur',leg:'Kaki cepat',shopHint:'Upgrade tersedia ketika melewati toko robot',mapTitle:'PULAU HARTA',survey:'Sentuh petak pulau untuk eksplorasi',mapSub:'Pilih harta atau lokasi belum ditandai',boardView:'PAPAN PERMAINAN',worldMap:'PETA DUNIA',openMap:'Kirim robot / Peta dunia',backToBoard:'← Kembali ke papan',targetHint:'Pilih tujuan robot pada peta pulau'},
-  ja:{tagline:'オンライン宝探しボードゲーム',name:'プレイヤー名',room:'ルームコード',create:'ルーム作成',join:'参加',invite:'招待を共有',start:'ゲーム開始',waiting:'プレイヤー待機中',bots:'CPU人数',turn:'ターン',current:'プレイ中',roll:'サイコロ',end:'ターン終了',send:'ロボット派遣',claim:'ギャラリーを獲得',inventory:'宝物',gallery:'ギャラリー',players:'プレイヤー',feed:'イベント履歴',leave:'退出',rules:'アルファ版のルールは仮設定です。原作の計算式は要確認。',lost:'接続が切れました。再接続中…',online:'接続中',offline:'再接続中',solo:'CPUと対戦、または友達を招待',copy:'招待リンクをコピー',energy:'エネルギー',worth:'資産',winner:'勝者',you:'あなた',robot:'ロボット探検',display:'展示',gold:'ゴールド',cards:'ゲートカード',help:'店を通過してゲートカードを購入。次のターンに中央の宝をタップしてロボットを発進。',locale:'言語',workshop:'ロボ工房',head:'センサーヘッド',body:'バッテリーボディ',arm:'パワーアーム',leg:'スピードレッグ',shopHint:'ショップを通過するとパーツ購入可能',mapTitle:'宝島',survey:'島のマスをタップして探索',mapSub:'宝物や未探索地点を選択',boardView:'ボード画面',worldMap:'ワールドマップ',openMap:'ロボット派遣・マップ',backToBoard:'← ボードに戻る',targetHint:'島の目的地を選んでください'}
+  en:{tagline:'An online treasure-hunting board adventure',name:'Your nickname',room:'Room code',create:'Create room',join:'Join room',invite:'Share invite',start:'Start game',waiting:'Waiting for players',bots:'Computer players',turn:'Turn',current:'Playing',roll:'Roll dice',end:'End turn',send:'Send robot',claim:'Claim gallery',inventory:'Treasures',gallery:'Galleries',players:'Explorers',feed:'Activity log',leave:'Leave room',rules:'Alpha rules are provisional. Original-game formulas require verification.',lost:'Connection interrupted; trying to reconnect.',online:'Live',offline:'Reconnecting',solo:'Play against bots or invite friends',copy:'Copy invite',energy:'Energy',worth:'Assets',winner:'Winner',you:'you',robot:'Robot expedition',display:'Display',gold:'Gold',cards:'Gate cards',help:'First buy a Gate Card when passing a shop. Next turn select a treasure in the central map, launch, roll and watch the journey.',locale:'Language',workshop:'Robot workshop',head:'Sensor head',body:'Battery body',arm:'Power arm',leg:'Speed legs',shopHint:'Upgrades available when passing a robot shop',mapTitle:'TREASURE ISLAND',survey:'Tap any island tile to explore',mapSub:'Select treasure or an unmarked location',boardView:'BOARD VIEW',worldMap:'WORLD MAP',openMap:'Send robot / World map',backToBoard:'← Back to board',targetHint:'Choose a destination on the island map',settings:'Settings',details:'Game details',close:'Close',menu:'Menu'},
+  id:{tagline:'Petualangan board game pencari harta online',name:'Nama pemain',room:'Kode room',create:'Buat room',join:'Gabung room',invite:'Bagikan undangan',start:'Mulai permainan',waiting:'Menunggu pemain',bots:'Jumlah pemain AI',turn:'Giliran',current:'Sedang bermain',roll:'Lempar dadu',end:'Akhiri giliran',send:'Kirim robot',claim:'Klaim galeri',inventory:'Harta',gallery:'Galeri',players:'Pemain',feed:'Aktivitas',leave:'Keluar room',rules:'Aturan alpha masih sementara. Rumus original perlu diverifikasi.',lost:'Koneksi terputus; menyambung kembali.',online:'Terhubung',offline:'Menyambung ulang',solo:'Main melawan AI atau undang teman',copy:'Salin undangan',energy:'Energi',worth:'Aset',winner:'Pemenang',you:'kamu',robot:'Ekspedisi robot',display:'Pajang',gold:'Emas',cards:'Gate Card',help:'Beli Gate Card saat melewati toko. Di giliran berikutnya, tap harta di peta tengah, kirim robot, lalu lempar dadu.',locale:'Bahasa',workshop:'Bengkel robot',head:'Kepala sensor',body:'Bodi baterai',arm:'Lengan tempur',leg:'Kaki cepat',shopHint:'Upgrade tersedia ketika melewati toko robot',mapTitle:'PULAU HARTA',survey:'Sentuh petak pulau untuk eksplorasi',mapSub:'Pilih harta atau lokasi belum ditandai',boardView:'PAPAN PERMAINAN',worldMap:'PETA DUNIA',openMap:'Kirim robot / Peta dunia',backToBoard:'← Kembali ke papan',targetHint:'Pilih tujuan robot pada peta pulau',settings:'Pengaturan',details:'Info permainan',close:'Tutup',menu:'Menu'},
+  ja:{tagline:'オンライン宝探しボードゲーム',name:'プレイヤー名',room:'ルームコード',create:'ルーム作成',join:'参加',invite:'招待を共有',start:'ゲーム開始',waiting:'プレイヤー待機中',bots:'CPU人数',turn:'ターン',current:'プレイ中',roll:'サイコロ',end:'ターン終了',send:'ロボット派遣',claim:'ギャラリーを獲得',inventory:'宝物',gallery:'ギャラリー',players:'プレイヤー',feed:'イベント履歴',leave:'退出',rules:'アルファ版のルールは仮設定です。原作の計算式は要確認。',lost:'接続が切れました。再接続中…',online:'接続中',offline:'再接続中',solo:'CPUと対戦、または友達を招待',copy:'招待リンクをコピー',energy:'エネルギー',worth:'資産',winner:'勝者',you:'あなた',robot:'ロボット探検',display:'展示',gold:'ゴールド',cards:'ゲートカード',help:'店を通過してゲートカードを購入。次のターンに中央の宝をタップしてロボットを発進。',locale:'言語',workshop:'ロボ工房',head:'センサーヘッド',body:'バッテリーボディ',arm:'パワーアーム',leg:'スピードレッグ',shopHint:'ショップを通過するとパーツ購入可能',mapTitle:'宝島',survey:'島のマスをタップして探索',mapSub:'宝物や未探索地点を選択',boardView:'ボード画面',worldMap:'ワールドマップ',openMap:'ロボット派遣・マップ',backToBoard:'← ボードに戻る',targetHint:'島の目的地を選んでください',settings:'設定',details:'ゲーム情報',close:'閉じる',menu:'メニュー'}
 } as const;
 let lang:Lang=(localStorage.getItem('treasure-bots-lang') as Lang)||((navigator.language||'').toLowerCase().startsWith('id')?'id':'en');
 if(!translations[lang])lang='en';
@@ -20,20 +21,58 @@ let socket:WebSocket|null=null;let poll:ReturnType<typeof setInterval>|null=null
 let busy=false;
 let selectedSiteId='';
 let viewMode:'board'|'world'='board';
+let settingsOpen=false;
+let infoOpen=false;
+let lastSettingsTrigger:HTMLElement|null=null;
 const root=document.querySelector<HTMLDivElement>('#app')!;
 root.innerHTML=`
-  <header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>TREASURE BOTS</strong><small>DUAL SCREEN · v0.4</small></div></div><div class="header-actions"><span id="status" class="status"></span><select id="langSelect" aria-label="Language"><option value="en">EN</option><option value="id">ID</option><option value="ja">日本語</option></select></div></header>
+  <header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>TREASURE BOTS</strong><small>MOBILE · v0.6</small></div></div><div class="header-actions"><span id="status" class="status"></span><button id="settingsTrigger" class="gear-button" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div></header>
   <main>
     <section id="home" class="home-panel"><div class="hero"><div class="hero-gem">✦</div><div class="eyebrow">BOARD × ROBOTS × TREASURE</div><h1>Your robot.<br>Your island.<br><em>Your treasure.</em></h1><p data-i18n="tagline"></p></div><div class="card form-card"><label for="playerName" data-i18n="name"></label><input id="playerName" autocomplete="nickname" maxlength="22" placeholder="Explorer" value="Explorer"/><button id="create" class="primary" data-i18n="create"></button><div class="or">— OR —</div><label for="roomInput" data-i18n="room"></label><div class="inline"><input id="roomInput" maxlength="6" placeholder="ABCD23" autocapitalize="characters"/><button id="join" class="secondary" data-i18n="join"></button></div><p class="muted" data-i18n="solo"></p></div></section>
     <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
-    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside class="sidebar"><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="buyGate" class="secondary">Buy Gate Card</button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label"></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary" data-i18n="roll"></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p></div></section>
+    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside id="gameInfo" class="sidebar"><div class="drawer-head"><strong data-i18n="details"></strong><button id="closeInfo" class="drawer-close" type="button" aria-label="Close">×</button></div><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="buyGate" class="secondary">Buy Gate Card</button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label"></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary" data-i18n="roll"></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p></div></section>
+    <div id="infoBackdrop" class="info-backdrop" hidden></div>
+    <div id="settingsOverlay" class="settings-backdrop" hidden>
+      <section class="settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-sheet-head"><h2 id="settingsTitle" data-i18n="settings"></h2><button id="closeSettings" class="drawer-close" type="button" aria-label="Close">×</button></div>
+        <label for="langSelect" data-i18n="locale"></label>
+        <select id="langSelect"><option value="en">English</option><option value="id">Bahasa Indonesia</option><option value="ja">日本語</option></select>
+        <button id="leave" class="secondary" type="button" data-i18n="leave"></button>
+      </section>
+    </div>
     <div id="message" class="toast" role="status" aria-live="polite" hidden></div>
-  </main><footer><span data-i18n="rules"></span><button id="leave" class="link" data-i18n="leave"></button></footer>`;
+  </main><footer><span data-i18n="rules"></span></footer>`;
 const el=<T = HTMLElement>(id:string):T=>document.getElementById(id) as unknown as T;
 function translate():void{
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(node=>{ const key=node.dataset.i18n as keyof typeof translations.en;if(translations[lang][key])node.textContent=t(key);});
   el<HTMLSelectElement>('langSelect').value=lang;
+  document.documentElement.lang=lang;
+  el('settingsTrigger').setAttribute('aria-label',t('settings'));
+  el('gameSettingsTrigger').setAttribute('aria-label',t('settings'));
+  el('openInfo').setAttribute('aria-label',t('details'));
+  el('closeSettings').setAttribute('aria-label',t('close'));
+  el('closeInfo').setAttribute('aria-label',t('close'));
   if(state)render();
+}
+function setSettingsOpen(open:boolean,trigger?:HTMLElement):void {
+  settingsOpen=open;
+  if(open&&trigger)lastSettingsTrigger=trigger;
+  el('settingsOverlay').hidden=!open;
+  if(open){
+    setInfoOpen(false);
+    el<HTMLButtonElement>('closeSettings').focus();
+  }else{
+    lastSettingsTrigger?.focus();
+    lastSettingsTrigger=null;
+  }
+}
+function setInfoOpen(open:boolean):void {
+  infoOpen=open;
+  el('gameInfo').classList.toggle('is-open',open);
+  el('infoBackdrop').hidden=!open;
+  el('openInfo').setAttribute('aria-expanded',String(open));
+  if(open)el<HTMLButtonElement>('closeInfo').focus();
+  else if(state&&state.phase!=='lobby')el<HTMLButtonElement>('openInfo').focus();
 }
 function toast(msg:string):void { const node=el('message');node.textContent=msg;node.hidden=false;setTimeout(()=>node.hidden=true,3600); }
 function gameUrl(code:string):string {return `${location.origin}/?room=${encodeURIComponent(code)}`;}
@@ -94,6 +133,8 @@ function render():void {
   const active=!!state;const playing=active&&state!.phase!=='lobby';
   el('home').hidden=active;el('lobby').hidden=!active||playing;el('match').hidden=!playing;
   el('leave').hidden=!active;
+  document.body.classList.toggle('in-game',playing);
+  if(!playing&&infoOpen)setInfoOpen(false);
   if(!active)return;
   const s=state!;
   if(!playing){
@@ -144,7 +185,9 @@ function render():void {
   el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
   el<HTMLButtonElement>('sendRobot').disabled=!canAct||s.rolled||!!self?.robot.mission||!self?.gateCards||!site||site.depleted;
   el<HTMLButtonElement>('returnRobot').disabled=!canAct||s.rolled||!self?.robot.mission||self?.robot.mission.phase==='INBOUND';
+  el('returnRobot').hidden=!self?.robot.mission||self.robot.mission.phase==='INBOUND';
   el<HTMLButtonElement>('buyGate').disabled=!canAct||!s.rolled||!s.shopAccess||self!.gold<300;
+  el('buyGate').hidden=!s.shopAccess;
   for(const btn of document.querySelectorAll<HTMLButtonElement>('[data-treasure]'))btn.disabled=!canAct;
   if(!board){
     board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();});
@@ -160,8 +203,8 @@ function init():void {
   el<HTMLButtonElement>('start').onclick=()=>void sendAction({type:'START',bots:Number(el<HTMLSelectElement>('botCount').value)});
   el<HTMLButtonElement>('roll').onclick=()=>void sendAction({type:'ROLL'});
   el<HTMLButtonElement>('end').onclick=()=>void sendAction({type:'END_TURN'});
-  el<HTMLButtonElement>('openWorld').onclick=()=>{viewMode='world';render();};
-  el<HTMLButtonElement>('backBoard').onclick=()=>{viewMode='board';render();};
+  el<HTMLButtonElement>('openWorld').onclick=()=>{setInfoOpen(false);viewMode='world';render();};
+  el<HTMLButtonElement>('backBoard').onclick=()=>{setInfoOpen(false);viewMode='board';render();};
   el<HTMLButtonElement>('sendRobot').onclick=()=>{
     if(selectedSiteId)void sendAction({type:'SEND_ROBOT',siteId:selectedSiteId},()=>{
       viewMode='board';
@@ -170,8 +213,22 @@ function init():void {
   };
   el<HTMLButtonElement>('returnRobot').onclick=()=>void sendAction({type:'RETURN_ROBOT'});
   el<HTMLButtonElement>('buyGate').onclick=()=>void sendAction({type:'BUY_GATE_CARD'});
+  el<HTMLButtonElement>('settingsTrigger').onclick=()=>setSettingsOpen(true,el('settingsTrigger'));
+  el<HTMLButtonElement>('gameSettingsTrigger').onclick=()=>setSettingsOpen(true,el('gameSettingsTrigger'));
+  el<HTMLButtonElement>('closeSettings').onclick=()=>setSettingsOpen(false);
+  el('settingsOverlay').addEventListener('click',event=>{
+    if(event.target===el('settingsOverlay'))setSettingsOpen(false);
+  });
+  el<HTMLButtonElement>('openInfo').onclick=()=>setInfoOpen(true);
+  el<HTMLButtonElement>('closeInfo').onclick=()=>setInfoOpen(false);
+  el<HTMLDivElement>('infoBackdrop').onclick=()=>setInfoOpen(false);
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Escape')return;
+    if(settingsOpen)setSettingsOpen(false);
+    else if(infoOpen)setInfoOpen(false);
+  });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){
