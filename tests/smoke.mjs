@@ -39,6 +39,18 @@ check('unmarked island locations can be selected for exploration',()=>{
   applyAction(state,'a',{type:'SEND_ROBOT',siteId:survey.id});
   assert.equal(state.players[0].robot.mission.siteId,survey.id);
 });
+check('shop cannot be accessed any time: close it and require another encounter',()=>{
+  const s=setup();start(s);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'}),/pass or stop at a shop/);
+  assert.throws(()=>applyAction(s,'a',{type:'CLOSE_SHOP'}),/No active shop encounter/);
+  roll(s,'a',()=>.2);assert.equal(s.shopAccess,true);
+  applyAction(s,'a',{type:'BUY_GATE_CARD'});
+  applyAction(s,'a',{type:'CLOSE_SHOP'});
+  assert.equal(s.shopAccess,false);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'}),/pass or stop at a shop/);
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'}),/Visit a robot shop/);
+  end(s,'a');assert.equal(s.shopAccess,false);
+});
 check('shop equips robot parts and updates capabilities',()=>{
   const s=setup();start(s);roll(s,'a',()=>.2);
   assert.throws(()=>applyAction(s,'a',{type:'BUY_PART',slot:'WINGS'}),/Unknown robot part/);

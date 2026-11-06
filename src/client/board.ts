@@ -27,13 +27,56 @@ export class BoardScene extends Phaser.Scene {
   private display?:Phaser.GameObjects.Container;
   private view:GameView='board';
   private selected:string|null=null;
+  private travelingPlayer:string|null=null;
+  private visualPosition:number|null=null;
+  private movement?:Phaser.Tweens.Tween;
+  private lastMotionPaint=0;
 
   constructor(private readonly onSelect:(id:string)=>void) {super('Board');}
   create():void {this.scale.on('resize',()=>this.paint());this.paint();}
-  setMatch(value:GameState):void {this.match=value;if(this.sys.isActive())this.paint();}
+  setMatch(value:GameState):void {
+    const previous=this.match;
+    const actor=value.players[value.currentPlayerIndex];
+    const earlier=previous?.players.find(p=>p.id===actor?.id);
+    const freshRoll=Boolean(this.view==='board'&&previous&&earlier&&actor&&
+      previous.phase==='playing'&&!previous.rolled&&value.rolled&&value.dice&&
+      previous.currentPlayerIndex===value.currentPlayerIndex &&
+      earlier.position!==actor.position);
+    this.match=value;
+    if(freshRoll&&earlier&&actor&&value.dice&&this.sys.isActive()&&
+       !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      this.movement?.stop();
+      const steps=value.dice[0]+value.dice[1];
+      this.travelingPlayer=actor.id;
+      this.visualPosition=earlier.position;
+      this.movement=this.tweens.addCounter({
+        from:0,to:steps,duration:steps*220,ease:'Linear',
+        onUpdate:tween=>{
+          const progress=tween.getValue();
+          if(progress===null)return;
+          this.visualPosition=earlier.position+progress;
+          // Limit scene recreation: inexpensive motion without 60 FPS object churn.
+          if(this.time.now-this.lastMotionPaint>38){
+            this.lastMotionPaint=this.time.now;
+            this.paint();
+          }
+        },
+        onComplete:()=>{
+          this.visualPosition=null;
+          this.travelingPlayer=null;
+          this.movement=undefined;
+          this.paint();
+        }
+      });
+    }else if(this.sys.isActive())this.paint();
+  }
   setView(value:GameView):void {
     if(this.view===value)return;
     this.view=value;
+    this.movement?.stop();
+    this.movement=undefined;
+    this.travelingPlayer=null;
+    this.visualPosition=null;
     if(this.sys.isActive()){this.paint();this.cameras.main.fadeIn(170,20,40,48);}
   }
   selectSpot(value:string):void {this.selected=value;if(this.sys.isActive())this.paint();}
@@ -105,14 +148,19 @@ export class BoardScene extends Phaser.Scene {
     if(this.match){
       const state=this.match;
       const me=state.players[state.currentPlayerIndex];
-      const focus=me?.position??0;
-      const count=7;
-      const stride=w/count;
-      const leftTile=focus-3;
+      const actualFocus=me?.position??0;
+      const moving=this.visualPosition!==null&&this.travelingPlayer===me?.id;
+      const position=moving?this.visualPosition!:actualFocus;
+      const base=Math.floor(position);
+      const fraction=position-base;
+      const focus=((base%TILES.length)+TILES.length)%TILES.length;
+      const count=8;
+      const stride=w/7;
+      const leftTile=base-3;
       for(let col=0;col<count;col++){
         const idx=(leftTile+col+TILES.length*8)%TILES.length;
         const tile=TILES[idx];
-        const x=col*stride;
+        const x=(col-fraction)*stride;
         const gallery=state.galleries.find(q=>q.tile===idx);
         const owner=gallery?.ownerId?state.players.find(p=>p.id===gallery.ownerId):null;
         let color=owner?asColor(owner.color):TILE_COLORS[tile];
@@ -141,9 +189,11 @@ export class BoardScene extends Phaser.Scene {
           this.text(parent,x+stride/2,roadTop+33*s,tile==='GALLERY'?String(idx+1):ICON[tile],
             Math.max(13,19*s),'#1c4b66');
         }
-        const standing=state.players.filter(p=>p.position===idx);
+        const standing=state.players.filter(p=>p.id===this.travelingPlayer?focus===idx:p.position===idx);
         standing.forEach((p,i)=>{
-          const px=x+stride*(.40+i*.13), py=roadTop+8*s;
+          const walking=p.id===this.travelingPlayer;
+          const phase=walking&&this.visualPosition!==null?Math.abs(Math.sin(this.visualPosition*Math.PI*2)):0;
+          const px=x+stride*(.40+i*.13), py=roadTop+8*s-phase*6*s;
           this.chibi(g,px,py,Math.max(9,17*s),asColor(p.color));
         });
       }
@@ -157,7 +207,7 @@ export class BoardScene extends Phaser.Scene {
         const a=i/TILES.length*Math.PI*2-Math.PI/2;
         const x=mmX+mmW/2+mmW*.42*Math.cos(a);
         const y=mmY+mmH/2+mmH*.41*Math.sin(a);
-        const current=state.players.find(p=>p.position===i);
+        const current=state.players.find(p=>p.id===this.travelingPlayer?focus===i:p.position===i);
         g.fillStyle(current?asColor(current.color):i===focus?0xffee6e:0x2c6780);
         g.fillCircle(x,y,current?4.2*s:1.8*s);
       }

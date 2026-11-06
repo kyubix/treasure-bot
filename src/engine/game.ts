@@ -90,6 +90,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     case 'SEND_ROBOT': sendRobot(state, player, action.siteId); break;
     case 'RETURN_ROBOT': returnRobot(state,player); break;
     case 'BUY_GATE_CARD': buyGate(state,player); break;
+    case 'CLOSE_SHOP': closeShop(state,player); break;
     case 'BUY_PART': buyPart(state,player,action.slot); break;
     case 'DISPLAY_TREASURE': displayTreasure(state,player,action.treasureId); break;
     default: throw new GameError('Unknown action.');
@@ -119,6 +120,11 @@ function returnRobot(state:GameState,player:Player):void {
   m.phase='INBOUND';
   m.turnsRemaining=m.transitTotal;
   log(state,`${player.name} called their robot home.`);
+}
+function closeShop(state:GameState, player:Player):void {
+  if (!state.rolled || !state.shopAccess) throw new GameError('No active shop encounter.');
+  state.shopAccess=false;
+  log(state,`${player.name} left the robot shop.`);
 }
 function buyGate(state:GameState,player:Player):void {
   if(!state.rolled || !state.shopAccess)throw new GameError('You must pass or stop at a shop before buying.');
@@ -232,7 +238,7 @@ function rollAndResolve(state:GameState,random:Random):void {
     if(TILES[square]==='SHOP')state.shopAccess=true;
   }
   player.position=(previous+steps)%TILES.length;
-  if(state.shopAccess)log(state,`${player.name} may buy items at the robot shop this turn.`);
+  if(state.shopAccess)log(state,`${player.name} reached a robot shop along the route. Shopping is available until leaving the shop or ending the turn.`);
   state.dice=dice; state.rolled=true;
   log(state,`${player.name} rolled ${dice[0]} + ${dice[1]} and moved to tile ${player.position+1}.`);
   if(previous+dice[0]+dice[1]>=TILES.length) {
