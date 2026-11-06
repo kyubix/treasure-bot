@@ -31,6 +31,7 @@ export type GameAction =
   | { type: 'ENTER_SHOP' }
   | { type: 'SKIP_SHOP' }
   | { type: 'BUY_SUPPLY'; supply: 'ENERGY_CELL' | 'REPAIR_KIT' }
+  | { type: 'SELL_TREASURE'; treasureId: string }
   | { type: 'USE_REPAIR_KIT' }
   | { type: 'BUY_PART'; slot: PartSlot }
   | { type: 'RETURN_ROBOT' }
