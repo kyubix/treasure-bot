@@ -14,6 +14,9 @@ import type { Point } from './world-map-geometry.ts';
  * This is a lightweight 2.5D diorama, NOT a 3D model or copyrighted game art.
  * Four camera orientations rotate the map without changing logical tile IDs.
  */
+// This asset is a grass *surface*, not a replacement for logical map geometry.
+export const WORLD_GRASS_TEXTURE_KEY='world-grass-terrain-01-v2';
+export const WORLD_GRASS_TEXTURE_URL='/assets/worldmap/terrain/wm_tile_grass_01_v2.webp';
 const point=(x:number,y:number)=>new Phaser.Geom.Point(x,y);
 const TILE_COLORS={START:0xffd56b,SHOP:0xf8d06d,GALLERY:0xb4e9f6,
   EVENT:0xeaaaee,SUPPORT:0x92f0a3,PLAIN:0x8fb9f6} as const;
@@ -148,7 +151,9 @@ export function drawWorldIsland(args:{
   rotation:number;selectedSpot:string|null;onSelect:(id:string)=>void;
 }):void{
   const {scene,parent,width:w,height:h,state,rotation,selectedSpot,onSelect}=args;
-  const g=scene.add.graphics();parent.add(g);
+  // The base, grass material and state-driven overlays have separate render
+  // layers so the texture never hides board tiles or interactive targets.
+  let g=scene.add.graphics();parent.add(g);
   drawSea(g,w,h);
   const cx=w*.5,cy=h*.535;
   const rx=Math.min(w*.445,280),ry=Math.min(h*.36,300);
@@ -164,6 +169,35 @@ export function drawWorldIsland(args:{
   g.fillStyle(0x75c56b);g.fillEllipse(cx-rx*.18,cy-ry*.28,rx*1.21,ry*1.05);
   g.fillStyle(0x3f9e6a);g.fillEllipse(cx+rx*.26,cy+ry*.21,rx*1.37,ry*.96);
   g.fillStyle(0x91d277,.47);g.fillEllipse(cx-rx*.21,cy-ry*.24,rx*.72,ry*.51);
+
+  // Approved seamless Grass Terrain 01 V2. Repeat isometric diamond surfaces
+  // on a staggered grid, then clip them to the existing grassy island shape.
+  // Other camera angles retain the established procedural view until a
+  // geometry-coherent master asset has been reviewed for all four rotations.
+  if(rotation===0 && scene.textures.exists(WORLD_GRASS_TEXTURE_KEY)){
+    const tileW=Math.max(84,Math.min(160,rx*.8));
+    const tileH=tileW*288/512;
+    const grassTiles=scene.add.container(0,0);
+    parent.add(grassTiles);
+    for(let u=-8;u<=8;u++)for(let v=-8;v<=8;v++){
+      const x=cx+(u-v)*tileW*.5;
+      const y=cy-11+(u+v)*tileH*.5;
+      if(Math.abs(x-cx)>rx*.9+tileW*.5||Math.abs(y-(cy-11))>ry*.85+tileH*.5)continue;
+      // A one-pixel overlap hides antialiased cracks without changing anchors.
+      grassTiles.add(scene.add.image(x,y,WORLD_GRASS_TEXTURE_KEY)
+        .setDisplaySize(tileW+1,tileH+1));
+    }
+    const stencil=scene.add.graphics();
+    stencil.fillStyle(0xffffff);
+    stencil.fillEllipse(cx,cy-11,rx*1.77,ry*1.70);
+    stencil.setVisible(false);
+    parent.add(stencil); // Destroyed together with the redraw container.
+    grassTiles.setMask(stencil.createGeometryMask());
+  }
+
+  // Everything above is scenery; all landmarks, board spaces, missions and
+  // touch targets remain on their original logical/projection coordinates.
+  g=scene.add.graphics();parent.add(g);
 
   // Distinct environmental landmarks are oriented along with the map.
   const landmarks=[
