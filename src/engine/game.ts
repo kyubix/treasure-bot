@@ -28,7 +28,7 @@ export class GameError extends Error { constructor(message: string) { super(mess
 export function createPlayer(id: string, name: string, isBot = false, colorIndex = 0): Player {
   return {
     id, name: name.trim().slice(0, 22) || 'Explorer', color: COLORS[colorIndex % COLORS.length], isBot,
-    position: 0, gold: START_GOLD, gateCards: 0,
+    position: 0, gold: START_GOLD, gateCards: 0, repairKits: 0,
     robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [], parts:{HEAD:false,BODY:false,ARM:false,LEG:false} }, inventory: []
   };
 }
@@ -36,7 +36,7 @@ export function newGame(code: string, player: Player): GameState {
   return {
     code, hostId: player.id, phase: 'lobby', players: [player],
     galleries: TILES.flatMap((tile, i) => tile === 'GALLERY' ? [{tile:i, ownerId:null, displayed: []}] : []),
-    currentPlayerIndex:0, turn:1, version:1, rolled:false, dice:null, winnerId:null, islandSpots:initialIsland(), shopAccess:false, logs: [{id:1, turn:1, message:'Room created. Invite friends or add bots.'}]
+    currentPlayerIndex:0, turn:1, version:1, rolled:false, dice:null, winnerId:null, islandSpots:initialIsland(), shopAccess:false, shopOffer:false, pendingSteps:0, shopTile:null, logs: [{id:1, turn:1, message:'Room created. Invite friends or add bots.'}]
   };
 }
 export function netWorth(state: GameState, player: Player): number {
@@ -90,7 +90,12 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     case 'SEND_ROBOT': sendRobot(state, player, action.siteId); break;
     case 'RETURN_ROBOT': returnRobot(state,player); break;
     case 'BUY_GATE_CARD': buyGate(state,player); break;
-    case 'CLOSE_SHOP': closeShop(state,player); break;
+    case 'CLOSE_SHOP': closeShop(state,player,random); break;
+    case 'ENTER_SHOP': enterShop(state,player); break;
+    case 'SKIP_SHOP': skipShop(state,player,random); break;
+    case 'BUY_SUPPLY': buySupply(state,player,action.supply); break;
+    case 'SELL_TREASURE': sellTreasure(state,player,action.treasureId); break;
+    case 'USE_REPAIR_KIT': useRepairKit(state,player); break;
     case 'BUY_PART': buyPart(state,player,action.slot); break;
     case 'DISPLAY_TREASURE': displayTreasure(state,player,action.treasureId); break;
     default: throw new GameError('Unknown action.');
@@ -121,10 +126,63 @@ function returnRobot(state:GameState,player:Player):void {
   m.turnsRemaining=m.transitTotal;
   log(state,`${player.name} called their robot home.`);
 }
-function closeShop(state:GameState, player:Player):void {
-  if (!state.rolled || !state.shopAccess) throw new GameError('No active shop encounter.');
+function enterShop(state:GameState,player:Player):void {
+  if(!state.rolled || !state.shopOffer || state.shopAccess)
+    throw new GameError('No shop invitation to accept.');
+  state.shopOffer=false;
+  state.shopAccess=true;
+  log(state,`${player.name} entered the robot shop at tile ${player.position+1}.`);
+}
+function skipShop(state:GameState,player:Player,random:Random):void {
+  if(!state.rolled || !state.shopOffer || state.shopAccess)
+    throw new GameError('No shop invitation to skip.');
+  state.shopOffer=false;
+  state.shopTile=null;
+  log(state,`${player.name} passed the robot shop without entering.`);
+  advanceMovement(state,player,random);
+}
+function closeShop(state:GameState,player:Player,random:Random):void {
+  if(!state.rolled || !state.shopAccess)
+    throw new GameError('No active shop encounter.');
   state.shopAccess=false;
+  state.shopTile=null;
   log(state,`${player.name} left the robot shop.`);
+  advanceMovement(state,player,random);
+}
+function buySupply(state:GameState,player:Player,supply:'ENERGY_CELL'|'REPAIR_KIT'):void {
+  if(!state.rolled||!state.shopAccess)throw new GameError('Enter a shop to buy supplies.');
+  if(supply==='ENERGY_CELL'){
+    const max=getRobotStats(player.robot).energy;
+    if(player.robot.energy>=max)throw new GameError('Robot energy is already full.');
+    if(player.gold<200)throw new GameError('Not enough gold for an energy cell.');
+    player.gold-=200;
+    player.robot.energy=Math.min(max,player.robot.energy+25);
+    log(state,`${player.name} bought an energy cell, restoring up to 25 robot energy.`);
+  } else if(supply==='REPAIR_KIT'){
+    if((player.repairKits??0)>=3)throw new GameError('Repair kit limit reached.');
+    if(player.gold<280)throw new GameError('Not enough gold for a repair kit.');
+    player.gold-=280;
+    player.repairKits=(player.repairKits??0)+1;
+    log(state,`${player.name} bought a repair kit.`);
+  } else throw new GameError('Unknown shop item.');
+}
+function sellTreasure(state:GameState,player:Player,treasureId:string):void {
+  if(!state.rolled||!state.shopAccess)throw new GameError('Enter a shop to sell treasures.');
+  const idx=player.inventory.findIndex(item=>item.id===treasureId);
+  if(idx<0)throw new GameError('Treasure is not in your inventory.');
+  const [treasure]=player.inventory.splice(idx,1);
+  const payout=Math.floor(treasure.value*.6); // PROVISIONAL resale ratio
+  player.gold+=payout;
+  log(state,`${player.name} sold ${treasure.name} for ${payout} G.`);
+}
+function useRepairKit(state:GameState,player:Player):void {
+  if(state.rolled || player.robot.mission)throw new GameError('Use repair kits at base before rolling.');
+  if(!player.repairKits)throw new GameError('No repair kit available.');
+  const max=getRobotStats(player.robot).energy;
+  if(player.robot.energy>=max)throw new GameError('Robot energy is already full.');
+  player.repairKits--;
+  player.robot.energy=Math.min(max,player.robot.energy+35);
+  log(state,`${player.name} used a repair kit (+35 energy, provisional).`);
 }
 function buyGate(state:GameState,player:Player):void {
   if(!state.rolled || !state.shopAccess)throw new GameError('You must pass or stop at a shop before buying.');
@@ -230,31 +288,53 @@ function rollAndResolve(state:GameState,random:Random):void {
   const player=currentPlayer(state);
   robotTick(state,player,random);
   const dice:[number,number]=[rollDie(random),rollDie(random)];
-  const previous=player.position;
+  state.dice=dice;
+  state.rolled=true;
   state.shopAccess=false;
-  const steps=dice[0]+dice[1];
-  for(let step=1;step<=steps;step++){
-    const square=(previous+step)%TILES.length;
-    if(TILES[square]==='SHOP')state.shopAccess=true;
+  state.shopOffer=false;
+  state.shopTile=null;
+  state.pendingSteps=dice[0]+dice[1];
+  log(state,`${player.name} rolled ${dice[0]} + ${dice[1]}.`);
+  advanceMovement(state,player,random);
+}
+function advanceMovement(state:GameState,player:Player,random:Random):void {
+  // Movement is authoritative and pauses immediately on EVERY shop space,
+  // including shops passed through before the destination.
+  while((state.pendingSteps??0)>0) {
+    player.position=(player.position+1)%TILES.length;
+    state.pendingSteps!--;
+    if(TILES[player.position]==='START') {
+      player.gold+=START_GOLD;
+      log(state,`${player.name} passed Robot Center (+${START_GOLD} G).`);
+    }
+    if(TILES[player.position]==='SHOP') {
+      state.shopTile=player.position;
+      state.shopOffer=true;
+      log(state,`${player.name} arrived at a robot shop. Enter or skip?`);
+      return;
+    }
   }
-  player.position=(previous+steps)%TILES.length;
-  if(state.shopAccess)log(state,`${player.name} reached a robot shop along the route. Shopping is available until leaving the shop or ending the turn.`);
-  state.dice=dice; state.rolled=true;
-  log(state,`${player.name} rolled ${dice[0]} + ${dice[1]} and moved to tile ${player.position+1}.`);
-  if(previous+dice[0]+dice[1]>=TILES.length) {
-    player.gold+=START_GOLD;
-    log(state,`${player.name} passed the Robot Center (+${START_GOLD} G).`);
-  }
+  state.pendingSteps=0;
+  state.shopOffer=false;
+  state.shopTile=null;
+  log(state,`${player.name} completed movement on tile ${player.position+1}.`);
   resolveTile(state,player,random);
   if(netWorth(state,player)>=WIN_ASSETS){
-    state.winnerId=player.id;state.phase='finished';
+    state.winnerId=player.id;
+    state.phase='finished';
     log(state,`${player.name} wins with ${netWorth(state,player)} G in total assets!`);
-    return;
   }
 }
 function endTurn(state:GameState):void {
+  if(state.shopOffer || state.shopAccess || (state.pendingSteps??0)>0)
+    throw new GameError('Finish or skip the shop encounter before ending this turn.');
   state.currentPlayerIndex=(state.currentPlayerIndex+1)%state.players.length;
-  state.rolled=false; state.dice=null; state.shopAccess=false;
+  state.rolled=false;
+  state.dice=null;
+  state.shopAccess=false;
+  state.shopOffer=false;
+  state.shopTile=null;
+  state.pendingSteps=0;
   if(state.currentPlayerIndex===0)state.turn++;
 }
 function resolveTile(state:GameState,player:Player,random:Random):void {
@@ -286,11 +366,18 @@ function autoPlayBots(state:GameState,random:Random):void {
     const bot=currentPlayer(state);
     if(!bot.robot.mission && bot.gateCards>0 && bot.robot.energy>=10){ const spot=state.islandSpots.find(s=>!s.depleted);if(spot)sendRobot(state,bot,spot.id); }
     rollAndResolve(state,random);
-    if(state.phase==='playing' && state.shopAccess && bot.gold>=GATE_PRICE && bot.gateCards<2)buyGate(state,bot);
-    if(state.phase==='playing') endTurn(state);
+    let safetyShops=0;
+    while(state.phase==='playing' && state.shopOffer && safetyShops++<14) {
+      if(bot.gold>=GATE_PRICE && bot.gateCards<2) {
+        enterShop(state,bot);
+        buyGate(state,bot);
+        closeShop(state,bot,random);
+      } else skipShop(state,bot,random);
+    }
+    if(state.phase==='playing' && !state.shopOffer && !state.shopAccess && !(state.pendingSteps??0)) endTurn(state);
   }
 }
 export const PROVISIONAL_RULES = {
   startingGold:START_GOLD, winAssets:WIN_ASSETS, gatePrice:GATE_PRICE,
-  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, robotSearchFormula:'provisional'
+  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, energyCellPrice:200, repairKitPrice:280, resaleRate:0.6, robotSearchFormula:'provisional'
 } as const;

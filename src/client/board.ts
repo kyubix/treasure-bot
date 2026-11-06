@@ -32,21 +32,22 @@ export class BoardScene extends Phaser.Scene {
   private movement?:Phaser.Tweens.Tween;
   private lastMotionPaint=0;
 
-  constructor(private readonly onSelect:(id:string)=>void) {super('Board');}
+  constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
+  isMoving():boolean{return Boolean(this.movement?.isPlaying());}
   create():void {this.scale.on('resize',()=>this.paint());this.paint();}
   setMatch(value:GameState):void {
     const previous=this.match;
     const actor=value.players[value.currentPlayerIndex];
     const earlier=previous?.players.find(p=>p.id===actor?.id);
-    const freshRoll=Boolean(this.view==='board'&&previous&&earlier&&actor&&
-      previous.phase==='playing'&&!previous.rolled&&value.rolled&&value.dice&&
+    const movementSegment=Boolean(this.view==='board'&&previous&&earlier&&actor&&
+      previous.phase==='playing'&&value.phase==='playing'&&value.rolled&&value.dice&&
       previous.currentPlayerIndex===value.currentPlayerIndex &&
       earlier.position!==actor.position);
     this.match=value;
-    if(freshRoll&&earlier&&actor&&value.dice&&this.sys.isActive()&&
+    if(movementSegment&&earlier&&actor&&value.dice&&this.sys.isActive()&&
        !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
       this.movement?.stop();
-      const steps=value.dice[0]+value.dice[1];
+      const steps=(actor.position-earlier.position+TILES.length)%TILES.length;
       this.travelingPlayer=actor.id;
       this.visualPosition=earlier.position;
       this.movement=this.tweens.addCounter({
@@ -66,6 +67,7 @@ export class BoardScene extends Phaser.Scene {
           this.travelingPlayer=null;
           this.movement=undefined;
           this.paint();
+          this.onTravelEnd();
         }
       });
     }else if(this.sys.isActive())this.paint();
@@ -300,13 +302,14 @@ export class BoardScene extends Phaser.Scene {
   }
 }
 
-export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{
+export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTravelEnd:()=>void=()=>{}):{
   update(state:GameState):void;
   select(id:string):void;
   setView(mode:GameView):void;
+  isMoving():boolean;
   destroy():void;
 }{
-  const scene=new BoardScene(onSelect);
+  const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
     type:Phaser.AUTO,parent:element,backgroundColor:'#245879',
     scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
@@ -316,6 +319,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{
     update(state){scene.setMatch(state);},
     select(id){scene.selectSpot(id);},
     setView(mode){scene.setView(mode);},
+    isMoving(){return scene.isMoving();},
     destroy(){game.destroy(true);}
   };
 }

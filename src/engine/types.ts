@@ -10,7 +10,7 @@ export interface Robot { chassis: RobotType; energy: number; mission: RobotMissi
 export interface Treasure { id: string; name: string; value: number; category: string }
 export interface Player {
   id: string; name: string; color: string; isBot: boolean; position: number;
-  gold: number; gateCards: number; robot: Robot; inventory: Treasure[];
+  gold: number; gateCards: number; repairKits?: number; robot: Robot; inventory: Treasure[];
 }
 export interface Gallery { tile: number; ownerId: string | null; displayed: Treasure[] }
 export interface GameLog { id: number; message: string; turn: number }
@@ -19,6 +19,8 @@ export interface GameState {
   players: Player[]; galleries: Gallery[]; currentPlayerIndex: number;
   turn: number; version: number; rolled: boolean; dice: [number, number] | null;
   winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
+  /** The route is paused at a shop until its owner chooses to enter or pass. */
+  shopOffer?: boolean; pendingSteps?: number; shopTile?: number | null;
 }
 export type GameAction =
   | { type: 'START'; bots: number }
@@ -26,6 +28,11 @@ export type GameAction =
   | { type: 'END_TURN' }
   | { type: 'BUY_GATE_CARD' }
   | { type: 'CLOSE_SHOP' }
+  | { type: 'ENTER_SHOP' }
+  | { type: 'SKIP_SHOP' }
+  | { type: 'BUY_SUPPLY'; supply: 'ENERGY_CELL' | 'REPAIR_KIT' }
+  | { type: 'SELL_TREASURE'; treasureId: string }
+  | { type: 'USE_REPAIR_KIT' }
   | { type: 'BUY_PART'; slot: PartSlot }
   | { type: 'RETURN_ROBOT' }
   | { type: 'DISPLAY_TREASURE'; treasureId: string }
