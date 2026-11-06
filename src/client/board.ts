@@ -3,7 +3,7 @@ import { TILES } from '../engine/types.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
 import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
-import { drawWorldIsland, WORLD_GRASS_TEXTURE_KEY, WORLD_GRASS_TEXTURE_URL } from './world-map.ts';
+import { drawWorldIsland } from './world-map.ts';
 
 export type GameView = 'board' | 'world';
 
@@ -55,10 +55,6 @@ export class BoardScene extends Phaser.Scene {
         this.paint();
       }
     });
-  }
-  preload():void {
-    // Static visual-only asset; a failed load falls back to procedural grass.
-    this.load.image(WORLD_GRASS_TEXTURE_KEY,WORLD_GRASS_TEXTURE_URL);
   }
   create():void {this.scale.on('resize',()=>this.paint());this.paint();}
   setMatch(value:GameState):void {
