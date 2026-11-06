@@ -76,6 +76,16 @@ describe('faithful gameplay vertical slice',()=>{
    expect(s.pendingSteps).toBe(0);
    expect(()=>applyAction(s,'a',{type:'ENTER_SHOP'})).toThrow();
  });
+ it('stores launch position A for the lifetime of the expedition',()=>{
+   const s=setup();
+   const p=s.players[0];
+   p.position=6;p.gateCards=1;
+   applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'});
+   expect(p.robot.mission?.launchTile).toBe(6);
+   applyAction(s,'a',{type:'ROLL'},()=>0);
+   expect(p.position).toBe(8);
+   expect(p.robot.mission?.launchTile).toBe(6);
+ });
  it('marks provisional values separately',()=>{
    expect(PROVISIONAL_RULES.galleryFeeRatio).toBe(.2);
    expect(PROVISIONAL_RULES.robotSearchFormula).toBe('provisional');
