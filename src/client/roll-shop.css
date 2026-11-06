@@ -130,7 +130,22 @@
   white-space:nowrap!important;border:0!important;
 }
 @media (max-width:900px) {
+  /* CSS baseline .match-grid has align-items:start. In flex column mode,
+     that prevents .board-shell from stretching: its absolute child has no
+     intrinsic width, collapsing the entire stage to a 20px vertical line. */
+  body.in-game #match[data-view="board"] .match-grid,
+  body.in-game #match[data-view="world"] .match-grid {
+    align-items:stretch!important;
+    justify-content:flex-start;
+    width:100%!important;
+    min-width:0!important;
+  }
   body.in-game #match .board-shell {
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    align-self:stretch!important;
+    box-sizing:border-box;
     /* The Phaser parent must NOT take intrinsic height from its canvas. */
     position:relative!important;
     min-height:0!important;
