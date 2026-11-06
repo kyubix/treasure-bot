@@ -14,9 +14,6 @@ import type { Point } from './world-map-geometry.ts';
  * This is a lightweight 2.5D diorama, NOT a 3D model or copyrighted game art.
  * Four camera orientations rotate the map without changing logical tile IDs.
  */
-// This asset is a grass *surface*, not a replacement for logical map geometry.
-export const WORLD_GRASS_TEXTURE_KEY='world-grass-terrain-01-v2';
-export const WORLD_GRASS_TEXTURE_URL='/assets/worldmap/terrain/wm_tile_grass_01_v2.webp';
 const point=(x:number,y:number)=>new Phaser.Geom.Point(x,y);
 const TILE_COLORS={START:0xffd56b,SHOP:0xf8d06d,GALLERY:0xb4e9f6,
   EVENT:0xeaaaee,SUPPORT:0x92f0a3,PLAIN:0x8fb9f6} as const;
@@ -200,6 +197,49 @@ function coast(g:Phaser.GameObjects.Graphics,cx:number,cy:number,rx:number,ry:nu
   g.fillStyle(fill);
   g.fillPoints(ring,true);
 }
+/**
+ * Lightweight procedural grass detail, drawn as Phaser vectors. Points are
+ * generated once from deterministic model-space coordinates and transformed
+ * through the same quarter-turn convention as mapProjection().
+ * No downloaded textures, sprites or independent camera images are involved.
+ */
+function drawProceduralGrass(
+  g:Phaser.GameObjects.Graphics,
+  cx:number,cy:number,rx:number,ry:number,rotation:number
+):void{
+  const turns=((rotation%4)+4)%4;
+  const scale=clamp(rx/165,.74,1.34);
+  for(let i=0;i<108;i++){
+    const angle=hash(i*2.31+17)*Math.PI*2;
+    const radius=Math.sqrt(hash(i*3.87+21))*.86;
+    let u=Math.cos(angle)*radius,v=Math.sin(angle)*radius;
+    for(let k=0;k<turns;k++)[u,v]=[-v,u];
+    const x=cx+u*rx*.92,y=cy-11+v*ry*.84;
+    const size=(2.2+hash(i*.71+5)*2.8)*scale;
+    // Subtle underpainting imitates a hand-painted meadow at mobile scale.
+    g.fillStyle(i%3===0?0x3e9460:0x9aca79,.45);
+    g.fillEllipse(x,y,size*4.4,size*1.25);
+    if(i%16===0){
+      // Tiny clusters of white meadow flowers, independent from Gallery data.
+      for(let p=0;p<3;p++){
+        const fx=x+(p-1)*size*.62,fy=y+(p%2)*size*.18;
+        g.fillStyle(0x335e3e,.40);g.fillEllipse(fx,fy+size*.32,size*1.9,size*.55);
+        g.fillStyle(0xfff9dc);
+        g.fillCircle(fx-size*.25,fy,size*.40);
+        g.fillCircle(fx+size*.25,fy,size*.40);
+        g.fillCircle(fx,fy-size*.27,size*.40);
+        g.fillStyle(0xf5cf5b);g.fillCircle(fx,fy,size*.23);
+      }
+    }else{
+      // Three leaf blades each with a soft highlight and common ground anchor.
+      g.fillStyle(i%4===0?0x2c7651:0x3e9756,.88);
+      g.fillTriangle(x-size*.58,y+size*.18,x-size*.69,y-size*1.35,x,y+size*.26);
+      g.fillTriangle(x,y+size*.19,x+size*.05,y-size*1.85,x+size*.48,y+size*.24);
+      g.fillStyle(0x9fd16b,.75);
+      g.fillTriangle(x+size*.12,y+size*.18,x+size*.87,y-size*1.12,x+size*.52,y+size*.31);
+    }
+  }
+}
 function drawSea(g:Phaser.GameObjects.Graphics,w:number,h:number):void{
   g.fillGradientStyle(0x1a7eb2,0x1784ba,0x0b5e91,0x0d5a8d,1);
   g.fillRect(0,0,w,h);
@@ -245,28 +285,9 @@ export function drawWorldIsland(args:{
   g.fillStyle(0x438e63);g.fillEllipse(cx+rx*.27,cy+ry*.18,rx*1.30,ry*.89);
   g.fillStyle(0xa3d27b,.37);g.fillEllipse(cx-rx*.23,cy-ry*.24,rx*.72,ry*.48);
 
-  // Repeat the approved grass surface at every camera angle. Island details
-  // rotate via projected coordinates; the grass material is view-independent.
-  if(scene.textures.exists(WORLD_GRASS_TEXTURE_KEY)){
-    const tileW=Math.max(84,Math.min(160,rx*.8));
-    const tileH=tileW*288/512;
-    const grassTiles=scene.add.container(0,0);
-    parent.add(grassTiles);
-    for(let u=-8;u<=8;u++)for(let v=-8;v<=8;v++){
-      const x=cx+(u-v)*tileW*.5;
-      const y=cy-11+(u+v)*tileH*.5;
-      if(Math.abs(x-cx)>rx*.9+tileW*.5||Math.abs(y-(cy-11))>ry*.85+tileH*.5)continue;
-      // A one-pixel overlap hides antialiased cracks without changing anchors.
-      grassTiles.add(scene.add.image(x,y,WORLD_GRASS_TEXTURE_KEY)
-        .setDisplaySize(tileW+1,tileH+1));
-    }
-    const stencil=scene.add.graphics();
-    stencil.fillStyle(0xffffff);
-    stencil.fillEllipse(cx,cy-11,rx*1.77,ry*1.70);
-    stencil.setVisible(false);
-    parent.add(stencil); // Destroyed together with the redraw container.
-    grassTiles.setMask(stencil.createGeometryMask());
-  }
+  // Procedural grass is part of the same rotating master-space scenery.
+  // The former AI-generated WebP is intentionally not loaded or rendered.
+  drawProceduralGrass(g,cx,cy,rx,ry,rotation);
 
   // Everything above is scenery; all landmarks, board spaces, missions and
   // touch targets remain on their original logical/projection coordinates.
