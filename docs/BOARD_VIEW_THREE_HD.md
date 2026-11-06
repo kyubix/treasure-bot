@@ -1,5 +1,16 @@
 # Board View Three.js HD — first playable implementation
 
+> **2026-11-06 correction superseding prior tile-color wording:** Base
+> colors encode the PLAYER (P1 blue, P2 green, P3 magenta, P4 yellow),
+> not Gallery No.N or tile type. Gallery numbers stay on the white top
+> plates; special tile categories are distinguished by icons/trim/FX.
+> Forward movement must appear RIGHT→LEFT in Board View without reversing
+> server tile ordering. See `docs/BOARD_VIEW_VNEXT_IMPLEMENTATION_PLAN.md`
+> for the B01–B07 task plan. The code is NOT yet updated for this correction;
+> exact tile→player assignment is unverified.
+
+
+
 Date: 2026-11-06. Directly on GitHub **main**, based on the user's four screenshots
 of a classic board-game close-up (numbered white top cells, colored lower
 cells, characters on the track, and a scenic landmark behind the path).

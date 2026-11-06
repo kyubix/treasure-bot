@@ -1,5 +1,28 @@
 # AI Agent Handoff — Treasure Bots
 
+## Approved 2026-11-06 Board View correction — READ FIRST
+
+User corrected earlier review: the **base tile colors are player identities**:
+P1 **blue**, P2 **green**, P3 **magenta**, P4 **yellow**. Colors are NOT
+inherently Shop/Gallery/Event/Start/Support category colors, and Gallery
+No.1 is NOT Player 1. Distinguish tile type through numbers/frames/icons/FX
+on top of the player-colored base. Do not infer exact tile→player assignment
+from the screenshots: that mapping is not confirmed.
+
+Normal advancement must be presented **right to left** in Board View,
+while engine/TILES order and gameplay rules remain authoritative and
+unchanged. Shop/Gallery/encounter facades remain hidden while traveling and
+only appear on a matching landed tile. HD/stylized (not necessarily PS1).
+
+**Mandatory next-work task breakdown:** `docs/BOARD_VIEW_VNEXT_IMPLEMENTATION_PLAN.md`
+(B01–B07). These tasks are **not yet implemented**; prior type/color-based
+`boardVisualColor()`, `GALLERY_COLORS` and engine `COLORS` currently do
+not match the corrected design. Fix them in a staged, testable update after
+resolving the exact tile→player association. Preserve existing Three.js,
+Phaser fallback and production flow via direct main commits.
+
+
+
 Read this FIRST before changing assets or gameplay. The older README describes v0.2 and is stale. This note summarizes user-confirmed decisions as of 2026-11-06.
 
 ## Mandatory reference order

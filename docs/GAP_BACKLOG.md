@@ -1,5 +1,30 @@
 # Gap Backlog — Treasure Bots
 
+## Approved Board View corrections / next planned tasks (2026-11-06)
+
+- **B01 [P0]** Player palette: P1 blue, P2 green, P3 magenta,
+  P4 yellow. Base panel colors are player-related, **not** tied to
+  Gallery number or Shop/Start/Event/Support type. Existing engine
+  `COLORS`, `boardVisualColor()` and `GALLERY_COLORS` need separation.
+  Exact tile→player association is **unverified**; don't fabricate it.
+- **B02 [P0]** Visual step progression must be right→left on the
+  close-up Board View; keep the server TILES order/roll mechanics untouched.
+- **B03 [P0]** Large Gallery/board numbers on white top plates, player
+  colors on lower panels, special-category identity via icons/trim/FX,
+  never use color alone as a tile-type legend.
+- **B04 [P1]** Original high-quality HD multi-depth background by biome.
+  Do not move encounter facades with the avatar.
+- **B05 [P1]** Avatar walk/idle and robot trailing/hover/walk synced to
+  authoritative tween; face forward left in Board View.
+- **B06 [P2]** State-confirmed arrival overlays (ticket/recovery/etc.)
+  separate from permanent scenery; screenshot is not proof of game rules.
+- **B07 [P0]** CI, Cloudflare build + real Android tests, room recovery,
+  multiplayer, Phaser fallback, World 360° drag.
+- Technical file-level details, acceptance tests, dependencies and open
+  questions: `docs/BOARD_VIEW_VNEXT_IMPLEMENTATION_PLAN.md`.
+- **Status: PLAN ONLY.** None of these corrections is marked implemented.
+
+
 Updated 2026-11-06. Read AGENTS.md, docs/GALLERY_SYSTEM_SPEC.md and docs/WORLD_MAP_ASSETS_V1.md before coding.
 
 ## Numbered Gallery implementation — 2026-11-06
