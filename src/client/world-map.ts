@@ -411,19 +411,13 @@ export function drawWorldIsland(args:{
         const dx=((i*3)%7-3)*6.5*scale;
         const dy=(Math.floor(i/3)-1)*8.8*scale;
         const treeRadius=(l.size+(i%3-1)*2.2)*scale;
-        // Decorative anchor offsets follow the model through every rotation.
-        // Invert the screen-projection offsets into world coords for this turn
-        // rather than accepting a tree that changes or disappears on rotation.
-        const px=x+dx,py=y+dy;
-        const screenUnitX=rx/5.5,screenUnitY=ry/5.5;
-        const a=dx/screenUnitX,b=dy/screenUnitY;
-        let wx=l.x+(a+b)*.5,wy=l.y+(b-a)*.5;
-        for(let j=0;j<((4-rotation%4)%4);j++){
-          const relX=wx-l.x,relY=wy-l.y;
-          wx=l.x+relY;wy=l.y-relX;
-        }
-        if(treeTouchesWater(wx,wy,treeRadius))continue;
-        tree(g,px,py,treeRadius,i);
+        // Store every decorative tree in the same logical map coordinates.
+        // Reproject the offset rather than moving the screen-space silhouette.
+        const a=dx/(rx/5.5),b=dy/(ry/5.5);
+        const worldX=l.x+(a+b)*.5,worldY=l.y+(b-a)*.5;
+        if(treeTouchesWater(worldX,worldY,treeRadius))continue;
+        const pt=mapProjection(worldX,worldY,rotation,center,rx,ry);
+        tree(g,pt.x,pt.y,treeRadius,i);
       }
     }
   }
