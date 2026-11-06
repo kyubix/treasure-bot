@@ -1,5 +1,9 @@
 import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory, terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from './island.ts';
 import { ROBOTS, TILES } from './types.ts';
+import {
+  GALLERY_CAPACITY, galleryNumberAt, galleryForNumber, galleryForTile,
+  newGalleries, ensureGallerySchema, playerDisplay
+} from './gallery.ts';
 import type { GameAction, GameLog, GameState, Player, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
 
 export type Random = () => number;
@@ -29,19 +33,21 @@ export function createPlayer(id: string, name: string, isBot = false, colorIndex
   return {
     id, name: name.trim().slice(0, 22) || 'Explorer', color: COLORS[colorIndex % COLORS.length], isBot,
     position: 0, gold: START_GOLD, gateCards: 0, repairKits: 0,
-    robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [], parts:{HEAD:false,BODY:false,ARM:false,LEG:false} }, inventory: []
+    robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [], parts:{HEAD:false,BODY:false,ARM:false,LEG:false} }, inventory: [],pendingGalleryTreasureIds:[]
   };
 }
 export function newGame(code: string, player: Player): GameState {
   return {
     code, hostId: player.id, phase: 'lobby', players: [player],
-    galleries: TILES.flatMap((tile, i) => tile === 'GALLERY' ? [{tile:i, ownerId:null, displayed: []}] : []),
+    galleries: newGalleries(),
     currentPlayerIndex:0, turn:1, version:1, rolled:false, dice:null, winnerId:null, islandSpots:initialIsland(), shopAccess:false, shopOffer:false, pendingSteps:0, shopTile:null, logs: [{id:1, turn:1, message:'Room created. Invite friends or add bots.'}]
   };
 }
 export function netWorth(state: GameState, player: Player): number {
   const treasure = player.inventory.reduce((n, item)=>n+item.value,0);
-  const galleryValue = state.galleries.filter(g=>g.ownerId===player.id).reduce((n,g)=>n+g.displayed.reduce((v,t)=>v+t.value,0),0);
+  ensureGallerySchema(state);
+  const galleryValue = state.galleries.reduce((n,g)=>
+    n+playerDisplay(g,player.id).reduce((v,t)=>v+t.value,0),0);
   return player.gold + treasure + galleryValue + player.robot.cargo.reduce((n,item)=>n+item.value,0);
 }
 export function currentPlayer(state: GameState): Player {
@@ -64,6 +70,7 @@ export function addGuest(state: GameState, player: Player): void {
   state.version++;
 }
 export function applyAction(state: GameState, actorId: string, action: GameAction, random:Random=Math.random): GameState {
+  ensureGallerySchema(state);
   if (action.type==='START') {
     if (state.phase!=='lobby') throw new GameError('Game has already started.');
     if (actorId!==state.hostId) throw new GameError('Only the host can start.');
@@ -74,7 +81,6 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
       state.players.push(createPlayer(`bot-${idx}-${state.code}`, `CPU ${idx+1}`, true, idx));
     }
     if(state.players.length<2) throw new GameError('At least two participants are required. Add a bot.');
-    state.galleries.forEach((gallery,i)=>{gallery.ownerId=state.players[i % state.players.length].id;});
     state.phase='playing';
     log(state, 'The expedition begins!');
     // CPU turns are resolved in durable, visible steps by the room alarm.
@@ -82,8 +88,11 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     return state;
   }
   if(state.phase!=='playing') throw new GameError('The game is not in progress.');
-  const player = currentPlayer(state);
-  if(player.id !== actorId || player.isBot) throw new GameError('It is not your turn.');
+  const galleryAction=action.type==='DISPLAY_TREASURE' ||
+    action.type==='SELL_INCOMING_TREASURE' || action.type==='REARRANGE_GALLERY';
+  const player=galleryAction?state.players.find(p=>p.id===actorId):currentPlayer(state);
+  if(!player||player.isBot||(!galleryAction&&player.id!==actorId))
+    throw new GameError('It is not your turn.');
   switch(action.type) {
     case 'ROLL': if (state.rolled) throw new GameError('You have already rolled this turn.'); rollAndResolve(state,random); break;
     case 'END_TURN': if (!state.rolled) throw new GameError('Roll dice before ending your turn.'); endTurn(state); break;
@@ -97,7 +106,12 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     case 'SELL_TREASURE': sellTreasure(state,player,action.treasureId); break;
     case 'USE_REPAIR_KIT': useRepairKit(state,player); break;
     case 'BUY_PART': buyPart(state,player,action.slot); break;
-    case 'DISPLAY_TREASURE': displayTreasure(state,player,action.treasureId); break;
+    case 'DISPLAY_TREASURE':
+      displayTreasure(state,player,action.treasureId,action.galleryNumber,action.replaceTreasureId);break;
+    case 'SELL_INCOMING_TREASURE':
+      sellIncomingTreasure(state,player,action.treasureId);break;
+    case 'REARRANGE_GALLERY':
+      rearrangeGallery(state,player,action.galleryNumber,action.fromIndex,action.toIndex);break;
     default: throw new GameError('Unknown action.');
   }
   state.version++;
@@ -203,14 +217,69 @@ function buyPart(state:GameState,player:Player,slot:PartSlot):void{
   if(slot==='BODY')player.robot.energy+=PART_BONUS.BODY.energy??0;
   log(state,`${player.name} equipped improved ${slot.toLowerCase()} (+25 stat, provisional balance).`);
 }
-function displayTreasure(state:GameState, player:Player, treasureId:string):void {
-  const gallery=state.galleries.find(g=>g.ownerId===player.id && g.displayed.length<10);
-  if(!gallery) throw new GameError('You need an owned gallery with an empty display slot.');
-  const idx=player.inventory.findIndex(t=>t.id===treasureId);
-  if(idx<0) throw new GameError('Treasure not found in your inventory.');
-  const [treasure]=player.inventory.splice(idx,1);
-  gallery.displayed.push(treasure);
-  log(state,`${player.name} displayed ${treasure.name} in a gallery.`);
+/** Resale formula is PROVISIONAL. No user-owned item is moved elsewhere. */
+const resale=(value:number):number=>Math.floor(value*.6);
+
+function forgetPending(player:Player,treasureId:string):void{
+  player.pendingGalleryTreasureIds=(
+    player.pendingGalleryTreasureIds??[]).filter(id=>id!==treasureId);
+}
+function displayTreasure(state:GameState,player:Player,treasureId:string,
+  galleryNumber:number,replaceTreasureId?:string):void{
+  const gallery=galleryForNumber(state,galleryNumber);
+  if(!gallery)throw new GameError('Choose a valid Gallery number.');
+  const inventoryIndex=player.inventory.findIndex(t=>t.id===treasureId);
+  if(inventoryIndex<0)throw new GameError('Treasure not found in your inventory.');
+  const displays=playerDisplay(gallery,player.id);
+  if(displays.some(t=>t.id===treasureId))throw new GameError('Treasure is already displayed.');
+  if(displays.length>=GALLERY_CAPACITY){
+    if(!replaceTreasureId)throw new GameError('Gallery is full: replace an item or sell incoming treasure.');
+    const oldIndex=displays.findIndex(t=>t.id===replaceTreasureId);
+    if(oldIndex<0)throw new GameError('Replacement item does not belong to this Gallery.');
+    const incoming=player.inventory[inventoryIndex];
+    const displaced=displays[oldIndex];
+    const payout=resale(displaced.value);
+    // Atomic under the Durable Object transaction. The displaced treasure is
+    // permanently sold, never returned to inventory/another gallery.
+    displays[oldIndex]=incoming;
+    player.inventory.splice(inventoryIndex,1);
+    player.gold+=payout;
+    forgetPending(player,treasureId);
+    log(state,`${player.name} replaced ${displaced.name} in Gallery No.${galleryNumber}, selling it for ${payout} G.`);
+    return;
+  }
+  if(replaceTreasureId)throw new GameError('Replacement is only allowed when Gallery is full.');
+  const [incoming]=player.inventory.splice(inventoryIndex,1);
+  if(!gallery.displaysByPlayerId[player.id])gallery.displaysByPlayerId[player.id]=[];
+  gallery.displaysByPlayerId[player.id].push(incoming);
+  forgetPending(player,treasureId);
+  log(state,`${player.name} displayed ${incoming.name} in Gallery No.${galleryNumber}.`);
+}
+
+function sellIncomingTreasure(state:GameState,player:Player,treasureId:string):void{
+  if(!(player.pendingGalleryTreasureIds??[]).includes(treasureId))
+    throw new GameError('Only newly returned treasure can be sold directly.');
+  const index=player.inventory.findIndex(t=>t.id===treasureId);
+  if(index<0)throw new GameError('Incoming treasure not found.');
+  const incoming=player.inventory[index],payout=resale(incoming.value);
+  player.inventory.splice(index,1);
+  player.gold+=payout;
+  forgetPending(player,treasureId);
+  log(state,`${player.name} sold newly recovered ${incoming.name} for ${payout} G.`);
+}
+function rearrangeGallery(state:GameState,player:Player,number:number,
+  fromIndex:number,toIndex:number):void{
+  const gallery=galleryForNumber(state,number);
+  if(!gallery)throw new GameError('Unknown Gallery.');
+  if(galleryNumberAt(player.position)!==number)
+    throw new GameError('Stand on a tile of this Gallery to rearrange items.');
+  const items=playerDisplay(gallery,player.id);
+  if(!Number.isInteger(fromIndex)||!Number.isInteger(toIndex)||
+    fromIndex<0||toIndex<0||fromIndex>=items.length||toIndex>=items.length||
+    fromIndex===toIndex)
+    throw new GameError('Invalid Gallery slot selection.');
+  [items[fromIndex],items[toIndex]]=[items[toIndex],items[fromIndex]];
+  log(state,`${player.name} rearranged Gallery No.${number}.`);
 }
 function robotTick(state:GameState,player:Player,random:Random):void {
   const m=player.robot.mission;
@@ -288,9 +357,23 @@ function robotTick(state:GameState,player:Player,random:Random):void {
     m.turnsRemaining--;
     if(m.turnsRemaining>0)return;
     if(player.robot.cargo.length){
-      player.inventory.push(...player.robot.cargo);
-      log(state,`${player.name}'s robot delivered ${player.robot.cargo.length} treasure item(s).`);
+      const delivered=[...player.robot.cargo];
+      player.inventory.push(...delivered);
+      player.pendingGalleryTreasureIds??=[];
+      player.pendingGalleryTreasureIds.push(...delivered.map(t=>t.id));
+      log(state,`${player.name}'s robot delivered ${delivered.length} treasure item(s); choose a Gallery number.`);
       player.robot.cargo=[];
+      if(player.isBot){
+        // Bots have no human dialog: choose a display row with spare space.
+        // If all five are full, sell only the newly recovered item.
+        for(const loot of delivered){
+          const best=state.galleries
+            .filter(g=>playerDisplay(g,player.id).length<GALLERY_CAPACITY)
+            .sort((a,b)=>playerDisplay(a,player.id).length-playerDisplay(b,player.id).length)[0];
+          if(best)displayTreasure(state,player,loot.id,best.number);
+          else sellIncomingTreasure(state,player,loot.id);
+        }
+      }
     }else log(state,`${player.name}'s robot returned to base.`);
     player.robot.mission=null;
   }
@@ -356,12 +439,19 @@ function endTurn(state:GameState):void {
 function resolveTile(state:GameState,player:Player,random:Random):void {
   const tile=TILES[player.position];
   if(tile==='GALLERY') {
-    const gallery=state.galleries.find(g=>g.tile===player.position)!;
-    if(gallery.ownerId && gallery.ownerId!==player.id) {
-      const owner=state.players.find(p=>p.id===gallery.ownerId)!;
-      const value=gallery.displayed.reduce((sum,t)=>sum+t.value,0);
-      const fee=Math.min(player.gold,Math.floor(value*0.2));
-      if(fee>0){player.gold-=fee;owner.gold+=fee;log(state,`${player.name} paid ${fee} G to visit ${owner.name}'s gallery.`);}
+    const gallery=galleryForTile(state,player.position);
+    if(gallery){
+      // PROVISIONAL 20% visitor fee applies to every opponent's own row,
+      // rather than a former exclusive tile owner.
+      for(const owner of state.players){
+        if(owner.id===player.id)continue;
+        const value=playerDisplay(gallery,owner.id).reduce((sum,t)=>sum+t.value,0);
+        const fee=Math.min(player.gold,Math.floor(value*.2));
+        if(fee>0){
+          player.gold-=fee;owner.gold+=fee;
+          log(state,`${player.name} paid ${fee} G for ${owner.name}'s Gallery No.${gallery.number}.`);
+        }
+      }
     }
   }else if(tile==='SUPPORT') {
     player.gold+=200;log(state,`${player.name} received a 200 G support bonus.`);

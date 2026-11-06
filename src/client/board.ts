@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
+import {galleryNumberAt,GALLERY_COLORS,playerDisplay} from '../engine/gallery.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
 import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
@@ -413,10 +414,9 @@ export class BoardScene extends Phaser.Scene {
         const idx=(leftTile+col+TILES.length*8)%TILES.length;
         const tile=TILES[idx];
         const x=(col-fraction)*stride;
-        const gallery=state.galleries.find(q=>q.tile===idx);
-        const owner=gallery?.ownerId?state.players.find(p=>p.id===gallery.ownerId):null;
-        let color=owner?asColor(owner.color):TILE_COLORS[tile];
-        if(tile==='GALLERY' && !owner)color=idx%2?0xe5f5ff:0xc0eaf9;
+        const galleryNumber=galleryNumberAt(idx);
+        const gallery=galleryNumber?state.galleries.find(q=>q.number===galleryNumber):undefined;
+        const color=galleryNumber?asColor(GALLERY_COLORS[galleryNumber]):TILE_COLORS[tile];
         g.fillStyle(color,1);
         g.fillPoints([
           pt(x+3*s,roadTop+2*s),
@@ -437,8 +437,15 @@ export class BoardScene extends Phaser.Scene {
         if(tile==='SHOP'){
           g.fillStyle(0x3458b7);g.fillRect(x+6*s,roadTop+10*s,stride-12*s,30*s);
           this.text(parent,x+stride/2,roadTop+25*s,'SHOP',Math.max(12,17*s),'#fff987');
+        }else if(galleryNumber){
+          this.text(parent,x+stride/2,roadTop+15*s,'GALLERY',Math.max(8,10*s),'#30435d',true);
+          this.text(parent,x+stride/2,roadTop+46*s,String(galleryNumber),
+            Math.max(24,31*s),'#1d3c57',true);
+          const count=gallery?playerDisplay(gallery,me?.id??'').length:0;
+          this.text(parent,x+stride/2,roadBottom-18*s,
+            String(count)+'/10',Math.max(9,11*s),'#375064',true);
         }else{
-          this.text(parent,x+stride/2,roadTop+33*s,tile==='GALLERY'?String(idx+1):ICON[tile],
+          this.text(parent,x+stride/2,roadTop+33*s,ICON[tile],
             Math.max(13,19*s),'#1c4b66');
         }
         const standing=state.players.filter(p=>p.id===this.travelingPlayer?focus===idx:p.position===idx);

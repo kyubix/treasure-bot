@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {TILES} from '../engine/types.ts';
+import {galleryNumberAt,GALLERY_COLORS} from '../engine/gallery.ts';
 import type {GameState} from '../engine/types.ts';
 
 /**
@@ -101,6 +102,54 @@ function makeTileMarkers():THREE.Mesh{
   mesh.name='worldmap-tile-type-markers';
   return mesh;
 }
+/**
+ * Seven-segment digits are native 3D geometry. Their depth is tested against
+ * mountains, landmark models and the board, with no screen-space label drift.
+ */
+export function makeGalleryDigits():THREE.Mesh{
+  const glyph:Record<string,number[]>={
+    '1':[1,2],'2':[0,1,6,4,3],'3':[0,1,6,2,3],
+    '4':[5,6,1,2],'5':[0,5,6,2,3]
+  };
+  const segments=[
+    [-.05,.092,.05,.092],[.052,.09,.052,.0],[.052,0,.052,-.09],
+    [-.05,-.093,.05,-.093],[-.052,0,-.052,-.09],
+    [-.052,.09,-.052,0],[-.05,0,.05,0]
+  ];
+  const pos:number[]=[],idx:number[]=[];
+  const width=.022;
+  for(let tile=0;tile<STEPS;tile++){
+    const n=galleryNumberAt(tile);if(!n)continue;
+    const angle=ANGLE_OFFSET+tile/STEPS*Math.PI*2;
+    // Tangent is the left/right glyph axis. Radial is glyph vertical.
+    const tangent=new THREE.Vector2(-Math.sin(angle),Math.cos(angle));
+    const radial=new THREE.Vector2(Math.cos(angle),Math.sin(angle));
+    const centre=new THREE.Vector2(Math.cos(angle)*3.48,Math.sin(angle)*3.48);
+    const add=(x:number,z:number)=>{
+      const p=centre.clone().addScaledVector(tangent,x).addScaledVector(radial,z);
+      pos.push(p.x,.573,p.y);
+    };
+    for(const part of glyph[String(n)]){
+      const [x1,y1,x2,y2]=segments[part];
+      const dx=x2-x1,dy=y2-y1;
+      const len=Math.hypot(dx,dy);
+      const nx=-dy/len*width/2,ny=dx/len*width/2;
+      const o=pos.length/3;
+      add(x1+nx,y1+ny);add(x2+nx,y2+ny);
+      add(x2-nx,y2-ny);add(x1-nx,y1-ny);
+      idx.push(o,o+1,o+2,o,o+2,o+3);
+    }
+  }
+  const geom=new THREE.BufferGeometry();
+  geom.setIndex(idx);
+  geom.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  geom.computeVertexNormals();
+  const m=new THREE.Mesh(geom,new THREE.MeshBasicMaterial({
+    color:0x23364a,side:THREE.DoubleSide,depthTest:true,depthWrite:true
+  }));
+  m.name='worldmap-gallery-numbers';
+  return m;
+}
 export function createWorldBoard3D(scene:THREE.Scene):WorldBoard3D{
   const group=new THREE.Group();
   group.name='worldmap-board-3d';
@@ -118,6 +167,7 @@ export function createWorldBoard3D(scene:THREE.Scene):WorldBoard3D{
   top.name='worldmap-board-colors';
   top.receiveShadow=true;group.add(top);
   group.add(makeTileMarkers());
+  group.add(makeGalleryDigits());
   scene.add(group);
   let previous:string[]=[];
   const color=new THREE.Color();
@@ -125,9 +175,15 @@ export function createWorldBoard3D(scene:THREE.Scene):WorldBoard3D{
     group,
     sync(state){
       const palette=TILES.map((type,i)=>{
-        const owner=state?.galleries.find(g=>g.tile===i)?.ownerId;
-        const player=owner?state?.players.find(p=>p.id===owner):undefined;
-        return player?.color??('#'+BASE_COLOURS[type].toString(16).padStart(6,'0'));
+        const number=galleryNumberAt(i);
+        if(!number)return '#'+BASE_COLOURS[type].toString(16).padStart(6,'0');
+        const gallery=state?.galleries.find(g=>g.number===number);
+        const occupied=gallery?Object.values(gallery.displaysByPlayerId)
+          .reduce((n,row)=>n+row.length,0):0;
+        const c=new THREE.Color(GALLERY_COLORS[number]);
+        // A subtle fill highlight, while preserving stable number identity.
+        if(occupied)c.lerp(new THREE.Color(0xffe6b1),Math.min(.18,occupied*.009));
+        return '#'+c.getHexString();
       });
       if(palette.every((c,i)=>c===previous[i]))return;
       previous=palette;

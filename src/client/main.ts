@@ -6,6 +6,9 @@ import './dispatch.css';
 import './cpu-turns.css';
 import './shop-encounter.css';
 import './world-hud.css';
+import './gallery-dialog.css';
+import {mountGalleryDialog} from './gallery-dialog.ts';
+import {gallerySlotTotal} from '../engine/gallery.ts';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
 import { getRobotStats } from '../engine/game.ts';
@@ -88,7 +91,7 @@ root.innerHTML=`
         </div>
         <div class="world-titlebar"><strong>🏝️ <span data-i18n="worldTitle"></span></strong><span id="worldTurn"></span></div>
       </div>
-      <div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div id="cpuStatus" class="cpu-status" role="status" aria-live="polite" hidden></div>
+      <div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="openGallery" class="hud-tool" type="button" aria-label="Numbered Galleries" title="Numbered Galleries">▤</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div id="cpuStatus" class="cpu-status" role="status" aria-live="polite" hidden></div>
     <div id="robotDispatch" class="robot-dispatch" hidden aria-hidden="true">
       <div class="dispatch-stage">
         <div class="dispatch-portal">
@@ -165,6 +168,7 @@ root.innerHTML=`
     <div id="message" class="toast" role="status" aria-live="polite" hidden></div>
   </main><footer><span data-i18n="rules"></span></footer>`;
 const el=<T = HTMLElement>(id:string):T=>document.getElementById(id) as unknown as T;
+const galleryDialog=mountGalleryDialog(root,action=>sendAction(action),()=>lang);
 function translate():void{
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(node=>{ const key=node.dataset.i18n as keyof typeof translations.en;if(translations[lang][key])node.textContent=t(key);});
   el<HTMLSelectElement>('langSelect').value=lang;
@@ -416,6 +420,7 @@ function render():void {
   if(!playing&&infoOpen)setInfoOpen(false);
   if(!playing&&shopOpen)setShopOpen(false);
   if(!playing&&shopDecisionOpen)setShopDecisionOpen(false);
+  if(!playing)galleryDialog.close();
   if(!active)return;
   const s=state!;
   if(!s.rolled){lastShopSteps=0;lastShopOffer='';}
@@ -460,8 +465,8 @@ function render():void {
   if(!s.shopOffer&&shopDecisionOpen)setShopDecisionOpen(false);
   syncShop();
   el('players').innerHTML=s.players.map((p,i)=>{
-    const galleries=s.galleries.filter(g=>g.ownerId===p.id).length;
-    return `<div class="person ${i===s.currentPlayerIndex?'current':''}"><span class="dot" style="background:${p.color}"></span><div class="person-info"><strong>${escapeHtml(p.name)} ${p.isBot?'🤖':''}</strong><small>${t('gold')}: ${p.gold.toLocaleString()} G · ${t('gallery')}: ${galleries}</small><small>${t('energy')}: ${p.robot.energy} · ${t('cards')}: ${p.gateCards}</small></div></div>`;
+    const galleryItems=gallerySlotTotal(s,p.id);
+    return `<div class="person ${i===s.currentPlayerIndex?'current':''}"><span class="dot" style="background:${p.color}"></span><div class="person-info"><strong>${escapeHtml(p.name)} ${p.isBot?'🤖':''}</strong><small>${t('gold')}: ${p.gold.toLocaleString()} G · ${t('gallery')}: ${galleryItems}/50</small><small>${t('energy')}: ${p.robot.energy} · ${t('cards')}: ${p.gateCards}</small></div></div>`;
   }).join('');
   const self=s.players.find(p=>p.id===s.yourId);
   if(self){
@@ -482,7 +487,8 @@ function render():void {
     // Robot overview is read-only. Equipment purchases happen exclusively inside a shop encounter.
   }
   el('inventory').innerHTML=self?.inventory.length?self.inventory.map(item=>`<div class="item"><div><strong>${escapeHtml(item.name)}</strong><small>${item.value} G · ${escapeHtml(item.category)}</small></div><button class="tiny secondary" data-treasure="${escapeHtml(item.id)}">${t('display')}</button></div>`).join(''):'<p class="muted">No treasures yet. Send your robot to explore!</p>';
-  document.querySelectorAll<HTMLButtonElement>('[data-treasure]').forEach(btn=>btn.onclick=()=>void sendAction({type:'DISPLAY_TREASURE',treasureId:btn.dataset.treasure!}));
+  document.querySelectorAll<HTMLButtonElement>('[data-treasure]').forEach(btn=>
+    btn.onclick=()=>galleryDialog.open(s,btn.dataset.treasure!));
   el('feed').innerHTML=[...s.logs].reverse().slice(0,16).map(item=>`<p><span class="log-turn">#${item.turn}</span> ${escapeHtml(item.message)}</p>`).join('');
   const canAct=mine&&s.phase==='playing';
   el('boardCommands').hidden=isWorld;
@@ -505,7 +511,13 @@ function render():void {
   el<HTMLButtonElement>('openShop').disabled=!canAct||!s.rolled||!s.shopAccess||cinematicPlaying;
   el<HTMLButtonElement>('openShop').classList.toggle('shop-available',Boolean(canAct&&s.shopAccess));
   syncShop();
-  for(const btn of document.querySelectorAll<HTMLButtonElement>('[data-treasure]'))btn.disabled=!canAct;
+  for(const btn of document.querySelectorAll<HTMLButtonElement>('[data-treasure]'))
+    btn.disabled=s.phase!=='playing';
+  el<HTMLButtonElement>('openGallery').disabled=s.phase!=='playing';
+  galleryDialog.update(s);
+  const ownPending=self?.pendingGalleryTreasureIds?.find(id=>self.inventory.some(t=>t.id===id));
+  if(ownPending&&!galleryDialog.isOpen()&&!shopOpen&&!shopDecisionOpen&&!cinematicPlaying)
+    galleryDialog.open(s,ownPending);
   if(!board){
     board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();},()=>{if(state)render();});
     requestAnimationFrame(()=>{if(state){board?.setView(viewMode);board?.update(state);}});
@@ -556,6 +568,7 @@ function init():void {
   document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDiceHold();});
   el<HTMLButtonElement>('end').onclick=()=>void sendAction({type:'END_TURN'});
   el<HTMLButtonElement>('openWorld').onclick=()=>{setInfoOpen(false);viewMode='world';render();};
+  el<HTMLButtonElement>('openGallery').onclick=()=>{if(state)galleryDialog.open(state);};
   el<HTMLButtonElement>('backBoard').onclick=()=>{setInfoOpen(false);viewMode='board';render();};
   el<HTMLButtonElement>('rotateLeft').onclick=()=>board?.rotateMap(-1);
   el<HTMLButtonElement>('rotateRight').onclick=()=>board?.rotateMap(1);
@@ -601,12 +614,13 @@ function init():void {
     if(event.key!=='Escape')return;
     if(shopDecisionOpen)el<HTMLButtonElement>('shopSkip').click();
     else if(shopOpen)el<HTMLButtonElement>('shopLeave').click();
+    else if(galleryDialog.isOpen())galleryDialog.close();
     else if(settingsOpen)setSettingsOpen(false);
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',threePreviewParam?'/?map3d=1':'/');status(false);render();};
-  el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',threePreviewParam?'/?map3d=1':'/');status(false);render();};
+  el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();if(state)galleryDialog.update(state);};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){
     el<HTMLInputElement>('roomInput').value=code;

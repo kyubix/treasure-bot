@@ -1,6 +1,6 @@
 # Gallery System — Approved Gameplay Specification
 
-Status: USER CONFIRMED through 2026-11-06; features below are not yet implemented in the current engine.
+Status: USER CONFIRMED rules as of 2026-11-06. Numbered Gallery implementation is now in progress; exact tile mapping, original visitor fee distribution, Treasure Sets and bonus formulas remain UNVERIFIED.
 
 ## Crucial difference: tile number vs building
 Gallery No.N is a NUMBER MARKED ON A COLORED PERIMETER BOARD SPACE. No Gallery No.1/2/3/etc buildings exist as fixed island-interior landmarks in the World Map. A Gallery facade MAY appear in a board close-up when interacting with the tile, separately from World Map scenery. A Treasure Set is a collection of items and is NOT the same as a Gallery number.
@@ -25,7 +25,39 @@ User-confirmed capacity applies to each displaysByPlayerId row. Actual TypeScrip
 Important actions: choose target Gallery, place, replace-and-sell, sell incoming, location-validated rearrange.
 Validate item identity, owner, gallery number, capacity, replay ID, current phase, atomic sale price and saved-room compatibility.
 
-## Verified current code mismatch
+
+## Implemented feature contract (V1 numbered Gallery)
+
+- A **provisional** mapping groups the twenty existing Gallery tiles into five
+  numbers (No.1–5), four consecutive board spaces per number, in
+  `src/engine/gallery.ts`. This is a playable approximation only:
+  **actual Glint Glitters number placement has not been established**.
+- World Map Three.js uses depth-tested 3D numbers on those board tiles;
+  Phaser fallback and Board View render the same numbers from one mapping.
+- Server `Gallery` state has independent `displaysByPlayerId` rows, with ten
+  slots each, in each numbered Gallery. Old single-owner gallery data is
+  migrated to numbered rows: displaced over-capacity historical assets
+  are returned to the rightful player's inventory, not destroyed.
+- Robot delivery adds newly recovered IDs to
+  `Player.pendingGalleryTreasureIds`. The owner selects a numbered Gallery
+  regardless of their board position or current turn; the mobile dialog
+  opens automatically upon a new delivered item.
+- If full, select old item X -> server atomically sells X at the current
+  **PROVISIONAL** resale rate (60%) and replaces the same slot with T.
+  Or sell newly delivered T directly, without a shop requirement.
+  No overflow stash or cross-gallery transfer through replacement.
+- Rearrangement swaps positions **only within the same Gallery row** while
+  avatar is on a board tile carrying that exact Gallery number. Cross-Gallery
+  transfers and Treasure Set bonuses remain unimplemented pending verified
+  source rules.
+- Visitor fee: while original exact distribution is unverified, the prototype
+  currently transfers 20% of each opponent's displayed treasure value in the
+  visited numbered Gallery, bounded by visitor's remaining gold.
+- Transactions execute in a Durable Object storage transaction guarded by
+  `expectedVersion`; replaying a placement/sale with the same item ID fails.
+  CPU players use deterministic minimum-occupancy gallery placement.
+
+## Historical code mismatch (before numbered Gallery implementation)
 - src/engine/types.ts Gallery = { tile, ownerId, displayed[] }: one owner per tile, not four player rows.
 - TILES contains many unnumbered GALLERY spaces, no No.1..No.N ID mapping.
 - src/engine/game.ts creates a Gallery for each such space and assigns one owner per Gallery at START.

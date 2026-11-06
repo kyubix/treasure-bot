@@ -2,6 +2,20 @@
 
 Updated 2026-11-06. Read AGENTS.md, docs/GALLERY_SYSTEM_SPEC.md and docs/WORLD_MAP_ASSETS_V1.md before coding.
 
+## Numbered Gallery implementation — 2026-11-06
+- G01–G04: implemented as a first playable pass, including provisional
+  No.1–5 repeated board tile mapping, per-player rows of ten items, explicit
+  destination choice, full-gallery replace+immediate sell or direct sale,
+  and server-side replay/ownership checks.
+- G05: in-gallery reorder implemented and restricted to standing on a matching
+  numbered board tile; cross-Gallery rearrangement remains unverified.
+- G06: Treasure Set catalog/bonus mechanics **not implemented** without
+  verified source data.
+- Older exclusive-gallery room state migrates on load; any over-capacity
+  historical treasures are preserved in player inventory.
+- These notes supersede the status of G01–G05 in the historical backlog below;
+  mapping and economic assumptions remain provisional.
+
 ## P0 — blocked on new model / must fix
 - G01: NO numbered Gallery IDs in perimeter TILES. Add Gallery No.N numbers on board cells. Exact tile-to-number mapping still to be verified.
 - G02: Gallery currently has exclusive ownerId + one displayed array. Replace with 10-slot collections PER PLAYER PER numbered Gallery.

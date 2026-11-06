@@ -11,8 +11,16 @@ export interface Treasure { id: string; name: string; value: number; category: s
 export interface Player {
   id: string; name: string; color: string; isBot: boolean; position: number;
   gold: number; gateCards: number; repairKits?: number; robot: Robot; inventory: Treasure[];
+  /** Treasure just delivered by robot; awaiting an explicit Gallery or sale choice. */
+  pendingGalleryTreasureIds?:string[];
 }
-export interface Gallery { tile: number; ownerId: string | null; displayed: Treasure[] }
+/** A numbered Gallery contains an independent 10-slot row for EVERY player. */
+export interface Gallery {
+  number:number;
+  /** Canonical first board tile of this number; other tiles share the ID. */
+  tile:number;
+  displaysByPlayerId:Record<string,Treasure[]>;
+}
 export interface GameLog { id: number; message: string; turn: number }
 export interface GameState {
   code: string; hostId: string; phase: 'lobby' | 'playing' | 'finished';
@@ -37,7 +45,9 @@ export type GameAction =
   | { type: 'USE_REPAIR_KIT' }
   | { type: 'BUY_PART'; slot: PartSlot }
   | { type: 'RETURN_ROBOT' }
-  | { type: 'DISPLAY_TREASURE'; treasureId: string }
+  | { type: 'DISPLAY_TREASURE'; treasureId: string; galleryNumber: number; replaceTreasureId?:string }
+  | { type: 'SELL_INCOMING_TREASURE'; treasureId:string }
+  | { type: 'REARRANGE_GALLERY'; galleryNumber:number; fromIndex:number; toIndex:number }
   | { type: 'SEND_ROBOT'; siteId: string };
 export interface GameRequest { token: string; expectedVersion: number; action: GameAction }
 export type PublicPlayer = Omit<Player, never>;

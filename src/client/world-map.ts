@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
+import {galleryNumberAt,GALLERY_COLORS} from '../engine/gallery.ts';
 import type { GameState, Player } from '../engine/types.ts';
 import { expeditionProgress } from '../engine/island.ts';
 import type { Ground } from '../engine/island.ts';
@@ -459,9 +460,8 @@ export function drawWorldIsland(args:{
         point(b.x-nx*thick,b.y-ny*thick),point(a.x-nx*thick,a.y-ny*thick)
       ];
     }
-    const owner=state?.galleries.find(item=>item.tile===i)?.ownerId;
-    const home=owner?state?.players.find(pl=>pl.id===owner):undefined;
-    const paint=home?color(home.color):TILE_COLORS[TILES[i]];
+    const galleryNo=galleryNumberAt(i);
+    const paint=galleryNo?color(GALLERY_COLORS[galleryNo]):TILE_COLORS[TILES[i]];
     // Golden-raised board trim and state-driven colored top face.
     g.fillStyle(0x355161,.80);
     g.fillPoints(shape.map(a=>point(a.x+1.2,a.y+4.5*scale)),true);
@@ -469,6 +469,12 @@ export function drawWorldIsland(args:{
     g.fillPoints(shape.map(a=>point(a.x,a.y+2.5*scale)),true);
     g.fillStyle(paint,1);g.fillPoints(shape,true);
     g.lineStyle(1.5,0xfff8d5,.92);g.strokePoints(shape,true);
+    if(galleryNo){
+      // Phaser fallback also prints the true Gallery NUMBER on the tile.
+      // The Three preview gets physically depth-tested number geometry.
+      drawLabel(scene,parent,p.x,p.y,String(galleryNo),
+        Math.max(9,13*scale),'#263952','#f9f5cf');
+    }
     if(TILES[i]==='SHOP'||TILES[i]==='START'){
       g.fillStyle(TILES[i]==='START'?0xffef95:0xc26f40);
       g.fillCircle(p.x,p.y,3.4*scale);

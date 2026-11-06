@@ -12,6 +12,23 @@ Read this FIRST before changing assets or gameplay. The older README describes v
 - Read `docs/WORLD_MAP_V5.md` for the opt-in Three.js V5 model pipeline, animation/state contract, performance budgets, verification and remaining Android QA.
 - `world-map-models.ts` is the source for generated glTF; regenerate and test both assets after changing it. Never change server rules to drive cosmetic animation.
 
+## Numbered Gallery System — implementation/handoff
+
+- Read `src/engine/gallery.ts` for **provisional** five-number / four-tiles-
+  per-number board mapping; same helper drives Three and Phaser labels.
+  Do NOT assert that tile positions or original fee details are verified.
+- `Gallery.displaysByPlayerId` holds independent 10-slot collections per
+  player in each numbered Gallery, replacing the old single `ownerId`.
+- Robot delivery prompts gallery selection irrespective of tile location;
+  full Gallery requires replace + immediate server sale or sale of newly
+  returned loot. Reordering is limited to the matching Gallery tile.
+- Existing old-room Gallery arrays migrate to the new schema; overflow
+  historical items return to inventory. See docs/GALLERY_SYSTEM_SPEC.md.
+- Treasure Sets and cross-gallery transfers are still open/unverified.
+- Gallery dialog lives in `src/client/gallery-dialog.ts`; server, UI,
+  Three board digit meshes, Phaser fallback and bot action tests all use
+  the numbered mapping. Keep no-numbered-gallery-buildings rule.
+
 ## Critical correction (confirmed by latest PS1 screenshot)
 - Gallery No.1/2/3 etc are NUMBERS DIRECTLY ON COLORED PERIMETER BOARD TILES. They are NOT buildings inside the island.
 - Previous AI-generated concept with Gallery No.1–5 landmark buildings inside the island is INCORRECT; do not reuse it as geography.

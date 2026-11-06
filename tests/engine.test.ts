@@ -10,8 +10,10 @@ describe('faithful gameplay vertical slice',()=>{
  });
  it('assigns galleries to player colors, no real estate purchase',()=>{
    const s=setup();expect(TILES).toHaveLength(28);
-   expect(s.galleries).toHaveLength(20);
-   expect(s.galleries[0].ownerId).toBe('a');expect(s.galleries[1].ownerId).toBe('b');
+   expect(s.galleries).toHaveLength(5);
+   expect(s.galleries[0].number).toBe(1);
+   expect(s.galleries[1].number).toBe(2);
+   expect(s.galleries[0].displaysByPlayerId).toEqual({});
  });
  it('has coordinates for treasure icons and keeper encounters',()=>{
    const sites=initialIsland();expect(sites.some(s=>s.kind==='TREASURE')).toBe(true);
@@ -35,7 +37,7 @@ describe('faithful gameplay vertical slice',()=>{
    expect(s.players[0].robot.mission?.siteId).toBe('relic');
  });
  it('charges 20% of displayed value for landing at opponent gallery',()=>{
-   const s=setup();s.galleries[1].displayed.push({id:'r',name:'Ruby',category:'Gems',value:1500});
+   const s=setup();s.galleries[0].displaysByPlayerId.b=[{id:'r',name:'Ruby',category:'Gems',value:1500}];
    applyAction(s,'a',{type:'ROLL'},()=>0);
    expect(s.players[0].gold).toBe(2100);expect(s.players[1].gold).toBe(2700);
  });

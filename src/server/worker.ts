@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { applyAction, addGuest, createPlayer, GameError, newGame, advanceBotStep, currentPlayer } from '../engine/game.ts';
 import type { GameAction, GameState, PublicState } from '../engine/types.ts';
+import {ensureGallerySchema} from '../engine/gallery.ts';
 
 interface Env { GAME_ROOMS: DurableObjectNamespace<GameRoom>; ASSETS: Fetcher }
 type Sessions = Record<string, string>; // bearer token => player id; never sent in snapshots
@@ -22,6 +23,9 @@ function ensureCurrentRoom(state:GameState):void {
       !Array.isArray(state.players) || state.players.some(p => !p.robot || !Array.isArray(p.robot.cargo))) {
     throw new GameError('This room uses the old v0.1 game format. Please create a new room to play v0.2.');
   }
+  // Convert legacy exclusive tile galleries into per-player numbered rows.
+  // Applying a subsequent action persists the normalized state atomically.
+  ensureGallerySchema(state);
 }
 function snapshot(state:GameState, yourId:string):PublicState {return {...state,yourId};}
 function randomCode():string {
