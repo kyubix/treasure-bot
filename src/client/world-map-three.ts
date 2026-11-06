@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type {GameState} from '../engine/types.ts';
+import {createWorldActors} from './world-map-actors.ts';
 import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
 import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from './world-map-terrain.ts';
 
@@ -19,6 +21,8 @@ export function boardTileWorldPosition(index:number,radius=3.48,elevation=.49):T
   return new THREE.Vector3(Math.cos(angle)*radius,elevation,Math.sin(angle)*radius);
 }
 export interface WorldThreeLayer {
+  readonly actors3D:true;
+  syncActors(state:GameState|null):void;
   draw(width:number,height:number):boolean;
   projectSite(x:number,y:number,elevation?:number):ScreenPoint;
   projectTile(index:number,elevation?:number):ScreenPoint;
@@ -277,6 +281,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const ocean=createAnimatedOcean(scene);
   const land=island(scene);
+  // The same coordinates drive both the 3D characters and the 2D overlays.
+  // No per-angle screenspace offsets or actor images are needed.
+  const actors=createWorldActors(scene,{
+    tile:index=>boardTileWorldPosition(index),
+    site:(x,y)=>siteWorldPosition(x,y)
+  });
   const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
   let yaw=Math.PI/4;
   let pitch=56*Math.PI/180;
@@ -285,19 +295,26 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   const focus=new THREE.Vector3(0,.38,0);
   let lastW=0,lastH=0,dead=false,contextIsLost=false;
   let waterFrame=0,waterRunning=false,lastWaterPaint=-Infinity;
+  let lastActorFrame=-Infinity;
   let viewVisible=false;
   const stopWater=()=>{
     waterRunning=false;
     if(waterFrame)cancelAnimationFrame(waterFrame);
     waterFrame=0;
+    lastActorFrame=-Infinity;
   };
-  // The sea moves on the Three canvas only; Phaser hit targets do not need
+  // The sea and the chibi rigs move on the Three canvas only; Phaser hit
+  // targets do not need
   // repainting or event re-binding every 24 fps.
   const waterTick=(timeMs:number)=>{
     waterFrame=0;
     if(!waterRunning||dead||contextIsLost||document.hidden)return;
     if(timeMs-lastWaterPaint>=WAVE_INTERVAL_MS){
       lastWaterPaint=timeMs;
+      const delta=Number.isFinite(lastActorFrame)?
+        Math.min(.06,(timeMs-lastActorFrame)/1000):0;
+      lastActorFrame=timeMs;
+      actors.update(delta);
       ocean.update(timeMs/1000);
       try{renderer.render(scene,camera);}
       catch{stopWater();canvas.style.display='none';return;}
@@ -363,6 +380,8 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   canvas.addEventListener('webglcontextrestored',contextRestored);
 
   const stage:WorldThreeLayer={
+    actors3D:true,
+    syncActors(state){if(!dead)actors.sync(state);},
     draw(width,height){
       if(dead||contextIsLost)return false;
       const w=Math.round(width),h=Math.round(height);
@@ -421,6 +440,9 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       document.removeEventListener('visibilitychange',visibilityChanged);
       canvas.removeEventListener('webglcontextlost',contextLost);
       canvas.removeEventListener('webglcontextrestored',contextRestored);
+      // Actors dispose their private geometry/materials and detach from
+      // the scene before the static-environment disposal walk.
+      actors.dispose();
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
         if(o instanceof THREE.Mesh || o instanceof THREE.Line){

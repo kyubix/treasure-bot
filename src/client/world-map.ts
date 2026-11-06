@@ -499,7 +499,10 @@ export function drawWorldIsland(args:{
     // Make the fixed dispatch point visible even after the owner moves away.
     g.fillStyle(0xffd57f,.34);g.fillCircle(start.x,start.y,7.5*scale);
     g.lineStyle(2,0xffffff,.95);g.strokeCircle(start.x,start.y,5.2*scale);
-    robot(g,p.x,p.y,11*scale,color(player.color));
+    // V4: live robot mesh is drawn by Three.js from the same server mission.
+    // Keep the procedural Phaser robot only for fallback mode.
+    if(!args.project3D?.actors3D)
+      robot(g,p.x,p.y,11*scale,color(player.color));
   }
 
   // Locations are user-selectable. Do not bake targets or character positions
@@ -536,8 +539,11 @@ export function drawWorldIsland(args:{
       const ordinal=state.players.filter(other=>other.position===pl.position).indexOf(pl);
       const x=p.x+(ordinal%2===0?-8:9)*scale;
       const y=p.y+((ordinal/2)|0)*10*scale;
-      avatar(g,x,y,10*scale,color(pl.color));
-      if(!pl.robot.mission)robot(g,x+14*scale,y+2*scale,7*scale,color(pl.color));
+      if(!args.project3D?.actors3D){
+        avatar(g,x,y,10*scale,color(pl.color));
+        if(!pl.robot.mission)
+          robot(g,x+14*scale,y+2*scale,7*scale,color(pl.color));
+      }
     }
   }
 }

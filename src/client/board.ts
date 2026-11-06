@@ -241,7 +241,17 @@ export class BoardScene extends Phaser.Scene {
     this.display=container;
     if(this.view==='world'){
       // When WebGL cannot initialize, continue with the full Phaser map.
-      const rendered3D=this.threeLayer?.draw(w,h)??false;
+      // Update actual Three.js chibi models from the authoritative match
+      // before drawing; keep Phaser actors as fallback on any WebGL failure.
+      let rendered3D=false;
+      if(this.threeLayer){
+        try{
+          this.threeLayer.syncActors(this.match);
+          rendered3D=this.threeLayer.draw(w,h);
+        }catch{
+          rendered3D=false;
+        }
+      }
       if(!rendered3D)this.threeLayer?.visible(false);
       this.world(container,w,h,rendered3D);
     }else{

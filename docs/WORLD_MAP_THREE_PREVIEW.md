@@ -58,6 +58,38 @@ new original implementation `src/client/world-map-water.ts`.
 - The animated plane uses a 56×56 segment grid to limit CPU/GPU load.
 - `tests/world-map-water.test.ts` verifies water movement and stable buffers.
 
+## V4 — animated Three.js player and robot models
+
+This phase promotes **only the World Map characters and robot companions**
+from Phaser sprites to real low-poly Three.js meshes. It keeps Board View,
+the world board tiles and interactive target hit areas in Phaser. This is
+intentional so no gameplay/turn mechanics are migrated together with visuals.
+
+- `src/client/world-map-actors.ts` creates original PS1-style chibi player
+  rigs and small robot models, each keyed by the server's stable player ID.
+  Character idle/bob motion uses `THREE.AnimationClip`,
+  `THREE.NumberKeyframeTrack` and `THREE.AnimationMixer`.
+- `GameState.players[].position` anchors each player mesh to the existing
+  exact 3D board tile coordinates, including multiple players on one tile.
+- Robot models follow the real `robot.mission`, including its immutable
+  `launchTile`, destination site and discrete phase/progress. Client
+  interpolation only smooths the appearance; it never mutates game state.
+- `src/client/world-map-three.ts` updates actors on the existing capped
+  24 FPS ocean render loop. It stops on Board View, hidden tab and cleanup.
+  No extra animation controls, camera buttons or gameplay actions.
+- When Three.js is rendering and actors are available, Phaser suppresses
+  only its own player/robot drawings; mission routes, board, target markers,
+  tap areas, player ownership and the normal Phaser fallback remain intact.
+- No external GLB, rig files, paid models or third-party character assets
+  have been imported. Model swaps can later use animated glTF/GLB clips
+  without rewriting server state mapping.
+- `tests/world-map-actors.test.ts` verifies unique persistent meshes,
+  idle animation, multiple players in one tile, and launch origin A.
+
+**Preview:** `https://treasure.endeavor.lt/?map3d=1`; the URL without
+`map3d=1` still uses the complete Phaser World Map. V4 requires Android
+visual/performance QA before it becomes the default.
+
 ## QA gates
 1. GitHub Actions: smoke, unit, TypeScript build, and new heightfield tests.
 2. Verify Cloudflare deploy to the *actual* production host independently:
