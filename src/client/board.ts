@@ -109,8 +109,12 @@ export class BoardScene extends Phaser.Scene {
         this.threeLayer.zoom(Math.log(distance/this.lastPinchDistance));
       this.lastPinchDistance=distance;
       this.orbitMoved=100;
-    }else{
+    }else if(this.orbitMoved>=8){
+      // Do not repaint or destroy an interactive hit circle on tiny touch
+      // jitter: otherwise its pointerup tap event can be lost on Android.
       this.threeLayer.orbit(-dx,dy);
+    }else{
+      return;
     }
     if(this.time.now-this.lastOrbitPaint>=33){
       this.lastOrbitPaint=this.time.now;
