@@ -1,5 +1,34 @@
 # AI Agent Handoff — Treasure Bots
 
+## IMPLEMENTED — configurable 3/4/5 numbered Gallery maps (2026-11-06)
+
+- Host selects **Small / Medium / Large** in Lobby before START. A new
+  `START.galleryCount: 3 | 4 | 5` creates and persists immutable
+  `state.board` with 29 / 38 / 47 tiles respectively. Every Gallery
+  No.N has exactly **8 contiguous GALLERY spaces**, shared visual
+  order **1P blue x2, 2P green x2, 4P yellow x2, 3P magenta x2**.
+  Gallery number is independent of player identity and display ownership.
+- New `src/engine/board-layout.ts` builds layouts; all rules use
+  `boardTiles(state)` and `galleryNumberAt(tile,state)`, replacing
+  static `TILES.length` assumptions where needed.
+- World Map 3D ring rebuilds meshes and Gallery glyphs on map changes;
+  3D actor positions, camera projection and Phaser fallback all use the
+  persisted number of tiles. Board View and Gallery modal use the same
+  server-owned map, player palette and gallery count.
+- SPECIAL spaces (START, SHOP, EVENT, SUPPORT) have provisional
+  placements, not a verified original game route. All current economics
+  and shop pass-through behavior remain authoritative on the server.
+- **OLD ROOMS** without `state.board` keep the previous 28-cell,
+  5-Gallery layout; they are NOT renumbered/recolored/reset by new map
+  code. Omitting START.galleryCount in legacy tests also opts out.
+- Other agreed future features STILL NOT IMPLEMENTED: selectable
+  avatar/color and slot order UX, selectable wealth/turn-limit win
+  condition, reverse-direction event and richer background art.
+- Validate tests and Cloudflare build, then MANUALLY verify Android
+  (3/4/5 maps, Gallery digits on 360° World Map, wraparound and robot
+  paths). Do not equate successful CI with proof the phone renders well.
+
+
 ## IMPLEMENTED: 2026-11-06 visual phase 1 (Android QA still needed)
 
 - `src/engine/player-palette.ts` provides default P1 blue, P2 green,

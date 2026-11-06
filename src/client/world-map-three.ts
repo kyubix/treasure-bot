@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {boardTiles} from '../engine/types.ts';
 import type {GameState} from '../engine/types.ts';
 import {createWorldBoard3D,BOARD_SURFACE_Y} from './world-map-board.ts';
 import {createCascadingWaterfall} from './world-map-waterfall.ts';
@@ -22,9 +23,9 @@ export function siteWorldPosition(x:number,y:number,elevation?:number):THREE.Vec
   const surfaceY=Math.max(.48,terrainHeight(wx,wz)+.10);
   return new THREE.Vector3(wx,elevation??surfaceY,wz);
 }
-export function boardTileWorldPosition(index:number,radius=3.48,elevation=BOARD_SURFACE_Y+.015):THREE.Vector3{
+export function boardTileWorldPosition(index:number,radius=3.48,elevation=BOARD_SURFACE_Y+.015,count=28):THREE.Vector3{
   // The first tile is at the camera-near end with the default 45° azimuth.
-  const angle=(index/28)*Math.PI*2+Math.PI/2-Math.PI/4;
+  const angle=(index/count)*Math.PI*2+Math.PI/2-Math.PI/4;
   return new THREE.Vector3(Math.cos(angle)*radius,elevation,Math.sin(angle)*radius);
 }
 export interface WorldThreeLayer {
@@ -291,11 +292,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   const land=island(scene);
   const waterfall=createCascadingWaterfall(land);
   const board3D=createWorldBoard3D(scene);
+  let tileCount=28;
   const ambience=createWorldAmbience(land,new THREE.Vector3(1.86,terrainHeight(1.86,2.28)+.63,2.28));
   // The same coordinates drive both the 3D characters and the 2D overlays.
   // No per-angle screenspace offsets or actor images are needed.
   const actors=createWorldActors(scene,{
-    tile:index=>boardTileWorldPosition(index),
+    tile:index=>boardTileWorldPosition(index,3.48,BOARD_SURFACE_Y+.015,tileCount),
     site:(x,y)=>siteWorldPosition(x,y)
   });
   const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
@@ -404,6 +406,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     board3D:true,
     syncActors(state){
       if(dead)return;
+      tileCount=boardTiles(state).length;
       actors.sync(state);
       board3D.sync(state);
     },
@@ -430,13 +433,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     },
     projectSite(x,y,elevation){return sitePoint(x,y,elevation);},
     projectTile(index,elevation=BOARD_SURFACE_Y+.015){
-      const theta=(index/28)*Math.PI*2+Math.PI/2;
-      const v=boardTileWorldPosition(index,3.48,elevation);
+      const v=boardTileWorldPosition(index,3.48,elevation,tileCount);
       return screen(v.x,v.y,v.z);
     },
     tilePolygon(index){
-      const theta=(index/28)*Math.PI*2+Math.PI/2;
-      const half=(Math.PI*2/28)*.48;
+      const theta=(index/tileCount)*Math.PI*2+Math.PI/2-Math.PI/4;
+      const half=(Math.PI*2/tileCount)*.465;
       const points=[
         tileWorld(theta-half,3.68,BOARD_SURFACE_Y),
         tileWorld(theta+half,3.68,BOARD_SURFACE_Y),

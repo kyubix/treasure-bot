@@ -20,28 +20,31 @@ export const GALLERY_TILE_NUMBERS:readonly (number|null)[]=TILES.map((type,tile)
 });
 export const GALLERY_NUMBERS=Array.from({length:GALLERY_COUNT},(_,i)=>i+1);
 
-export function galleryNumberAt(tile:number):number|null{
-  return Number.isInteger(tile)?GALLERY_TILE_NUMBERS[tile]??null:null;
+export function galleryNumberAt(tile:number,state?:GameState|null):number|null{
+ return Number.isInteger(tile)?(state?.board?.galleryNumbers??GALLERY_TILE_NUMBERS)[tile]??null:null;
 }
-export function galleryTile(number:number):number{
-  if(!Number.isInteger(number)||number<1||number>GALLERY_COUNT)
-    throw new Error('Unknown Gallery number.');
-  return galleryTiles.find(tile=>galleryNumberAt(tile)===number)!;
+export function galleryTile(number:number,state?:GameState|null):number{
+ const count=state?.board?.galleryCount??GALLERY_COUNT;
+ if(!Number.isInteger(number)||number<1||number>count)
+   throw new Error('Unknown Gallery number.');
+ return state?.board?state.board.galleryNumbers.indexOf(number):
+   galleryTiles.find(tile=>galleryNumberAt(tile)===number)!;
 }
-export function newGalleries():Gallery[]{
-  return GALLERY_NUMBERS.map(number=>({
-    number,tile:galleryTile(number),displaysByPlayerId:{}
-  }));
+export function newGalleries(state?:GameState|null):Gallery[]{
+ const count=state?.board?.galleryCount??GALLERY_COUNT;
+ return Array.from({length:count},(_,i)=>{
+   const number=i+1;return {number,tile:galleryTile(number,state),displaysByPlayerId:{}};
+ });
 }
 export function playerDisplay(gallery:Gallery,playerId:string):Treasure[]{
   return gallery.displaysByPlayerId[playerId]??[];
 }
 export function galleryForTile(state:GameState,tile:number):Gallery|null{
-  const number=galleryNumberAt(tile);
+  const number=galleryNumberAt(tile,state);
   return number===null?null:state.galleries.find(g=>g.number===number)??null;
 }
 export function galleryForNumber(state:GameState,number:number):Gallery|null{
-  return Number.isInteger(number)&&number>=1&&number<=GALLERY_COUNT?
+  return Number.isInteger(number)&&number>=1&&number<=(state.board?.galleryCount??GALLERY_COUNT)?
     state.galleries.find(g=>g.number===number)??null:null;
 }
 
@@ -50,14 +53,14 @@ export function ensureGallerySchema(state:GameState):boolean{
   const existing=state.galleries as (Gallery & {
     ownerId?:string|null;displayed?:Treasure[];tile:number;number?:number
   })[];
-  if(existing.length===GALLERY_COUNT &&
+  if(existing.length===(state.board?.galleryCount??GALLERY_COUNT) &&
      existing.every(g=>Number.isInteger(g.number)&&g.displaysByPlayerId &&
        typeof g.displaysByPlayerId==='object'&&!Array.isArray(g.displaysByPlayerId)))
     return false;
-  const next=newGalleries();
+  const next=newGalleries(state);
   for(const old of existing){
-    const number=old.number??galleryNumberAt(old.tile);
-    if(!number)continue;
+    const number=old.number??galleryNumberAt(old.tile,state);
+    if(!number||number>next.length)continue;
     const dest=next[number-1];
     const contributions=old.displaysByPlayerId??(
       old.ownerId&&Array.isArray(old.displayed)?{[old.ownerId]:old.displayed}:{}

@@ -1,5 +1,6 @@
 import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory, terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from './island.ts';
-import { ROBOTS, TILES } from './types.ts';
+import { ROBOTS, TILES, boardTiles } from './types.ts';
+import {generateBoardLayout,isGalleryCount} from './board-layout.ts';
 import {PLAYER_COLORS} from './player-palette.ts';
 import {
   GALLERY_CAPACITY, galleryNumberAt, galleryForNumber, galleryForTile,
@@ -82,6 +83,13 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
       state.players.push(createPlayer(`bot-${idx}-${state.code}`, `CPU ${idx+1}`, true, idx));
     }
     if(state.players.length<2) throw new GameError('At least two participants are required. Add a bot.');
+    // Explicit map selection is available to new matches only.
+    // Existing rooms and legacy START calls stay on the original 28-tile map.
+    if(action.galleryCount!==undefined){
+      if(!isGalleryCount(action.galleryCount))throw new GameError('Gallery count must be 3, 4, or 5.');
+      state.board=generateBoardLayout(action.galleryCount);
+      state.galleries=newGalleries(state);
+    }
     state.phase='playing';
     log(state, 'The expedition begins!');
     // CPU turns are resolved in durable, visible steps by the room alarm.
@@ -272,7 +280,7 @@ function rearrangeGallery(state:GameState,player:Player,number:number,
   fromIndex:number,toIndex:number):void{
   const gallery=galleryForNumber(state,number);
   if(!gallery)throw new GameError('Unknown Gallery.');
-  if(galleryNumberAt(player.position)!==number)
+  if(galleryNumberAt(player.position,state)!==number)
     throw new GameError('Stand on a tile of this Gallery to rearrange items.');
   const items=playerDisplay(gallery,player.id);
   if(!Number.isInteger(fromIndex)||!Number.isInteger(toIndex)||
@@ -401,13 +409,14 @@ function advanceMovement(state:GameState,player:Player,random:Random):void {
   // Movement is authoritative and pauses immediately on EVERY shop space,
   // including shops passed through before the destination.
   while((state.pendingSteps??0)>0) {
-    player.position=(player.position+1)%TILES.length;
+    const tiles=boardTiles(state);
+    player.position=(player.position+1)%tiles.length;
     state.pendingSteps!--;
-    if(TILES[player.position]==='START') {
+    if(tiles[player.position]==='START') {
       player.gold+=START_GOLD;
       log(state,`${player.name} passed Robot Center (+${START_GOLD} G).`);
     }
-    if(TILES[player.position]==='SHOP') {
+    if(tiles[player.position]==='SHOP') {
       state.shopTile=player.position;
       state.shopOffer=true;
       log(state,`${player.name} arrived at a robot shop. Enter or skip?`);
@@ -438,7 +447,7 @@ function endTurn(state:GameState):void {
   if(state.currentPlayerIndex===0)state.turn++;
 }
 function resolveTile(state:GameState,player:Player,random:Random):void {
-  const tile=TILES[player.position];
+  const tile=boardTiles(state)[player.position];
   if(tile==='GALLERY') {
     const gallery=galleryForTile(state,player.position);
     if(gallery){

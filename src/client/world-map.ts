@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILES } from '../engine/types.ts';
+import { TILES, boardTiles } from '../engine/types.ts';
 import {galleryNumberAt} from '../engine/gallery.ts';
 import {boardTileBaseColor} from '../engine/player-palette.ts';
 import type { GameState, Player } from '../engine/types.ts';
@@ -318,6 +318,7 @@ export function drawWorldIsland(args:{
   isPointerTap?:()=>boolean;
 }):void{
   const {scene,parent,width:w,height:h,state,rotation,selectedSpot,onSelect}=args;
+  const tiles=boardTiles(state);
   const cx=w*.5,cy=h*.535;
   const rx=Math.min(w*.40,280),ry=Math.min(h*.35,300);
   const center={x:cx,y:cy};
@@ -325,7 +326,7 @@ export function drawWorldIsland(args:{
   const sitePoint=(x:number,y:number)=>args.project3D?.projectSite(x,y) ??
     mapProjection(x,y,rotation,center,rx,ry);
   const tilePoint=(i:number)=>args.project3D?.projectTile(i) ??
-    perimeterPoint(i,center,rx*.97,ry*.92,rotation);
+    perimeterPoint(i,center,rx*.97,ry*.92,rotation,tiles.length);
   // Only static scenery switches renderer in Three preview. The entire
   // state-driven perimeter, routes, players and touch targets stay Phaser.
   let g=scene.add.graphics();parent.add(g);
@@ -440,15 +441,15 @@ export function drawWorldIsland(args:{
   // In Three preview, 3D depth-tested board meshes replace these flat tiles.
   // Phaser still renders interactive markers and robot route overlays.
   if(!args.project3D?.board3D){
-  for(let i=0;i<TILES.length;i++){
+  for(let i=0;i<tiles.length;i++){
     const p=tilePoint(i);
     let shape:Phaser.Geom.Point[];
     if(args.project3D){
       // All four corners come from the SAME camera as the 3D island.
       shape=args.project3D.tilePolygon(i).map(q=>point(q.x,q.y));
     }else{
-      const before=tilePoint((i+TILES.length-1)%TILES.length);
-      const after=tilePoint((i+1)%TILES.length);
+      const before=tilePoint((i+tiles.length-1)%tiles.length);
+      const after=tilePoint((i+1)%tiles.length);
       const a={x:(before.x+p.x)*.5,y:(before.y+p.y)*.5};
       const b={x:(after.x+p.x)*.5,y:(after.y+p.y)*.5};
       const tangent={x:b.x-a.x,y:b.y-a.y};
@@ -461,8 +462,8 @@ export function drawWorldIsland(args:{
         point(b.x-nx*thick,b.y-ny*thick),point(a.x-nx*thick,a.y-ny*thick)
       ];
     }
-    const galleryNo=galleryNumberAt(i);
-    const paint=color(boardTileBaseColor(i));
+    const galleryNo=galleryNumberAt(i,state);
+    const paint=color(boardTileBaseColor(i,state));
     // Golden-raised board trim and state-driven colored top face.
     g.fillStyle(0x355161,.80);
     g.fillPoints(shape.map(a=>point(a.x+1.2,a.y+4.5*scale)),true);
@@ -476,8 +477,8 @@ export function drawWorldIsland(args:{
       drawLabel(scene,parent,p.x,p.y,String(galleryNo),
         Math.max(9,13*scale),'#263952','#f9f5cf');
     }
-    if(TILES[i]==='SHOP'||TILES[i]==='START'){
-      g.fillStyle(TILES[i]==='START'?0xffef95:0xc26f40);
+    if(tiles[i]==='SHOP'||tiles[i]==='START'){
+      g.fillStyle(tiles[i]==='START'?0xffef95:0xc26f40);
       g.fillCircle(p.x,p.y,3.4*scale);
     }
   }

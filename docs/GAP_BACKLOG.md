@@ -1,5 +1,19 @@
 # Gap Backlog — Treasure Bots
 
+## Dynamic map selection — implemented phase 2 (2026-11-06)
+
+- Host selects 3, 4 or 5 numbered Galleries in the lobby; each
+  Gallery group uses 2x Blue, 2x Green, 2x Yellow, 2x Magenta.
+  29 / 38 / 47 board spaces including START / provisional special cells.
+- GameState.board is serialized for new games; old 28-tile rooms remain
+  unchanged. All board visual layers and robot path calculations now
+  use the board count from state. Shared Gallery row capacity remains
+  ten treasures per player per numbered Gallery.
+- Special tile placement still provisional; winning goals, pregame
+  avatar/color/seat choice, reverse events and HD background still TODO.
+- Requires manual Android viewport and gameplay QA even with green CI.
+
+
 ## New planned match mechanics (M01–M06) — 2026-11-06
 
 Source and architecture: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.

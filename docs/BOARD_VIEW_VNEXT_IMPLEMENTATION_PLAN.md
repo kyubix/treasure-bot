@@ -1,5 +1,25 @@
 # Board View — Next Implementation Plan (Player Colors, R→L, HD Polish)
 
+## Completed phase 2 — dynamic board layouts (2026-11-06)
+
+Implemented:
+- Lobby host selects Gallery No.1..3, No.1..4 or No.1..5.
+- `state.board` is persisted by the server only when an explicit
+  `START.galleryCount` is provided; map generator creates a START
+  followed by each Gallery's eight spaces in B,B,G,G,Y,Y,M,M order,
+  separated by provisional Shop/Event/Support tiles.
+- Board lengths: 29, 38 and 47; Gallery rows: 3/4/5 × 10 per player.
+- Both Three.js & Phaser Board/World views, actor routes, 3D board
+  ring / numbers, gallery tab UI and server movement now use matching
+  layout data.
+- Existing rooms with no state.board keep their 28-tile board unchanged.
+- Deterministic generation tested in `tests/board-layout.test.ts`.
+
+Still pending: lobby player avatar/color/seat selection, match win goals,
+reverse direction, final original special-tile placements, HD backdrop
+and full Android visual QA.
+
+
 Status: **PHASE-1 PARTIAL IMPLEMENTATION**. Shared P1–P4 color palette,
 fair Gallery color distribution on the existing 28-tile map,
 Board View forward right→left presentation and companion walk clips

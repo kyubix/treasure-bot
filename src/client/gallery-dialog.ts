@@ -1,5 +1,5 @@
 import type {GameAction,PublicState,Treasure} from '../engine/types.ts';
-import {GALLERY_COUNT,GALLERY_CAPACITY,GALLERY_COLORS,
+import {GALLERY_CAPACITY,GALLERY_COLORS,
   galleryNumberAt,playerDisplay} from '../engine/gallery.ts';
 
 type Lang='en'|'id'|'ja';
@@ -62,12 +62,12 @@ export function mountGalleryDialog(
       selectedTreasure=me.pendingGalleryTreasureIds?.find(id=>available.some(t=>t.id===id))??null;
     const selected=available.find(t=>t.id===selectedTreasure);
     const full=own.length>=GALLERY_CAPACITY;
-    const canReorder=galleryNumberAt(me.position)===selectedNo;
+    const canReorder=galleryNumberAt(me.position,state)===selectedNo;
     const incoming=selected&&(me.pendingGalleryTreasureIds??[]).includes(selected.id);
     content.innerHTML=`
       <p class="gallery-intro">${word.intro}</p>
       <nav class="gallery-number-tabs" aria-label="${word.title}">
-        ${Array.from({length:GALLERY_COUNT},(_,i)=>i+1).map(n=>`
+        ${Array.from({length:state.galleries.length},(_,i)=>i+1).map(n=>`
           <button class="gallery-tab ${n===selectedNo?'active':''}" data-gallery-no="${n}"
             type="button" style="--gallery-color:${GALLERY_COLORS[n]}" aria-pressed="${n===selectedNo}">No.${n}</button>`).join('')}
       </nav>
@@ -141,11 +141,11 @@ export function mountGalleryDialog(
     open(state,treasureId){
       latest=state;
       if(treasureId)selectedTreasure=treasureId;
-      selectedNo=Math.max(1,Math.min(GALLERY_COUNT,selectedNo));
+      selectedNo=Math.max(1,Math.min(state.galleries.length,selectedNo));
       host.hidden=false;
       draw();
     },
-    update(state){latest=state;if(!host.hidden)draw();},
+    update(state){latest=state;selectedNo=Math.max(1,Math.min(state.galleries.length,selectedNo));if(!host.hidden)draw();},
     close(){host.hidden=true;},
     isOpen(){return !host.hidden;}
   };

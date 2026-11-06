@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {TILES} from '../engine/types.ts';
+import {TILES,boardTiles} from '../engine/types.ts';
 import type {GameState,Player,TileType} from '../engine/types.ts';
 import {galleryNumberAt} from '../engine/gallery.ts';
 import {boardTileBaseColor} from '../engine/player-palette.ts';
@@ -22,11 +22,12 @@ const NUM_SLOTS=17;
 export const BOARD_NUMBER_PLATE_DEPTH=1.47;
 export const BOARD_COLOR_PLATE_DEPTH=2.42;
 /** A forward logical step appears at negative X (LEFT). */
-export function boardVisualTile(focus:number,offset:number):number{
- return ((Math.floor(focus)-offset)%TILES.length+TILES.length)%TILES.length;
+export function boardVisualTile(focus:number,offset:number,state?:GameState|null):number{
+ const n=boardTiles(state).length;
+ return ((Math.floor(focus)-offset)%n+n)%n;
 }
-export function boardVisualXForIndex(tile:number,focus:number):number{
- const n=TILES.length;
+export function boardVisualXForIndex(tile:number,focus:number,state?:GameState|null):number{
+ const n=boardTiles(state).length;
  const delta=((tile-focus+n/2)%n+n)%n-n/2;
  return -delta*BOARD_CELL_WIDTH;
 }
@@ -42,15 +43,16 @@ export function stoppedEncounterTile(
    !Number.isFinite(focus))return null;
  const active=state.players[state.currentPlayerIndex];
  if(!active)return null;
- const wrapped=((focus%TILES.length)+TILES.length)%TILES.length;
+ const tiles=boardTiles(state);
+ const wrapped=((focus%tiles.length)+tiles.length)%tiles.length;
  const distance=Math.abs(wrapped-active.position);
- if(Math.min(distance,TILES.length-distance)>.001)return null;
- const type=TILES[active.position];
+ if(Math.min(distance,tiles.length-distance)>.001)return null;
+ const type=tiles[active.position];
  return type==='GALLERY'||type==='SHOP'||type==='EVENT'||type==='SUPPORT'
    ?active.position:null;
 }
-export function boardVisualColor(index:number):string{
- return boardTileBaseColor(index);
+export function boardVisualColor(index:number,state?:GameState|null):string{
+ return boardTileBaseColor(index,state);
 }
 function asNumber(v:number):number{return Number.isFinite(v)?v:0;}
 function safeText(s:string):string{
@@ -238,11 +240,11 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    shared.textures.set(text,texture);}
   return texture;
  };
- const setCell=(cell:Cell,index:number,focus:boolean)=>{
+ const setCell=(cell:Cell,index:number,focus:boolean,state:GameState|null)=>{
   if(cell.tile!==index){
    cell.tile=index;
-   const type=TILES[index],number=galleryNumberAt(index);
-   (cell.colorPanel as THREE.Mesh).material=updateMaterial(boardVisualColor(index));
+   const type=boardTiles(state)[index],number=galleryNumberAt(index,state);
+   (cell.colorPanel as THREE.Mesh).material=updateMaterial(boardVisualColor(index,state));
    const label=number?String(number):type==='SHOP'?'SHOP':
     type==='START'?'★':type==='EVENT'?'!':type==='SUPPORT'?'+':'·';
    const prev=cell.number.material as THREE.MeshBasicMaterial;
@@ -347,8 +349,9 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     pair={player,robot};actors.set(p.id,pair);
    }
    let offset=p.position-focus;
-   if(offset>14)offset-=28;
-   if(offset< -14)offset+=28;
+   const count=boardTiles(state).length;
+   if(offset>count/2)offset-=count;
+   if(offset< -count/2)offset+=count;
    if(p.id===traveler)offset=0;
    const crowd=state.players.filter(q=>q.position===p.position);
    const order=crowd.findIndex(q=>q.id===p.id);
@@ -381,15 +384,17 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  const drawHud=(state:GameState|null,focus:number)=>{
   if(!state){hud.innerHTML='';return;}
   const current=state.players[state.currentPlayerIndex];
-  const tile=boardVisualTile(focus,0),n=galleryNumberAt(tile);
-  const label=n?'GALLERY No.'+n:TILES[tile]==='SHOP'?'ROBOT SHOP':
-   TILES[tile]==='EVENT'?'EVENT':TILES[tile]==='SUPPORT'?'SUPPORT':'ISLAND ROAD';
-  const circles=TILES.map((type,i)=>{
-   const a=i/TILES.length*Math.PI*2-Math.PI/2;
+  const tile=boardVisualTile(focus,0,state),n=galleryNumberAt(tile,state);
+  const type=boardTiles(state)[tile];
+  const label=n?'GALLERY No.'+n:type==='SHOP'?'ROBOT SHOP':
+   type==='EVENT'?'EVENT':type==='SUPPORT'?'SUPPORT':'ISLAND ROAD';
+  const tiles=boardTiles(state);
+  const circles=tiles.map((type,i)=>{
+   const a=i/tiles.length*Math.PI*2-Math.PI/2;
    const x=62+47*Math.cos(a),y=57+40*Math.sin(a);
    const player=state.players.find(p=>p.position===i);
    const selected=i===tile;
-   const fill=player?.color??(selected?'#ffec95':boardVisualColor(i));
+   const fill=player?.color??(selected?'#ffec95':boardVisualColor(i,state));
    return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+
     (player?4.5:selected?3.4:1.8)+'" fill="'+safeText(fill)+'" stroke="'+
     (selected?'#fff':'#183d56')+'" stroke-width="'+(selected?2:0.6)+'"/>';
@@ -419,10 +424,10 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     const integer=Math.floor(view),fract=view-integer;
     for(let i=0;i<cells.length;i++){
      const offset=i-Math.floor(NUM_SLOTS/2);
-     const index=boardVisualTile(view,offset);
+     const index=boardVisualTile(view,offset,state);
      const cell=cells[i];
      cell.root.position.x=(offset+fract)*BOARD_CELL_WIDTH;
-     setCell(cell,index,offset===0);
+     setCell(cell,index,offset===0,state);
     }
     const biome=boardScenery(view).biome;
     setEnvironment(biome);
@@ -431,7 +436,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     const encounter=stoppedEncounterTile(state,view,traveler);
     landmarkRoot.visible=encounter!==null;
     if(encounter!==null)
-      setLandmark(TILES[encounter],galleryNumberAt(encounter));
+      setLandmark(boardTiles(state)[encounter],galleryNumberAt(encounter,state));
     // Background moves at a lower rate for an actual 3D parallax effect.
     backdropRoot.position.x=(view%4)*.12;
     syncActors(state??({players:[],currentPlayerIndex:0} as unknown as GameState),view,traveler,launch,launchId);

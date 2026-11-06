@@ -22,9 +22,17 @@ export interface Gallery {
   displaysByPlayerId:Record<string,Treasure[]>;
 }
 export interface GameLog { id: number; message: string; turn: number }
+export interface BoardLayout {
+ galleryCount:3|4|5;
+ tiles:TileType[];
+ galleryNumbers:(number|null)[];
+ gallerySlots:(1|2|3|4|null)[];
+}
 export interface GameState {
   code: string; hostId: string; phase: 'lobby' | 'playing' | 'finished';
   players: Player[]; galleries: Gallery[]; currentPlayerIndex: number;
+  /** Missing only for legacy 28-tile rooms and pre-start lobbies. */
+  board?:BoardLayout;
   turn: number; version: number; rolled: boolean; dice: [number, number] | null;
   winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
   /** The route is paused at a shop until its owner chooses to enter or pass. */
@@ -33,7 +41,7 @@ export interface GameState {
   botEvent?: {playerId:string; kind:'SEND'|'ROLL'|'ENTER_SHOP'|'BUY'|'SKIP_SHOP'|'LEAVE_SHOP'|'END'; step:number};
 }
 export type GameAction =
-  | { type: 'START'; bots: number }
+  | { type: 'START'; bots: number; galleryCount?:3|4|5 }
   | { type: 'ROLL' }
   | { type: 'END_TURN' }
   | { type: 'BUY_GATE_CARD' }
@@ -68,3 +76,8 @@ export const ROBOTS: Record<RobotType, RobotStats> = {
   HUNTER: { energy: 70, walk: 70, search: 35, battle: 80 },
   DASH: { energy: 80, walk: 100, search: 40, battle: 35 }
 };
+
+/** Unchanged legacy 28-cell rooms continue to use TILES. */
+export function boardTiles(state:GameState|null|undefined):readonly TileType[]{
+ return state?.board?.tiles??TILES;
+}

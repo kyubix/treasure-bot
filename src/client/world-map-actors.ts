@@ -141,11 +141,12 @@ export function createWorldActors(scene:THREE.Scene,anchors:Anchors,
         }else if(entry.tile!==p.position){
           // Append snapshot changes to the pending route; never shortcut across
           // the island. Initial/reconnected snapshots snap, later ones traverse.
-          const steps=(p.position-entry.tile+28)%28;
-          for(let n=1;n<=steps;n++)entry.path.push(anchors.tile((entry.tile+n)%28));
+          const tileCount=state.board?.tiles.length??28;
+           const steps=(p.position-entry.tile+tileCount)%tileCount;
+          for(let n=1;n<=steps;n++)entry.path.push(anchors.tile((entry.tile+n)%tileCount));
           entry.path[entry.path.length-1]=target;
           entry.tile=p.position;
-          if(entry.path.length>28){entry.path.length=0;entry.player.root.position.copy(target);}
+          if(entry.path.length>tileCount){entry.path.length=0;entry.player.root.position.copy(target);}
         }else if(entry.path.length){
           entry.path[entry.path.length-1].copy(target);
         }else entry.player.root.position.copy(target);

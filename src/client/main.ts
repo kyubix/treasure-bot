@@ -80,7 +80,7 @@ root.innerHTML=`
   <header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>TREASURE BOTS</strong><small>SHOP VISIT · v0.9</small></div></div><div class="header-actions"><span id="status" class="status"></span><button id="settingsTrigger" class="gear-button" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div></header>
   <main>
     <section id="home" class="home-panel"><div class="hero"><div class="hero-gem">✦</div><div class="eyebrow">BOARD × ROBOTS × TREASURE</div><h1>Your robot.<br>Your island.<br><em>Your treasure.</em></h1><p data-i18n="tagline"></p></div><div class="card form-card"><label for="playerName" data-i18n="name"></label><input id="playerName" autocomplete="nickname" maxlength="22" placeholder="Explorer" value="Explorer"/><button id="create" class="primary" data-i18n="create"></button><div class="or">— OR —</div><label for="roomInput" data-i18n="room"></label><div class="inline"><input id="roomInput" maxlength="6" placeholder="ABCD23" autocapitalize="characters"/><button id="join" class="secondary" data-i18n="join"></button></div><p class="muted" data-i18n="solo"></p></div></section>
-    <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
+    <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><label for="galleryCount">Map / Galleries</label><select id="galleryCount" aria-label="Map size"><option value="3" selected>Small · 3 Galleries</option><option value="4">Medium · 4 Galleries</option><option value="5">Large · 5 Galleries</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
     <section id="match" hidden>
       <div class="world-hud" id="worldHud" hidden>
         <div class="world-energy-panel">
@@ -471,7 +471,7 @@ function render():void {
   syncShop();
   el('players').innerHTML=s.players.map((p,i)=>{
     const galleryItems=gallerySlotTotal(s,p.id);
-    return `<div class="person ${i===s.currentPlayerIndex?'current':''}"><span class="dot" style="background:${p.color}"></span><div class="person-info"><strong>${escapeHtml(p.name)} ${p.isBot?'🤖':''}</strong><small>${t('gold')}: ${p.gold.toLocaleString()} G · ${t('gallery')}: ${galleryItems}/50</small><small>${t('energy')}: ${p.robot.energy} · ${t('cards')}: ${p.gateCards}</small></div></div>`;
+    return `<div class="person ${i===s.currentPlayerIndex?'current':''}"><span class="dot" style="background:${p.color}"></span><div class="person-info"><strong>${escapeHtml(p.name)} ${p.isBot?'🤖':''}</strong><small>${t('gold')}: ${p.gold.toLocaleString()} G · ${t('gallery')}: ${galleryItems}/${s.galleries.length*10}</small><small>${t('energy')}: ${p.robot.energy} · ${t('cards')}: ${p.gateCards}</small></div></div>`;
   }).join('');
   const self=s.players.find(p=>p.id===s.yourId);
   if(self){
@@ -538,7 +538,7 @@ function render():void {
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
   el<HTMLButtonElement>('join').onclick=()=>void joinRoom();
-  el<HTMLButtonElement>('start').onclick=()=>void sendAction({type:'START',bots:Number(el<HTMLSelectElement>('botCount').value)});
+  el<HTMLButtonElement>('start').onclick=()=>void sendAction({type:'START',bots:Number(el<HTMLSelectElement>('botCount').value),galleryCount:Number(el<HTMLSelectElement>('galleryCount').value) as 3|4|5});
   const rollButton=el<HTMLButtonElement>('roll');
   rollButton.addEventListener('pointerdown',event=>{
     if(event.button!==0||rollButton.disabled)return;

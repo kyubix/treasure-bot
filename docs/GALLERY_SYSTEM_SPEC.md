@@ -1,5 +1,25 @@
 # Gallery System — Approved Gameplay Specification
 
+## New dynamic board generator — phase 2 (2026-11-06)
+
+- New matches receive explicit Gallery count 3/4/5 from lobby host;
+  `src/engine/board-layout.ts` places 8 consecutive Gallery cells
+  per number in exactly BLUE BLUE GREEN GREEN YELLOW YELLOW
+  MAGENTA MAGENTA sequence. The relevant player color is a board
+  cell identity, **not ownership of the Gallery number or others'
+  treasure**.
+- The generator adds provisional SHOP/EVENT/SUPPORT cells BETWEEN
+  numbered Gallery runs; map sizes are 29 / 38 / 47 including START.
+- `GameState.board` stores tiles, gallery numbers, color slots and
+  Gallery count for the entire match. Existing rooms without this
+  field are intentionally left on their original 28-tile layout.
+- The server changes `state.galleries` at START to 3/4/5 rows with
+  exactly ten treasures per player per numbered Gallery; no mid-match
+  size switching.
+- Original special-cell locations and original map size presets
+  beyond the numbered Gallery counts remain unverified.
+
+
 Status: USER CONFIRMED rules as of 2026-11-06. Numbered Gallery implementation is now in progress; exact tile mapping, original visitor fee distribution, Treasure Sets and bonus formulas remain UNVERIFIED.
 
 ## Crucial difference: tile number vs building

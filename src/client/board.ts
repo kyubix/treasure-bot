@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {useThreeWorldMap,useThreeBoardView} from './render-mode.ts';
-import { TILES } from '../engine/types.ts';
+import { TILES, boardTiles } from '../engine/types.ts';
 import {galleryNumberAt,playerDisplay} from '../engine/gallery.ts';
 import {boardTileBaseColor} from '../engine/player-palette.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
@@ -187,7 +187,8 @@ export class BoardScene extends Phaser.Scene {
     if(movementSegment&&earlier&&actor&&value.dice&&this.sys.isActive()&&
        !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
       this.movement?.stop();
-      const steps=(actor.position-earlier.position+TILES.length)%TILES.length;
+      const tileCount=boardTiles(value).length;
+      const steps=(actor.position-earlier.position+tileCount)%tileCount;
       this.travelingPlayer=actor.id;
       this.visualPosition=earlier.position;
       this.movement=this.tweens.addCounter({
@@ -443,17 +444,18 @@ export class BoardScene extends Phaser.Scene {
       const position=moving?this.visualPosition!:actualFocus;
       const base=Math.floor(position);
       const fraction=position-base;
-      const focus=((base%TILES.length)+TILES.length)%TILES.length;
+      const tiles=boardTiles(state);
+       const focus=((base%tiles.length)+tiles.length)%tiles.length;
       const count=8;
       const stride=w/7;
       const leftTile=base+3;
       for(let col=0;col<count;col++){
-        const idx=(leftTile-col+TILES.length*8)%TILES.length;
-        const tile=TILES[idx];
+        const idx=(leftTile-col+tiles.length*8)%tiles.length;
+        const tile=tiles[idx];
         const x=(col+fraction)*stride;
-        const galleryNumber=galleryNumberAt(idx);
+        const galleryNumber=galleryNumberAt(idx,state);
         const gallery=galleryNumber?state.galleries.find(q=>q.number===galleryNumber):undefined;
-        const color=asColor(boardTileBaseColor(idx));
+        const color=asColor(boardTileBaseColor(idx,state));
         g.fillStyle(color,1);
         g.fillPoints([
           pt(x+3*s,roadTop+2*s),
@@ -505,8 +507,8 @@ export class BoardScene extends Phaser.Scene {
       g.fillStyle(0x74bc8c);g.fillRoundedRect(mmX+7*s,mmY+7*s,mmW-14*s,mmH-14*s,14*s);
       g.fillStyle(0xe8e3b3);g.fillRoundedRect(mmX+18*s,mmY+17*s,mmW-36*s,mmH-34*s,11*s);
       g.fillStyle(0x66ac90);g.fillCircle(mmX+mmW*.5,mmY+mmH*.52,19*s);
-      for(let i=0;i<TILES.length;i++){
-        const a=i/TILES.length*Math.PI*2-Math.PI/2;
+      for(let i=0;i<tiles.length;i++){
+        const a=i/tiles.length*Math.PI*2-Math.PI/2;
         const x=mmX+mmW/2+mmW*.42*Math.cos(a);
         const y=mmY+mmH/2+mmH*.41*Math.sin(a);
         const current=state.players.find(p=>p.id===this.travelingPlayer?focus===i:p.position===i);
