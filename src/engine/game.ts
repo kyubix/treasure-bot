@@ -1,5 +1,6 @@
 import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory, terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from './island.ts';
 import { ROBOTS, TILES } from './types.ts';
+import {PLAYER_COLORS} from './player-palette.ts';
 import {
   GALLERY_CAPACITY, galleryNumberAt, galleryForNumber, galleryForTile,
   newGalleries, ensureGallerySchema, playerDisplay
@@ -7,7 +8,7 @@ import {
 import type { GameAction, GameLog, GameState, Player, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
 
 export type Random = () => number;
-const COLORS = ['#69d7ce', '#f4be70', '#dba5ed', '#94abfa'];
+const COLORS = PLAYER_COLORS;
 const START_GOLD = 2400;
 const WIN_ASSETS = 20_000;
 const GATE_PRICE = 300; // PROVISIONAL price

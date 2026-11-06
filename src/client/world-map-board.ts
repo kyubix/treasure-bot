@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {TILES} from '../engine/types.ts';
-import {galleryNumberAt,GALLERY_COLORS} from '../engine/gallery.ts';
+import {galleryNumberAt} from '../engine/gallery.ts';
+import {boardTileBaseColor} from '../engine/player-palette.ts';
 import type {GameState} from '../engine/types.ts';
 
 /**
@@ -174,17 +175,8 @@ export function createWorldBoard3D(scene:THREE.Scene):WorldBoard3D{
   return {
     group,
     sync(state){
-      const palette=TILES.map((type,i)=>{
-        const number=galleryNumberAt(i);
-        if(!number)return '#'+BASE_COLOURS[type].toString(16).padStart(6,'0');
-        const gallery=state?.galleries.find(g=>g.number===number);
-        const occupied=gallery?Object.values(gallery.displaysByPlayerId)
-          .reduce((n,row)=>n+row.length,0):0;
-        const c=new THREE.Color(GALLERY_COLORS[number]);
-        // A subtle fill highlight, while preserving stable number identity.
-        if(occupied)c.lerp(new THREE.Color(0xffe6b1),Math.min(.18,occupied*.009));
-        return '#'+c.getHexString();
-      });
+      // Stable player-color identity, never derived from numbered Gallery ownership.
+      const palette=TILES.map((_,i)=>boardTileBaseColor(i));
       if(palette.every((c,i)=>c===previous[i]))return;
       previous=palette;
       const attribute=tileGeometry.getAttribute('color') as THREE.BufferAttribute;

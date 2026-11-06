@@ -1,6 +1,11 @@
 # Board View — Next Implementation Plan (Player Colors, R→L, HD Polish)
 
-Status: **APPROVED DESIGN CONTRACT + TASK BREAKDOWN; NOT YET IMPLEMENTED**.
+Status: **PHASE-1 PARTIAL IMPLEMENTATION**. Shared P1–P4 color palette,
+fair Gallery color distribution on the existing 28-tile map,
+Board View forward right→left presentation and companion walk clips
+are now coded. A larger map with 8 spaces per Gallery, selectable
+avatar/color and win rules, server Reverse Direction and HD scenery
+polish remain outstanding. Manual Android QA still required.
 Updated: 2026-11-06. Reference: user-provided screenshots of the original
 Glint Glitters close-up Board View, mini-board, robot shop, recovery/ticket
 screens, event panels, character/robot movement, and gallery/shop entrances.

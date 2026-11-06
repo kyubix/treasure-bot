@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import {useThreeWorldMap,useThreeBoardView} from './render-mode.ts';
 import { TILES } from '../engine/types.ts';
-import {galleryNumberAt,GALLERY_COLORS,playerDisplay} from '../engine/gallery.ts';
+import {galleryNumberAt,playerDisplay} from '../engine/gallery.ts';
+import {boardTileBaseColor} from '../engine/player-palette.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
 import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
@@ -445,14 +446,14 @@ export class BoardScene extends Phaser.Scene {
       const focus=((base%TILES.length)+TILES.length)%TILES.length;
       const count=8;
       const stride=w/7;
-      const leftTile=base-3;
+      const leftTile=base+3;
       for(let col=0;col<count;col++){
-        const idx=(leftTile+col+TILES.length*8)%TILES.length;
+        const idx=(leftTile-col+TILES.length*8)%TILES.length;
         const tile=TILES[idx];
-        const x=(col-fraction)*stride;
+        const x=(col+fraction)*stride;
         const galleryNumber=galleryNumberAt(idx);
         const gallery=galleryNumber?state.galleries.find(q=>q.number===galleryNumber):undefined;
-        const color=galleryNumber?asColor(GALLERY_COLORS[galleryNumber]):TILE_COLORS[tile];
+        const color=asColor(boardTileBaseColor(idx));
         g.fillStyle(color,1);
         g.fillPoints([
           pt(x+3*s,roadTop+2*s),
@@ -488,7 +489,7 @@ export class BoardScene extends Phaser.Scene {
         standing.forEach((p,i)=>{
           const walking=p.id===this.travelingPlayer;
           const phase=walking&&this.visualPosition!==null?Math.abs(Math.sin(this.visualPosition*Math.PI*2)):0;
-          const px=x+stride*(.40+i*.13), py=roadTop+8*s-phase*6*s;
+          const px=x+stride*(.40+i*.13)-(walking?fraction*stride:0), py=roadTop+8*s-phase*6*s;
           this.chibi(g,px,py,Math.max(9,17*s),asColor(p.color));
           if(!p.robot.mission && !(this.launchPlayerId===p.id && this.launchProgress!==null))
             this.robotCompanion(g,px+29*s,py+2*s-phase*4*s,Math.max(7,13*s),asColor(p.color),phase);

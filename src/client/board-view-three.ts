@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {TILES} from '../engine/types.ts';
 import type {GameState,Player,TileType} from '../engine/types.ts';
-import {galleryNumberAt,GALLERY_COLORS} from '../engine/gallery.ts';
+import {galleryNumberAt} from '../engine/gallery.ts';
+import {boardTileBaseColor} from '../engine/player-palette.ts';
 import {boardScenery,BOARD_BIOME_PALETTE} from './board-environment.ts';
 import type {BoardBiome} from './board-environment.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment} from './board-view-environment.ts';
@@ -20,8 +21,14 @@ const NUM_SLOTS=17;
 /** A neutral, physically lit white number plate above a vivid colored plate. */
 export const BOARD_NUMBER_PLATE_DEPTH=1.47;
 export const BOARD_COLOR_PLATE_DEPTH=2.42;
+/** A forward logical step appears at negative X (LEFT). */
 export function boardVisualTile(focus:number,offset:number):number{
- return ((Math.floor(focus)+offset)%TILES.length+TILES.length)%TILES.length;
+ return ((Math.floor(focus)-offset)%TILES.length+TILES.length)%TILES.length;
+}
+export function boardVisualXForIndex(tile:number,focus:number):number{
+ const n=TILES.length;
+ const delta=((tile-focus+n/2)%n+n)%n-n/2;
+ return -delta*BOARD_CELL_WIDTH;
 }
 /**
  * Buildings and encounter landmarks appear only when the active avatar has
@@ -43,13 +50,7 @@ export function stoppedEncounterTile(
    ?active.position:null;
 }
 export function boardVisualColor(index:number):string{
- const n=galleryNumberAt(index);
- if(n)return GALLERY_COLORS[n];
- const paint:Record<TileType,string>={
-  START:'#f3cb79',SHOP:'#ffdc7f',GALLERY:'#91d5ec',
-  EVENT:'#76bff1',SUPPORT:'#87e8ae',PLAIN:'#dadfe5'
- };
- return paint[TILES[index]];
+ return boardTileBaseColor(index);
 }
 function asNumber(v:number):number{return Number.isFinite(v)?v:0;}
 function safeText(s:string):string{
@@ -351,14 +352,19 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    if(p.id===traveler)offset=0;
    const crowd=state.players.filter(q=>q.position===p.position);
    const order=crowd.findIndex(q=>q.id===p.id);
-   const x=offset*BOARD_CELL_WIDTH+(crowd.length>1?(order-(crowd.length-1)/2)*.27:0);
+   const walking=p.id===traveler;
+   // Local leftward stride + rightward-moving tiles make the camera-follow
+   // animation visibly walk LEFT instead of sliding in place.
+   const stride=walking?-.24*Math.sin(Math.PI*(focus-Math.floor(focus)))*BOARD_CELL_WIDTH:0;
+   const x=-offset*BOARD_CELL_WIDTH+stride+
+     (crowd.length>1?(order-(crowd.length-1)/2)*.27:0);
    pair.player.root.position.set(x,.27,.72+(order%2)*.14);
-   pair.player.root.rotation.y=0;
+   pair.player.root.rotation.y=walking?-Math.PI/2:0;
    pair.robot.root.position.set(x+.32,.27,1.24);
-   pair.robot.root.rotation.y=0;
+   pair.robot.root.rotation.y=walking?-Math.PI/2:0;
    pair.robot.root.visible=!p.robot.mission&&!(launch!==null&&launchOwner===p.id);
-   pose(pair.player,p.id===traveler?'walk':'idle');
-   pose(pair.robot,'idle');
+   pose(pair.player,walking?'walk':'idle');
+   pose(pair.robot,walking?'walk':'idle');
    pair.player.root.visible=Math.abs(offset)<8.5;
    pair.robot.root.visible=pair.robot.root.visible&&Math.abs(offset)<8.5;
   }
@@ -415,7 +421,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
      const offset=i-Math.floor(NUM_SLOTS/2);
      const index=boardVisualTile(view,offset);
      const cell=cells[i];
-     cell.root.position.x=(offset-fract)*BOARD_CELL_WIDTH;
+     cell.root.position.x=(offset+fract)*BOARD_CELL_WIDTH;
      setCell(cell,index,offset===0);
     }
     const biome=boardScenery(view).biome;
@@ -427,7 +433,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     if(encounter!==null)
       setLandmark(TILES[encounter],galleryNumberAt(encounter));
     // Background moves at a lower rate for an actual 3D parallax effect.
-    backdropRoot.position.x=-(view%4)*.12;
+    backdropRoot.position.x=(view%4)*.12;
     syncActors(state??({players:[],currentPlayerIndex:0} as unknown as GameState),view,traveler,launch,launchId);
     portal.visible=launch!==null;
     if(launch!==null){

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
-import {galleryNumberAt,GALLERY_COLORS} from '../engine/gallery.ts';
+import {galleryNumberAt} from '../engine/gallery.ts';
+import {boardTileBaseColor} from '../engine/player-palette.ts';
 import type { GameState, Player } from '../engine/types.ts';
 import { expeditionProgress } from '../engine/island.ts';
 import type { Ground } from '../engine/island.ts';
@@ -461,7 +462,7 @@ export function drawWorldIsland(args:{
       ];
     }
     const galleryNo=galleryNumberAt(i);
-    const paint=galleryNo?color(GALLERY_COLORS[galleryNo]):TILE_COLORS[TILES[i]];
+    const paint=color(boardTileBaseColor(i));
     // Golden-raised board trim and state-driven colored top face.
     g.fillStyle(0x355161,.80);
     g.fillPoints(shape.map(a=>point(a.x+1.2,a.y+4.5*scale)),true);

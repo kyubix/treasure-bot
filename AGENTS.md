@@ -1,5 +1,25 @@
 # AI Agent Handoff — Treasure Bots
 
+## IMPLEMENTED: 2026-11-06 visual phase 1 (Android QA still needed)
+
+- `src/engine/player-palette.ts` provides default P1 blue, P2 green,
+  P3 magenta, P4 yellow and Gallery tile order blue→green→yellow→magenta.
+  Per-gallery distribution is equal. On the existing 28-tile layout,
+  this is **one Gallery tile per color per Gallery No.**, not two;
+  fulfilling two tiles per color requires the still-pending larger
+  map / variable-gallery-count engine refactor.
+- Fresh players use the P1–P4 colors, saved players' colors are unchanged.
+  Player-choice lobby, victory-mode settings and reverse-direction
+  events are NOT implemented by this visual phase.
+- In Three.js Board View, incrementing logical position renders to
+  negative screen X (right-to-left advance), while the scenery slides
+  right. Avatar AND companion robot use their `walk` AnimationMixer
+  clips and face left while traveling. Phaser fallback reverses tile
+  presentation too. Both World Map renderers use the same Gallery colors.
+- Shop/Start/Event/Support remain independently styled special cells
+  rather than being incorrectly associated with a particular player.
+- Run CI and manual phone QA before claiming complete original parity.
+
 ## Approved 2026-11-06 Board View correction — READ FIRST
 
 User corrected earlier review: the **base tile colors are player identities**:

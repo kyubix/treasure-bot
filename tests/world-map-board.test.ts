@@ -4,7 +4,8 @@ import {createWorldBoard3D,tileBoardCorners,BOARD_SURFACE_Y}
   from '../src/client/world-map-board.ts';
 import {boardTileWorldPosition} from '../src/client/world-map-three.ts';
 import {TILES} from '../src/engine/types.ts';
-import {GALLERY_COLORS,galleryNumberAt} from '../src/engine/gallery.ts';
+import {galleryNumberAt} from '../src/engine/gallery.ts';
+import {boardTileBaseColor} from '../src/engine/player-palette.ts';
 import type {GameState} from '../src/engine/types.ts';
 
 describe('Depth-tested Three.js World Map board',()=>{
@@ -26,7 +27,7 @@ describe('Depth-tested Three.js World Map board',()=>{
     expect(seen.size).toBe(28);
   });
 
-  it('reuses board geometries and updates ownership colors from server state',()=>{
+  it('reuses board geometries and keeps stable player colors despite treasure changes',()=>{
     const scene=new THREE.Scene();
     const board=createWorldBoard3D(scene);
     expect(scene.children).toContain(board.group);
@@ -43,7 +44,7 @@ describe('Depth-tested Three.js World Map board',()=>{
     expect(tokens).toBeInstanceOf(THREE.Mesh);
     board.sync(null);
     const number=galleryNumberAt(1)!;
-    const expected=new THREE.Color(GALLERY_COLORS[number]);
+    const expected=new THREE.Color(boardTileBaseColor(1));
     expect(palette.getX(4)).toBeCloseTo(expected.r);
     expect(palette.getY(4)).toBeCloseTo(expected.g);
     expect(palette.getZ(4)).toBeCloseTo(expected.b);

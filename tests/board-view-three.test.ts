@@ -2,16 +2,35 @@ import * as THREE from 'three';
 import {describe,it,expect} from 'vitest';
 import {TILES} from '../src/engine/types.ts';
 import type {GameState} from '../src/engine/types.ts';
-import {galleryNumberAt,GALLERY_COLORS} from '../src/engine/gallery.ts';
+import {galleryNumberAt} from '../src/engine/gallery.ts';
+import {PLAYER_COLORS,GALLERY_SLOT_ORDER,galleryPlayerSlotAt,galleryPlayerColorAt,boardTileBaseColor} from '../src/engine/player-palette.ts';
 import {
  BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
- boardVisualColor,boardVisualTile,stoppedEncounterTile
+ boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
  from '../src/client/board-view-environment.ts';
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('distributes each numbered Gallery equally between player colors',()=>{
+   expect(PLAYER_COLORS).toEqual(['#2489ea','#44c767','#e254c5','#f5cf32']);
+   expect(GALLERY_SLOT_ORDER).toEqual([1,2,4,3]);
+   for(let n=1;n<=5;n++){
+     const slots=TILES.map((_,i)=>galleryNumberAt(i)===n?
+       galleryPlayerSlotAt(i):null).filter(x=>x!==null);
+     expect(slots).toEqual([1,2,4,3]);
+   }
+   expect(boardTileBaseColor(1)).toBe(PLAYER_COLORS[0]);
+   expect(boardTileBaseColor(2)).toBe(PLAYER_COLORS[1]);
+   expect(galleryPlayerSlotAt(3)).toBeNull(); // SHOP, not a player tile
+ });
+ it('makes forward steps go LEFT, including across wraparound',()=>{
+   expect(boardVisualXForIndex(0,27)).toBeCloseTo(-BOARD_CELL_WIDTH);
+   expect(boardVisualXForIndex(27,0)).toBeCloseTo(BOARD_CELL_WIDTH);
+   expect(boardVisualXForIndex(2,1.5)).toBeCloseTo(-BOARD_CELL_WIDTH*.5);
+   expect(boardVisualXForIndex(1,1.5)).toBeCloseTo(BOARD_CELL_WIDTH*.5);
+ });
  it('shows encounter buildings only once the avatar stops on that tile',()=>{
   const special=TILES.findIndex(t=>t==='GALLERY');
   const state={
@@ -48,8 +67,10 @@ describe('HD Three.js Board View',()=>{
   for(let i=0;i<28;i++){
    expect(boardVisualTile(i,0)).toBe(i);
    expect(boardVisualTile(i+28,0)).toBe(i);
-   expect(boardVisualTile(i,1)).toBe((i+1)%28);
-   expect(boardVisualTile(i,-1)).toBe((i+27)%28);
+   expect(boardVisualTile(i,1)).toBe((i+27)%28);
+   expect(boardVisualTile(i,-1)).toBe((i+1)%28);
+   expect(boardVisualXForIndex((i+1)%28,i)).toBeCloseTo(-BOARD_CELL_WIDTH);
+   expect(boardVisualXForIndex((i+27)%28,i)).toBeCloseTo(BOARD_CELL_WIDTH);
   }
   expect(boardVisualTile(4.9,0)).toBe(4);
   expect(boardVisualTile(-.1,0)).toBe(27);
@@ -59,7 +80,7 @@ describe('HD Three.js Board View',()=>{
    const gallery=galleryNumberAt(i);
    const color=boardVisualColor(i);
    expect(/^#[0-9a-fA-F]{6}$/.test(color)).toBe(true);
-   if(gallery)expect(color).toBe(GALLERY_COLORS[gallery]);
+   if(gallery)expect(color).toBe(galleryPlayerColorAt(i));
   }
  });
  it('builds physically lit HD scenery for every existing biome',()=>{
