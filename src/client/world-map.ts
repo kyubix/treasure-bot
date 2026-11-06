@@ -310,16 +310,20 @@ export function drawWorldIsland(args:{
   scene:Phaser.Scene;parent:Phaser.GameObjects.Container;
   width:number;height:number;state:GameState|null;
   rotation:number;selectedSpot:string|null;onSelect:(id:string)=>void;
+  renderScenery?:boolean;
 }):void{
   const {scene,parent,width:w,height:h,state,rotation,selectedSpot,onSelect}=args;
-  // The base, grass material and state-driven overlays have separate render
-  // layers so the texture never hides board tiles or interactive targets.
-  let g=scene.add.graphics();parent.add(g);
-  drawSea(g,w,h);
   const cx=w*.5,cy=h*.535;
-  // Keep the entire perimeter visible with a safe border on portrait phones.
   const rx=Math.min(w*.40,280),ry=Math.min(h*.35,300);
   const center={x:cx,y:cy};
+  const scale=clamp(w/410,.73,1.4);
+  // Only static scenery switches renderer in Three preview. The entire
+  // state-driven perimeter, routes, players and touch targets stay Phaser.
+  let g=scene.add.graphics();parent.add(g);
+  if(args.renderScenery!==false){
+  // The base, grass material and state-driven overlays have separate render
+  // layers so the texture never hides board tiles or interactive targets.
+  drawSea(g,w,h);
 
   // A raised, gently uneven coastline: turquoise surf, golden beach, rocky
   // island wall, and grassy land. Only Phaser vector geometry is used.
@@ -389,7 +393,6 @@ export function drawWorldIsland(args:{
     {x:3.93,y:3.94,type:'lighthouse',size:20},
     {x:3.01,y:2.43,type:'waterfall',size:18}
   ] as const;
-  const scale=clamp(w/410,.73,1.4);
   // Do not let wide/short landscape canvases stretch cliffs into the pond.
   // Dynamic player/robot markers still use the original gameplay-safe scale.
   const sceneryScale=clamp(Math.min(w/410,h/660),.68,1.4);
@@ -423,6 +426,7 @@ export function drawWorldIsland(args:{
         tree(g,pt.x,pt.y,treeRadius,i);
       }
     }
+  }
   }
   // The decorative board route follows the entire coastline; every tile
   // is real TILES data. Avatars are taken from the authoritative game state.

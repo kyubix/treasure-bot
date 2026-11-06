@@ -22,6 +22,7 @@ let lang:Lang=(localStorage.getItem('treasure-bots-lang') as Lang)||((navigator.
 if(!translations[lang])lang='en';
 const t=(key:keyof typeof translations.en)=>translations[lang][key];
 const escapeHtml=(s:string):string=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
+const threePreviewParam=new URLSearchParams(location.search).get('map3d')==='1'?'&map3d=1':'';
 let state:PublicState|null=null;let token='';let board:ReturnType<typeof mountBoard>|null=null;
 let socket:WebSocket|null=null;let poll:ReturnType<typeof setInterval>|null=null;
 let busy=false;
@@ -347,7 +348,7 @@ async function api(path:string,method='GET',body?:unknown,accessToken=token):Pro
 async function startSession(response:{state:PublicState,token:string}):Promise<void> {
   resetDispatch();lastCpuVisualStep=0;state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
   localStorage.setItem(`treasure-bots-${state.code}`,token);
-  history.replaceState(null,'',`/?room=${state.code}`);
+  history.replaceState(null,'',`/?room=${state.code}${threePreviewParam}`);
   connect();render();
 }
 async function createRoom():Promise<void>{
@@ -604,7 +605,7 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',threePreviewParam?'/?map3d=1':'/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){

@@ -4,6 +4,7 @@ import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-env
 import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
 import { drawWorldIsland } from './world-map.ts';
+import type { WorldThreeLayer } from './world-map-three.ts';
 
 export type GameView = 'board' | 'world';
 
@@ -34,9 +35,19 @@ export class BoardScene extends Phaser.Scene {
   private launchPlayerId:string|null=null;
   private lastLaunchPaint=0;
   private layoutFrame=0;
+  private threeLayer:WorldThreeLayer|null=null;
 
   constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
   isMoving():boolean{return Boolean(this.movement?.isPlaying());}
+  setThreeLayer(layer:WorldThreeLayer):void{
+    this.threeLayer?.dispose();
+    this.threeLayer=layer;
+    if(this.sys.isActive()&&this.view==='world')this.scheduleLayoutPaint();
+  }
+  disposeWorldPreview():void{
+    this.threeLayer?.dispose();
+    this.threeLayer=null;
+  }
   isLaunching():boolean{return this.launchProgress!==null;}
   launchRobot(playerId:string):void {
     if(!this.sys.isActive())return;
@@ -172,8 +183,15 @@ export class BoardScene extends Phaser.Scene {
     this.display?.destroy(true);
     const container=this.add.container(0,0);
     this.display=container;
-    if(this.view==='world')this.world(container,w,h);
-    else this.board(container,w,h);
+    if(this.view==='world'){
+      // When WebGL cannot initialize, continue with the full Phaser map.
+      const rendered3D=this.threeLayer?.draw(w,h,this.worldRotation)??false;
+      if(!rendered3D)this.threeLayer?.visible(false);
+      this.world(container,w,h,rendered3D);
+    }else{
+      this.threeLayer?.visible(false);
+      this.board(container,w,h);
+    }
   }
   private tree(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void {
     g.fillStyle(0x394e37,.45);g.fillEllipse(x,y+r*.75,r*2.1,r*.45);
@@ -404,9 +422,10 @@ export class BoardScene extends Phaser.Scene {
       this.text(parent,w/2,h*.6,'BOARD',24*s,'#1c4756');
     }
   }
-  private world(parent:Phaser.GameObjects.Container,w:number,h:number):void {
+  private world(parent:Phaser.GameObjects.Container,w:number,h:number,rendered3D:boolean):void {
     drawWorldIsland({
       scene:this,parent,width:w,height:h,state:this.match,
+      renderScenery:!rendered3D,
       rotation:this.worldRotation,selectedSpot:this.selected,
       onSelect:id=>{
         this.selected=id;
@@ -427,12 +446,32 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   launchRobot(playerId:string):void;
   destroy():void;
 }{
+  // Opt-in preview only: never allocate an extra WebGL context for standard
+  // gameplay. Canvas-backed Phaser keeps the live state overlays interactive.
+  const map3D=new URLSearchParams(location.search).get('map3d')==='1';
   const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
-    type:Phaser.AUTO,parent:element,backgroundColor:'#245879',
+    type:map3D?Phaser.CANVAS:Phaser.AUTO,
+    transparent:map3D,
+    parent:element,backgroundColor:map3D?'#000000':'#245879',
     scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
     render:{pixelArt:false,antialias:true},scene:[scene]
   });
+  let destroyed=false;
+  if(map3D){
+    // Loaded only on demand; ordinary Phaser map remains unchanged in output.
+    void import('./world-map-three.ts').then(({createThreeWorldLayer})=>{
+      if(destroyed)return;
+      const layer=createThreeWorldLayer(element);
+      if(!layer)return; // WebGL unsupported: use procedural Phaser background.
+      // The renderer sits behind transparent Phaser interaction graphics.
+      game.canvas.style.position='relative';
+      game.canvas.style.zIndex='1';
+      scene.setThreeLayer(layer);
+    }).catch(()=>{
+      // This is a preview, never block room entry or robot controls.
+    });
+  }
   return {
     update(state){scene.setMatch(state);},
     select(id){scene.selectSpot(id);},
@@ -441,6 +480,12 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     isMoving(){return scene.isMoving();},
     isLaunching(){return scene.isLaunching();},
     launchRobot(id){scene.launchRobot(id);},
-    destroy(){game.destroy(true);}
+    destroy(){
+      destroyed=true;
+      game.destroy(true);
+      // The Three layer's lifecycle follows the Phaser scene and host.
+      // The wrapper below also permits a late import to be cancelled.
+      scene.disposeWorldPreview();
+    }
   };
 }
