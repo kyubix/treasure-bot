@@ -69,20 +69,34 @@ export class BoardScene extends Phaser.Scene {
   }
   private scheduleLayoutPaint():void {
     if(this.layoutFrame||!this.sys.isActive())return;
-    this.layoutFrame=requestAnimationFrame(()=>{
+    // World HUD and command rows change the flex layout. Browser viewport
+    // controls can also change 100dvh a frame later on Android. Wait for
+    // three matching measurements before revealing the newly sized scene.
+    let lastWidth=0,lastHeight=0,stableFrames=0,attempts=0;
+    const sample=()=>{
       if(!this.sys.isActive()){this.layoutFrame=0;return;}
       const host=this.game.canvas.parentElement;
-      // Use the measured container, not the dimensions of the previous view.
-      // A forced read here follows the DOM switch and includes World HUD height.
-      const w=Math.round(host?.clientWidth??0),h=Math.round(host?.clientHeight??0);
-      if(w>=40&&h>=40&&
-         (Math.abs(this.scale.width-w)>1||Math.abs(this.scale.height-h)>1)){
-        // The resize event is intentionally coalesced by layoutFrame.
-        this.scale.resize(w,h);
+      const width=Math.round(host?.clientWidth??0);
+      const height=Math.round(host?.clientHeight??0);
+      if(width<40||height<40){this.layoutFrame=0;return;}
+      if(width===lastWidth&&height===lastHeight)stableFrames++;
+      else {stableFrames=1;lastWidth=width;lastHeight=height;}
+      attempts++;
+      if(stableFrames<3&&attempts<10){
+        this.layoutFrame=requestAnimationFrame(sample);
+        return;
       }
-      this.layoutFrame=0;
+      // Mark in-flight to suppress the synchronous Phaser Scale.resize event.
+      // The final paint is produced only after the new canvas size is applied.
+      this.layoutFrame=-1;
+      if(Math.abs(this.scale.width-width)>1||
+         Math.abs(this.scale.height-height)>1){
+        this.scale.resize(width,height);
+      }
       this.paint();
-    });
+      this.layoutFrame=0;
+    };
+    this.layoutFrame=requestAnimationFrame(sample);
   }
   setMatch(value:GameState):void {
     const previous=this.match;
@@ -151,6 +165,8 @@ export class BoardScene extends Phaser.Scene {
     parent.add(object);return object;
   }
   private paint():void {
+    // Never show a stale-size frame during Board -> World layout settlement.
+    if(this.layoutFrame>0)return;
     const {width:w,height:h}=this.scale;
     if(w<40||h<40)return;
     this.display?.destroy(true);
