@@ -3,6 +3,7 @@ import './theme.css';
 import './mobile.css';
 import './roll-shop.css';
 import './dispatch.css';
+import './cpu-turns.css';
 import './shop-encounter.css';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
