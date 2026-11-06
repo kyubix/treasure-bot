@@ -38,11 +38,32 @@ const drawLabel=(scene:Phaser.Scene,parent:Phaser.GameObjects.Container,x:number
   parent.add(label);return label;
 };
 function tree(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,shade=0):void{
-  g.fillStyle(0x1e5e51,.27);g.fillEllipse(x,y+r*.2,r*1.9,r*.42);
-  g.fillStyle(0x765638);g.fillRoundedRect(x-r*.14,y-r*.6,r*.28,r*.96,r*.12);
-  g.fillStyle(shade?0x266c43:0x328b50);g.fillCircle(x-r*.31,y-r*.7,r*.62);
-  g.fillStyle(shade?0x358452:0x5da95b);g.fillCircle(x+r*.39,y-r*.73,r*.71);
-  g.fillStyle(shade?0x4b9d56:0x83c86b);g.fillCircle(x,y-r*1.04,r*.8);
+  // Two original Phaser silhouettes: broadleaf crowns and coastal conifers.
+  // The projected anchor is always the trunk's ground point.
+  g.fillStyle(0x173e3c,.27);g.fillEllipse(x,y+r*.22,r*2.05,r*.44);
+  g.fillStyle(0x6c4e32);g.fillRoundedRect(x-r*.13,y-r*.65,r*.26,r*.81,r*.1);
+  if(shade%4===3){
+    g.fillStyle(0x1c554d);
+    g.fillTriangle(x-r*.64,y-r*.26,x,y-r*2.20,x+r*.64,y-r*.26);
+    g.fillStyle(0x317565);
+    g.fillTriangle(x-r*.52,y-r*.67,x-r*.03,y-r*2.25,x+r*.50,y-r*.67);
+    g.fillStyle(0x4d9a74);
+    g.fillTriangle(x-r*.36,y-r*1.05,x-r*.08,y-r*2.27,x+r*.28,y-r*1.05);
+  }else{
+    const palette=shade%2===0?[0x235f4e,0x378461,0x57a978]:
+      [0x1d574a,0x2b7457,0x489b68];
+    g.fillStyle(palette[0]);
+    g.fillCircle(x-r*.43,y-r*1.11,r*.66);
+    g.fillCircle(x+r*.42,y-r*1.05,r*.73);
+    g.fillCircle(x,y-r*1.52,r*.70);
+    g.fillStyle(palette[1]);
+    g.fillCircle(x-r*.45,y-r*1.39,r*.48);
+    g.fillCircle(x+r*.32,y-r*1.39,r*.58);
+    g.fillCircle(x-r*.06,y-r*1.75,r*.54);
+    g.fillStyle(palette[2],.85);
+    g.fillEllipse(x-r*.25,y-r*1.76,r*.68,r*.29);
+    g.fillCircle(x+r*.26,y-r*1.72,r*.21);
+  }
 }
 function marker(g:Phaser.GameObjects.Graphics,scene:Phaser.Scene,
   parent:Phaser.GameObjects.Container,x:number,y:number,size:number,
@@ -77,12 +98,50 @@ function robot(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,fill:num
   g.fillStyle(0xffdd67);g.fillCircle(x,y-r*1.35,r*.2);
 }
 function mountain(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void{
-  g.fillStyle(0x334f51,.22);g.fillEllipse(x,y+16,r*1.95,r*.55);
-  g.fillStyle(0x967e65);g.fillTriangle(x-r*.95,y+r*.31,x-r*.08,y-r*1.35,x+r*.97,y+r*.31);
-  g.fillStyle(0xb09a78);g.fillTriangle(x-r*.27,y+r*.3,x-r*.08,y-r*1.35,x+r*.97,y+r*.31);
-  g.fillStyle(0xd3b992);g.fillTriangle(x-r*.53,y+r*.29,x-r*.08,y-r*1.35,x+r*.24,y+r*.29);
-  g.fillStyle(0xf5f7eb);g.fillTriangle(x-r*.33,y-r*.83,x-r*.08,y-r*1.35,x+r*.16,y-r*.86);
-  g.fillStyle(0xe6f3f6);g.fillEllipse(x-r*.35,y-r*.76,r*.6,r*.12);
+  // Hand-drawn stepped mesa. Layers share a ground anchor, so the same mesa
+  // can be re-projected at 0/90/180/270 degrees without alternate images.
+  g.fillStyle(0x214f47,.29);g.fillEllipse(x,y+r*.30,r*2.25,r*.53);
+  const tier=(cx:number,base:number,half:number,height:number,tint:number)=>{
+    const top=base-height;
+    // Dark left and sunlit right cliff faces with irregular facet edges.
+    g.fillStyle(0x71543e);
+    g.fillPoints([
+      point(cx-half,top+r*.065),point(cx-half*.23,top-r*.095),
+      point(cx,top-r*.055),point(cx,base+r*.08),
+      point(cx-half*.56,base+r*.17),point(cx-half*.96,base-r*.01)
+    ],true);
+    g.fillStyle(0xb08b61);
+    g.fillPoints([
+      point(cx,top-r*.055),point(cx+half*.44,top-r*.12),
+      point(cx+half,top+r*.025),point(cx+half*.89,base-r*.12),
+      point(cx+half*.42,base+r*.13),point(cx,base+r*.08)
+    ],true);
+    g.fillStyle(0x896b4e);
+    g.fillPoints([
+      point(cx-half*.45,top-r*.03),point(cx-half*.12,top-r*.09),
+      point(cx+half*.08,base+r*.06),point(cx-half*.16,base+r*.12)
+    ],true);
+    g.fillStyle(0xc8a77a,.75);
+    g.fillPoints([
+      point(cx+half*.44,top-r*.12),point(cx+half*.65,top-r*.035),
+      point(cx+half*.43,base+r*.10),point(cx+half*.28,base+r*.10)
+    ],true);
+    // Flattened grassy top is the defining characteristic of the reference.
+    g.fillStyle(0x365a42);
+    g.fillEllipse(cx,top-r*.02,half*2.05,r*.30);
+    g.fillStyle(tint);
+    g.fillEllipse(cx-r*.015,top-r*.06,half*1.86,r*.20);
+    g.lineStyle(Math.max(1,r*.022),0xe5c796,.50);
+    g.lineBetween(cx-half*.60,top+r*.08,cx-half*.35,top+r*.10);
+    g.lineBetween(cx+half*.33,top+r*.08,cx+half*.61,top+r*.02);
+  };
+  tier(x,y+r*.16,r*.90,r*.72,0x6e9257);
+  tier(x+r*.07,y-r*.30,r*.67,r*.67,0x829d63);
+  tier(x-r*.03,y-r*.82,r*.40,r*.60,0x8fa771);
+  // Narrow vertical rock fractures, never a raster texture.
+  g.lineStyle(Math.max(1,r*.022),0x604b3c,.38);
+  g.lineBetween(x-r*.52,y-r*.23,x-r*.43,y+r*.04);
+  g.lineBetween(x+r*.56,y-r*.20,x+r*.49,y+r*.04);
 }
 function ruins(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void{
   g.fillStyle(0x254d46,.2);g.fillEllipse(x,y+6,r*2.4,r*.45);
@@ -131,11 +190,12 @@ function special(g:Phaser.GameObjects.Graphics,kind:Ground,x:number,y:number,r:n
 function drawSea(g:Phaser.GameObjects.Graphics,w:number,h:number):void{
   g.fillGradientStyle(0x1a7eb2,0x1784ba,0x0b5e91,0x0d5a8d,1);
   g.fillRect(0,0,w,h);
-  for(let i=0;i<75;i++){
+  // Small deterministic reflections keep the sea readable on mobile.
+  for(let i=0;i<110;i++){
     const x=hash(i*3.7)*w,y=hash(i*2.33+100)*h;
     const p=waterWave(i);
-    g.lineStyle(i%7===0?2:1,i%7===0?0xd4ffff:0x6ed3e6,.15+p*.28);
-    g.lineBetween(x,y,x+9+p*16,y-1.3);
+    g.lineStyle(i%9===0?1.6:1,i%9===0?0xe3ffff:0x8bd6e7,.12+p*.29);
+    g.lineBetween(x,y,x+6+p*13,y-1);
   }
   for(let i=0;i<4;i++){
     const x=[.08,.94,.14,.91][i]*w,y=[.15,.22,.81,.82][i]*h;
@@ -170,11 +230,9 @@ export function drawWorldIsland(args:{
   g.fillStyle(0x3f9e6a);g.fillEllipse(cx+rx*.26,cy+ry*.21,rx*1.37,ry*.96);
   g.fillStyle(0x91d277,.47);g.fillEllipse(cx-rx*.21,cy-ry*.24,rx*.72,ry*.51);
 
-  // Approved seamless Grass Terrain 01 V2. Repeat isometric diamond surfaces
-  // on a staggered grid, then clip them to the existing grassy island shape.
-  // Other camera angles retain the established procedural view until a
-  // geometry-coherent master asset has been reviewed for all four rotations.
-  if(rotation===0 && scene.textures.exists(WORLD_GRASS_TEXTURE_KEY)){
+  // Repeat the approved grass surface at every camera angle. Island details
+  // rotate via projected coordinates; the grass material is view-independent.
+  if(scene.textures.exists(WORLD_GRASS_TEXTURE_KEY)){
     const tileW=Math.max(84,Math.min(160,rx*.8));
     const tileH=tileW*288/512;
     const grassTiles=scene.add.container(0,0);
@@ -199,26 +257,55 @@ export function drawWorldIsland(args:{
   // touch targets remain on their original logical/projection coordinates.
   g=scene.add.graphics();parent.add(g);
 
-  // Distinct environmental landmarks are oriented along with the map.
+
+  // Shallow lagoon and stream are decorative ground layers only. They share
+  // world-space coordinates with terrain anchors and rotate with the camera.
+  const lake=mapProjection(2.45,2.1,rotation,center,rx,ry);
+  g.fillStyle(0x2e806d,.48);g.fillEllipse(lake.x,lake.y+3,rx*.51,ry*.35);
+  g.fillStyle(0x299eb3);g.fillEllipse(lake.x,lake.y,rx*.46,ry*.30);
+  g.fillStyle(0x69d8d9,.64);g.fillEllipse(lake.x-rx*.065,lake.y-ry*.044,rx*.26,ry*.095);
+  const streamPoints=[[2.45,2.10],[2.8,2.47],[3.13,2.70],[3.38,2.90]]
+    .map(([x,y])=>mapProjection(x,y,rotation,center,rx,ry));
+  g.lineStyle(Math.max(3,6*clamp(w/410,.73,1.4)),0x2897b2,.90);
+  g.strokePoints(streamPoints.map(p=>point(p.x,p.y)),false);
+  g.lineStyle(1.8,0xc7f5df,.70);
+  g.strokePoints(streamPoints.map(p=>point(p.x-2,p.y-1)),false);
+
+  // Fixed model-space anchors; never create four unrelated image views.
   const landmarks=[
-    {x:1,y:0,type:'mountain'},{x:0,y:2,type:'forest'},
-    {x:4,y:0,type:'ruins'},{x:4,y:3,type:'lighthouse'},
-    {x:2,y:4,type:'forest'},{x:1,y:3,type:'waterfall'}
+    {x:2.00,y:.60,type:'mountain',size:48},
+    {x:1.55,y:2.90,type:'mountain',size:62},
+    {x:.65,y:1.25,type:'forest',size:15},
+    {x:.42,y:2.55,type:'forest',size:17},
+    {x:1.10,y:3.95,type:'forest',size:14},
+    {x:3.55,y:1.13,type:'forest',size:14},
+    {x:3.45,y:3.25,type:'forest',size:15},
+    {x:4.00,y:.18,type:'ruins',size:18},
+    {x:3.93,y:3.94,type:'lighthouse',size:20},
+    {x:2.57,y:1.70,type:'waterfall',size:18}
   ] as const;
   const scale=clamp(w/410,.73,1.4);
-  for(const l of landmarks){
-    const p=mapProjection(l.x,l.y,rotation,center,rx,ry);
-    if(l.type==='mountain')mountain(g,p.x,p.y,50*scale);
-    else if(l.type==='ruins')ruins(g,p.x,p.y,18*scale);
-    else if(l.type==='lighthouse')lighthouse(g,p.x,p.y,22*scale);
+  const projected=landmarks.map(l=>({...l,p:mapProjection(l.x,l.y,rotation,center,rx,ry)}))
+    .sort((a,b)=>a.p.y-b.p.y);
+  for(const l of projected){
+    const {x,y}=l.p;
+    if(l.type==='mountain')mountain(g,x,y,l.size*scale);
+    else if(l.type==='ruins')ruins(g,x,y,l.size*scale);
+    else if(l.type==='lighthouse')lighthouse(g,x,y,l.size*scale);
     else if(l.type==='waterfall'){
-      g.fillStyle(0x60caed);g.fillEllipse(p.x,p.y+8,34*scale,43*scale);
-      g.lineStyle(3,0xc4faff,.87);
-      g.lineBetween(p.x-8*scale,p.y-6*scale,p.x-5*scale,p.y+17*scale);
-      g.lineBetween(p.x+4*scale,p.y-10*scale,p.x+6*scale,p.y+15*scale);
-    } else for(let i=0;i<4;i++)tree(g,p.x+(i-1.5)*11*scale,p.y+i%2*4*scale,13*scale,i%2);
+      g.fillStyle(0x2e8aa5,.73);g.fillEllipse(x,y+7*scale,27*scale,35*scale);
+      g.fillStyle(0xa9ecf5,.85);g.fillEllipse(x-2*scale,y+1*scale,11*scale,28*scale);
+      g.lineStyle(2,0xffffff,.72);
+      g.lineBetween(x-4*scale,y-9*scale,x-4*scale,y+14*scale);
+    }else{
+      const count=7;
+      for(let i=0;i<count;i++){
+        const dx=((i*3)%7-3)*6.5*scale;
+        const dy=(Math.floor(i/3)-1)*8.8*scale;
+        tree(g,x+dx,y+dy,(l.size+(i%3-1)*2.2)*scale,i);
+      }
+    }
   }
-
   // The decorative board route follows the entire coastline; every tile
   // is real TILES data. Avatars are taken from the authoritative game state.
   for(let i=0;i<TILES.length;i++){
