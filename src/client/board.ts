@@ -182,25 +182,82 @@ export class BoardScene extends Phaser.Scene {
     this.robotCompanion(g,w*.53,h*(.635-.145*progress),14*s*(1-progress*.72),color,
       Math.abs(Math.sin(progress*15)));
   }
+  private drawScenery(g:Phaser.GameObjects.Graphics,w:number,h:number,position:number):void {
+    const scene=boardScenery(position);
+    this.drawSceneryLayer(g,w,h,scene.biome,position,1);
+    if(scene.transition>0)
+      this.drawSceneryLayer(g,w,h,scene.next,position,scene.transition);
+  }
+  private drawSceneryLayer(g:Phaser.GameObjects.Graphics,w:number,h:number,
+    biome:BoardBiome,position:number,alpha:number):void {
+    const colors=BOARD_BIOME_PALETTE[biome];
+    const s=Math.min(w/640,h/480);
+    g.fillStyle(colors.sky,alpha);g.fillRect(0,0,w,h*.60);
+    g.fillStyle(colors.horizon,alpha);g.fillRect(0,h*.37,w,h*.23);
+    g.fillStyle(biome==='volcano'?0xffa26b:0xfff5bb,alpha*.65);
+    g.fillCircle(w*.84,h*.12,34*s);
+    const far=relativeParallax(position,13*s,235*s);
+    const middle=relativeParallax(position,30*s,172*s);
+    const near=relativeParallax(position,67*s,118*s);
+    g.fillStyle(colors.far,alpha);
+    for(let i=-2;i<7;i++)g.fillEllipse(i*235*s-far+110*s,h*.43,285*s,121*s);
+    g.fillStyle(colors.mid,alpha);
+    for(let i=-2;i<9;i++){
+      const x=i*172*s-middle;
+      if(biome==='cliffs'||biome==='ice'||biome==='volcano'){
+        g.fillTriangle(x,h*.57,x+88*s,h*.27+(i%2)*22*s,x+180*s,h*.57);
+        if(biome==='ice'){
+          g.fillStyle(0xe8fcff,alpha*.8);
+          g.fillTriangle(x+56*s,h*.39,x+88*s,h*.27+(i%2)*22*s,x+119*s,h*.39);
+          g.fillStyle(colors.mid,alpha);
+        }
+      }else g.fillEllipse(x+87*s,h*.52,225*s,98*s);
+    }
+    if(biome==='coast'){
+      g.fillStyle(0x54b6c9,alpha*.78);g.fillRect(0,h*.52,w,h*.08);
+      g.lineStyle(2*s,0xe9fbf9,alpha*.8);
+      for(let i=-1;i<12;i++){
+        const x=i*78*s-near;
+        g.lineBetween(x,h*.554,x+48*s,h*.55);
+      }
+    }else if(biome==='forest'||biome==='meadow'){
+      for(let i=-1;i<11;i++){
+        const x=i*118*s-near;
+        const r=(biome==='forest'?20:13)*s;
+        g.fillStyle(0x665d3f,alpha);g.fillRect(x-r*.14,h*.49,r*.28,r*1.15);
+        g.fillStyle(colors.near,alpha);g.fillCircle(x-r*.3,h*.47,r*.74);
+        g.fillStyle(0x3e935d,alpha);g.fillCircle(x+r*.29,h*.456,r*.77);
+        g.fillStyle(0x70b879,alpha);g.fillCircle(x,h*.423,r*.85);
+      }
+    }else if(biome==='desert'){
+      for(let i=-1;i<9;i++){
+        const x=i*118*s-near;
+        g.fillStyle(0x7a976c,alpha);g.fillRoundedRect(x,h*.49,7*s,39*s,3*s);
+        g.fillRoundedRect(x+4*s,h*.52,17*s,7*s,3*s);
+      }
+    }else if(biome==='volcano'){
+      for(let i=-1;i<9;i++){
+        const x=i*118*s-near;
+        g.fillStyle(colors.near,alpha);
+        g.fillTriangle(x,h*.58,x+56*s,h*.41,x+112*s,h*.58);
+        g.lineStyle(3*s,0xfa9555,alpha*.9);
+        g.lineBetween(x+55*s,h*.47,x+62*s,h*.58);
+      }
+    }else{
+      for(let i=-1;i<9;i++){
+        const x=i*118*s-near;
+        g.fillStyle(colors.near,alpha);g.fillTriangle(x,h*.58,x+58*s,h*.42,x+116*s,h*.58);
+      }
+    }
+  }
   private board(parent:Phaser.GameObjects.Container,w:number,h:number):void {
     const g=this.add.graphics();parent.add(g);
     const s=Math.min(w/640,h/480);
-    g.fillGradientStyle(0x7fbadd,0xb8d8e6,0xf7e5b7,0xd2dda5,1);g.fillRect(0,0,w,h);
-    g.fillStyle(0xfff0b9,.65);g.fillCircle(w*.86,h*.16,48*s);
-    g.fillStyle(0xc4d9b4);g.fillEllipse(w*.5,h*.49,w*1.55,h*.43);
-    g.fillStyle(0x9ebf93);g.fillPoints([
-      pt(0,h*.5),pt(w*.14,h*.3),pt(w*.32,h*.4),pt(w*.44,h*.24),
-      pt(w*.60,h*.4),pt(w*.79,h*.30),pt(w,h*.44),pt(w,h*.67),pt(0,h*.67)
-    ],true);
-    g.fillStyle(0x6d9877);g.fillPoints([
-      pt(0,h*.58),pt(w*.14,h*.45),pt(w*.33,h*.55),pt(w*.52,h*.41),
-      pt(w*.73,h*.53),pt(w,h*.38),pt(w,h*.72),pt(0,h*.72)
-    ],true);
-    for(let i=0;i<11;i++){
-      const x=(i*.097+.01)*w;
-      const y=h*(.42+.05*Math.sin(i*2.1));
-      this.tree(g,x,y,(16+i%3*4)*s);
-    }
+    const active=this.match?.players[this.match.currentPlayerIndex];
+    const camera=this.visualPosition!==null&&this.travelingPlayer===active?.id
+      ?this.visualPosition:(active?.position??0);
+    this.drawScenery(g,w,h,camera);
+    if(this.launchProgress!==null)this.gateway(g,w,h,this.launchProgress);
     // Three-quarter-view floor, like the original scene's low camera and broad road.
     const roadTop=h*.57, roadBottom=h*.84;
     g.fillStyle(0x45656b,.6);
