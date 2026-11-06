@@ -142,3 +142,17 @@
   .shop-cinematic.is-playing .shop-cinematic-building,
   .shop-cinematic.is-playing .shop-cinematic-avatar {animation:none!important}
 }
+
+.shop-sell-list {
+  display:flex;flex-direction:column;gap:7px;
+}
+.shop-sell-item {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:#fffaf0;border:1px solid #dfc795;border-radius:10px;
+  padding:9px;
+}
+.shop-sell-item span {display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.shop-sell-item strong {font-size:.8rem;overflow-wrap:anywhere}
+.shop-sell-item small {font-size:.7rem;color:#77917e}
+.shop-sell-item button {flex-shrink:0;min-width:90px;min-height:38px}
+.shop-empty {font-size:.75rem;color:#6e8d80;padding:10px;background:#f5ecca;border-radius:9px}
