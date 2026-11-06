@@ -22,9 +22,12 @@ describe('faithful gameplay vertical slice',()=>{
    const s=setup();
    expect(()=>applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'})).toThrow('Buy a gate card');
    applyAction(s,'a',{type:'ROLL'},()=>.2);
+   expect(s.shopOffer).toBe(true);
+   applyAction(s,'a',{type:'ENTER_SHOP'});
    expect(s.shopAccess).toBe(true);
    applyAction(s,'a',{type:'BUY_GATE_CARD'});
    expect(s.players[0].gateCards).toBe(1);
+   applyAction(s,'a',{type:'CLOSE_SHOP'});
    applyAction(s,'a',{type:'END_TURN'});
    applyAction(s,'b',{type:'ROLL'},()=>0);
    applyAction(s,'b',{type:'END_TURN'});
@@ -50,6 +53,7 @@ describe('faithful gameplay vertical slice',()=>{
  it('adds upgrades to four robot stat groups via shop',()=>{
    const s=setup();applyAction(s,'a',{type:'ROLL'},()=>.2);
    const before=getRobotStats(s.players[0].robot);
+   applyAction(s,'a',{type:'ENTER_SHOP'});
    applyAction(s,'a',{type:'BUY_PART',slot:'HEAD'});
    expect(getRobotStats(s.players[0].robot).search).toBe(before.search+25);
    expect(s.players[0].gold).toBe(1950);
@@ -61,6 +65,16 @@ describe('faithful gameplay vertical slice',()=>{
    s.players[1].robot.mission={siteId:'relic',phase:'OUTBOUND',turnsRemaining:1,transitTotal:2};
    applyAction(s,'b',{type:'ROLL'},()=>0);
    expect(s.players[0].robot.mission).toBeNull();
+ });
+ it('blocks purchases before entering and skipping continues travel',()=>{
+   const s=setup();applyAction(s,'a',{type:'ROLL'},()=>.2);
+   expect(s.players[0].position).toBe(3);
+   expect(s.pendingSteps).toBe(1);
+   expect(()=>applyAction(s,'a',{type:'BUY_GATE_CARD'})).toThrow();
+   applyAction(s,'a',{type:'SKIP_SHOP'});
+   expect(s.players[0].position).toBe(4);
+   expect(s.pendingSteps).toBe(0);
+   expect(()=>applyAction(s,'a',{type:'ENTER_SHOP'})).toThrow();
  });
  it('marks provisional values separately',()=>{
    expect(PROVISIONAL_RULES.galleryFeeRatio).toBe(.2);
