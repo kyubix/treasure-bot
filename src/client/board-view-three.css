@@ -1,6 +1,13 @@
 /* Three.js HD Board View — cinematic info surfaces, not new controls. */
 #board{position:relative;isolation:isolate;overflow:hidden}
 #board .board-view-three{display:block;width:100%;height:100%}
+/* Do not show the synchronous Phaser fallback while the initial HD scene
+   is still lazy-loading. The veil is removed only after Three's first frame,
+   or immediately on WebGL/import failure. This does not block touch events. */
+#match[data-view="board"] #board.board-three-pending::after{
+ content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+ background:linear-gradient(165deg,#8dbdc8,#b3dad5 50%,#92b4ac);
+}
 #board .board3d-hud{
  display:block;position:absolute;inset:0;pointer-events:none;z-index:2;
  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fdf8e8;

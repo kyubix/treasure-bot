@@ -60,5 +60,17 @@ Use ONE coherent 3D/layered island master scene and derive all camera rotations 
 - Renderer consumes existing authoritative GameState, galleryNumberAt(),
   and old movement tweens. Do not duplicate turn/shop/Gallery logic in Three.
 
+## Board View first-frame and encounter visibility guardrails
+
+- `board-three-pending` is a loading veil to prevent the old Phaser Board
+  scene flashing before lazy Three.js initialization. Remove only on first
+  successful Three frame or actual import/WebGL failure; keep Phaser fallback.
+- Gallery/Shop/Event/Support buildings in close-up Board View must only be
+  shown once the active player has **stopped** on the matching tile. During
+  a server-authoritative movement tween the destination may already be
+  known, but landmarks must stay hidden. See `stoppedEncounterTile()`.
+- Scenic parallax is independent of encounter architecture. Do not place
+  permanent gallery buildings on the World Map.
+
 ## Engineering guardrails
 Stack: TypeScript, Phaser 3, Cloudflare Workers/Durable Objects. Server authoritative; respect persistent state migrations and multiplayer reconnection. Avoid full Phaser scene reconstruction per animation frame; preserve Android fullscreen width/canvas hotfix. Run smoke/unit/typecheck/build and manual phone visual checks. Do not assume GitHub merge confirms Cloudflare deployment. Original assets only: do not copy proprietary PS1 pixels, sprites, audio or code.

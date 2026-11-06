@@ -282,7 +282,15 @@ export class BoardScene extends Phaser.Scene {
             this.travelingPlayer,this.launchProgress,this.launchPlayerId);
         }catch{rendered3D=false;}
       }
-      if(!rendered3D){
+      if(rendered3D){
+        // Reveal only AFTER the first successful Three.js frame. Hiding the
+        // old Phaser scene during the async import avoids a legacy-view flash.
+        this.game.canvas.parentElement?.classList.remove('board-three-pending');
+      }else{
+        // Real WebGL failure: uncover the fully functional Phaser fallback.
+        // While Three is still importing, keep the loading veil over Phaser.
+        if(this.boardThree)
+          this.game.canvas.parentElement?.classList.remove('board-three-pending');
         this.boardThree?.visible(false);
         this.board(container,w,h);
       }
@@ -554,6 +562,9 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   const params=new URLSearchParams(location.search);
   const map3D=useThreeWorldMap(params);
   const board3D=useThreeBoardView(params);
+  // This class is set BEFORE Phaser.Game construction: its first synchronous
+  // scene paint is covered until the lazy-loaded Three renderer draws.
+  if(board3D)element.classList.add('board-three-pending');
   const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
     // Canvas-backed Phaser avoids a second competing WebGL renderer and
@@ -569,12 +580,18 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     void import('./board-view-three.ts').then(({createThreeBoardView})=>{
       if(destroyed)return;
       const layer=createThreeBoardView(element);
-      if(!layer)return;
+      if(!layer){
+        element.classList.remove('board-three-pending');
+        return;
+      }
       game.canvas.style.position='relative';
       game.canvas.style.zIndex='1';
       game.canvas.style.touchAction='none';
       scene.setBoardThreeLayer(layer);
-    }).catch(()=>{/* Phaser remains a fully working Board View fallback. */});
+    }).catch(()=>{
+      element.classList.remove('board-three-pending');
+      // Phaser remains a fully working Board View fallback.
+    });
   }
   if(map3D){
     // Lazy-load 3D as the DEFAULT World Map; Phaser remains the fallback.
@@ -601,6 +618,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     launchRobot(id){scene.launchRobot(id);},
     destroy(){
       destroyed=true;
+      element.classList.remove('board-three-pending');
       game.destroy(true);
       // The Three layer's lifecycle follows the Phaser scene and host.
       // The wrapper below also permits a late import to be cancelled.

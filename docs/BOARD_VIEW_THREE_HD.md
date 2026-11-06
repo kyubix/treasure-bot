@@ -36,6 +36,27 @@ textures, sprites, models, fonts or game code were copied.
   Board View is still drawn automatically. The World Map keeps its existing
   optional \`?map3d=1\` renderer and touch rotation, unchanged.
 
+## First-frame and landmark correctness (2026-11-06)
+
+- The Three.js renderer is imported asynchronously. Phaser previously drew
+  its legacy Board View before Three was ready, causing a visible flash.
+  The `board-three-pending` veil is applied **before** Phaser.Game creation
+  and removed only after a successful Three.js frame. On WebGL or lazy-import
+  failure, it is removed and the ordinary Phaser fallback is visible.
+- `stoppedEncounterTile()` checks the active player's authoritative tile,
+  server phase, fractional focus and movement-tween status. Gallery/Shop and
+  special encounter buildings stay hidden through EVERY movement step and
+  appear only when the character has stopped at that tile.
+- Plain / Start tiles do not create random buildings.
+- Biome scenery may parallax during walking; static encounter buildings do not
+  follow the camera or leap between tiles.
+- Regression tests exercise stopped/moving, fractional camera positions,
+  wrapped tile indices, and Shop/Gallery/Event/Support.
+- Android QA: cold-load the normal URL and confirm no legacy Board flash;
+  roll several steps past a shop/gallery, confirm no building appears during
+  travel, then lands at a special tile and sees its landmark. Repeat after
+  switching World/Board and with `?board2d=1` as explicit fallback.
+
 ## Test / rollback
 
 Default: https://treasure.endeavor.lt/

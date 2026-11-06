@@ -23,6 +23,25 @@ export const BOARD_COLOR_PLATE_DEPTH=2.42;
 export function boardVisualTile(focus:number,offset:number):number{
  return ((Math.floor(focus)+offset)%TILES.length+TILES.length)%TILES.length;
 }
+/**
+ * Buildings and encounter landmarks appear only when the active avatar has
+ * FINISHED moving onto a matching tile. In particular, the authoritative
+ * state can already contain the destination while its movement tween runs.
+ */
+export function stoppedEncounterTile(
+ state:GameState|null,focus:number,travelingPlayer:string|null
+):number|null{
+ if(!state||state.phase!=='playing'||travelingPlayer!==null||
+   !Number.isFinite(focus))return null;
+ const active=state.players[state.currentPlayerIndex];
+ if(!active)return null;
+ const wrapped=((focus%TILES.length)+TILES.length)%TILES.length;
+ const distance=Math.abs(wrapped-active.position);
+ if(Math.min(distance,TILES.length-distance)>.001)return null;
+ const type=TILES[active.position];
+ return type==='GALLERY'||type==='SHOP'||type==='EVENT'||type==='SUPPORT'
+   ?active.position:null;
+}
 export function boardVisualColor(index:number):string{
  const n=galleryNumberAt(index);
  if(n)return GALLERY_COLORS[n];
@@ -401,8 +420,12 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     }
     const biome=boardScenery(view).biome;
     setEnvironment(biome);
-    const focusedTile=boardVisualTile(view,0);
-    setLandmark(TILES[focusedTile],galleryNumberAt(focusedTile));
+    // No Gallery/Shop/building while the camera follows walking steps.
+    // The game state has already advanced to the final tile during the tween.
+    const encounter=stoppedEncounterTile(state,view,traveler);
+    landmarkRoot.visible=encounter!==null;
+    if(encounter!==null)
+      setLandmark(TILES[encounter],galleryNumberAt(encounter));
     // Background moves at a lower rate for an actual 3D parallax effect.
     backdropRoot.position.x=-(view%4)*.12;
     syncActors(state??({players:[],currentPlayerIndex:0} as unknown as GameState),view,traveler,launch,launchId);

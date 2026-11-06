@@ -1,16 +1,43 @@
 import * as THREE from 'three';
 import {describe,it,expect} from 'vitest';
 import {TILES} from '../src/engine/types.ts';
+import type {GameState} from '../src/engine/types.ts';
 import {galleryNumberAt,GALLERY_COLORS} from '../src/engine/gallery.ts';
 import {
  BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
- boardVisualColor,boardVisualTile
+ boardVisualColor,boardVisualTile,stoppedEncounterTile
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
  from '../src/client/board-view-environment.ts';
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('shows encounter buildings only once the avatar stops on that tile',()=>{
+  const special=TILES.findIndex(t=>t==='GALLERY');
+  const state={
+   phase:'playing',currentPlayerIndex:0,players:[{id:'player',position:special}]
+  } as unknown as GameState;
+  expect(stoppedEncounterTile(state,special,null)).toBe(special);
+  expect(stoppedEncounterTile(state,special+28,null)).toBe(special);
+  // GameState already points at the destination DURING movement.
+  expect(stoppedEncounterTile(state,special,'player')).toBeNull();
+  expect(stoppedEncounterTile(state,special-.25,'player')).toBeNull();
+  expect(stoppedEncounterTile(state,special-.25,null)).toBeNull();
+  expect(stoppedEncounterTile(state,Number.NaN,null)).toBeNull();
+  state.players[0].position=TILES.findIndex(t=>t==='PLAIN');
+  expect(stoppedEncounterTile(state,state.players[0].position,null)).toBeNull();
+  state.phase='lobby';
+  expect(stoppedEncounterTile(state,special,null)).toBeNull();
+ });
+ it('shows specific Shop/Event/Support landmarks only on stopped tiles',()=>{
+  for(const type of ['SHOP','EVENT','SUPPORT'] as const){
+   const pos=TILES.findIndex(t=>t===type);
+   const state={phase:'playing',currentPlayerIndex:0,
+    players:[{id:'p',position:pos}]} as unknown as GameState;
+   expect(stoppedEncounterTile(state,pos,null)).toBe(pos);
+   expect(stoppedEncounterTile(state,pos,'p')).toBeNull();
+  }
+ });
  it('keeps number plate and colored lower panel physically separate',()=>{
   expect(BOARD_NUMBER_PLATE_DEPTH).toBeGreaterThan(1);
   expect(BOARD_COLOR_PLATE_DEPTH).toBeGreaterThan(BOARD_NUMBER_PLATE_DEPTH);
