@@ -168,7 +168,7 @@ function syncShop():void {
   el<HTMLButtonElement>('shopBuyGate').disabled=busy||self.gold<300||self.gateCards>=5;
   const slots=['HEAD','BODY','ARM','LEG'] as const;
   el('shopPartList').innerHTML=slots.map(slot=>
-    \`<button type="button" class="secondary shop-product" data-shop-part="\${slot}" \${busy||self.gold<450||self.robot.parts?.[slot]?'disabled':''}>\${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')} · \${self.robot.parts?.[slot]?'✓':'450 G'}</button>\`
+    `<button type="button" class="secondary shop-product" data-shop-part="${slot}" ${busy||self.gold<450||self.robot.parts?.[slot]?'disabled':''}>${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')} · ${self.robot.parts?.[slot]?'✓':'450 G'}</button>`
   ).join('');
   document.querySelectorAll<HTMLButtonElement>('[data-shop-part]').forEach(button=>{
     button.onclick=()=>void sendAction({type:'BUY_PART',slot:button.dataset.shopPart as 'HEAD'|'BODY'|'ARM'|'LEG'});
@@ -186,7 +186,7 @@ function offerShopAfterMovement(s:PublicState):void {
     if(!state||state.code!==s.code||state.turn!==s.turn||
       state.currentPlayerIndex!==s.currentPlayerIndex||!state.shopAccess||settingsOpen)return;
     setShopOpen(true);
-  },Math.max(1600,steps*220+450));
+  },Math.max(2350,steps*220+550));
 }
 function toast(msg:string):void { const node=el('message');node.textContent=msg;node.hidden=false;setTimeout(()=>node.hidden=true,3600); }
 function gameUrl(code:string):string {return `${location.origin}/?room=${encodeURIComponent(code)}`;}
@@ -288,7 +288,7 @@ function render():void {
     const stats=getRobotStats(self.robot);
     const slots=['HEAD','BODY','ARM','LEG'] as const;
     const statValues=[stats.search,stats.energy,stats.battle,stats.walk];
-    el('robotWorkshop').innerHTML=`<div class="robot-overview"><div class="robot-emoji">🤖</div><div><strong>${escapeHtml(self.robot.chassis)}</strong><small>⚡ ${self.robot.energy}/${stats.energy} E · ${self.robot.mission?.phase ?? 'READY'}</small></div></div><div class="robot-stats">${['S','E','B','W'].map((label,i)=>`<span>${label}<b>${statValues[i]}</b></span>`).join('')}</div><div class="part-grid">${slots.map(slot=>`<button class="part-button" data-slot="${slot}" ${true?'disabled':''}>${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')}<span>${self.robot.parts?.[slot]?'✓':'450 G'}</span></button>`).join('')}</div><small class="shop-hint">${t('shopHint')}</small>`;
+    el('robotWorkshop').innerHTML=`<div class="robot-overview"><div class="robot-emoji">🤖</div><div><strong>${escapeHtml(self.robot.chassis)}</strong><small>⚡ ${self.robot.energy}/${stats.energy} E · ${self.robot.mission?.phase ?? 'READY'}</small></div></div><div class="robot-stats">${['S','E','B','W'].map((label,i)=>`<span>${label}<b>${statValues[i]}</b></span>`).join('')}</div><div class="part-grid">${slots.map(slot=>`<button class="part-button" data-slot="${slot}" disabled>${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')}<span>${self.robot.parts?.[slot]?'✓':'450 G'}</span></button>`).join('')}</div><small class="shop-hint">${t('shopHint')}</small>`;
     // Robot overview is read-only. Equipment purchases happen exclusively inside a shop encounter.
   }
   el('inventory').innerHTML=self?.inventory.length?self.inventory.map(item=>`<div class="item"><div><strong>${escapeHtml(item.name)}</strong><small>${item.value} G · ${escapeHtml(item.category)}</small></div><button class="tiny secondary" data-treasure="${escapeHtml(item.id)}">${t('display')}</button></div>`).join(''):'<p class="muted">No treasures yet. Send your robot to explore!</p>';
@@ -300,7 +300,7 @@ function render():void {
   el('turnCommands').hidden=isWorld;
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
   el<HTMLButtonElement>('openWorld').disabled=!canAct||s.rolled||!!self?.robot.mission;
-  el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled||busy;
+  el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled;
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
