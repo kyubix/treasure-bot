@@ -39,6 +39,7 @@ let shopDecisionOpen=false;
 let shopEntranceTimer:ReturnType<typeof setTimeout>|null=null;
 let shopOpen=false;
 let lastRollRelease=0;
+let lastCpuVisualStep=0;
 let dispatchAnimating=false;
 let dispatchTimer:ReturnType<typeof setTimeout>|null=null;
 function resetDispatch():void {
@@ -48,7 +49,7 @@ function resetDispatch():void {
   portal.hidden=true;
   portal.classList.remove('is-active');
 }
-function playDispatch():void {
+function playDispatch(notify=true):void {
   resetDispatch();
   dispatchAnimating=true;
   const portal=el('robotDispatch');
@@ -60,7 +61,7 @@ function playDispatch():void {
     resetDispatch();
     if(state?.code!==room)return;
     render();
-    if(state?.phase==='playing'&&!state.rolled)toast(t('robotReady'));
+    if(notify&&state?.phase==='playing'&&!state.rolled)toast(t('robotReady'));
   },reduce?160:1350);
 }
 const root=document.querySelector<HTMLDivElement>('#app')!;
@@ -69,7 +70,7 @@ root.innerHTML=`
   <main>
     <section id="home" class="home-panel"><div class="hero"><div class="hero-gem">✦</div><div class="eyebrow">BOARD × ROBOTS × TREASURE</div><h1>Your robot.<br>Your island.<br><em>Your treasure.</em></h1><p data-i18n="tagline"></p></div><div class="card form-card"><label for="playerName" data-i18n="name"></label><input id="playerName" autocomplete="nickname" maxlength="22" placeholder="Explorer" value="Explorer"/><button id="create" class="primary" data-i18n="create"></button><div class="or">— OR —</div><label for="roomInput" data-i18n="room"></label><div class="inline"><input id="roomInput" maxlength="6" placeholder="ABCD23" autocapitalize="characters"/><button id="join" class="secondary" data-i18n="join"></button></div><p class="muted" data-i18n="solo"></p></div></section>
     <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
-    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div>
+    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div id="cpuStatus" class="cpu-status" role="status" aria-live="polite" hidden></div>
     <div id="robotDispatch" class="robot-dispatch" hidden aria-hidden="true">
       <div class="dispatch-stage">
         <div class="dispatch-portal">
@@ -320,7 +321,7 @@ async function api(path:string,method='GET',body?:unknown,accessToken=token):Pro
   const data=await response.json() as {error?:string};if(!response.ok)throw new Error(data.error||'Request failed.');return data;
 }
 async function startSession(response:{state:PublicState,token:string}):Promise<void> {
-  resetDispatch();state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
+  resetDispatch();lastCpuVisualStep=0;state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
   localStorage.setItem(`treasure-bots-${state.code}`,token);
   history.replaceState(null,'',`/?room=${state.code}`);
   connect();render();
@@ -372,6 +373,16 @@ function selfLaunchMission(s:PublicState):boolean {
   const own=s.players.find(p=>p.id===s.yourId);
   return Boolean(own?.robot.mission);
 }
+function cpuStatusText(s:PublicState):string {
+  const cpu=s.players[s.currentPlayerIndex];
+  const current=s.botEvent?.playerId===cpu.id?s.botEvent.kind:'PREPARE';
+  const labels={
+    id:{PREPARE:'Bersiap bermain',SEND:'Mengirim robot',ROLL:'Melempar dadu dan berjalan',ENTER_SHOP:'Masuk toko',BUY:'Membeli item',SKIP_SHOP:'Melewati toko',LEAVE_SHOP:'Keluar toko',END:'Mengakhiri giliran'},
+    en:{PREPARE:'Preparing turn',SEND:'Sending robot',ROLL:'Rolling dice and walking',ENTER_SHOP:'Entering the shop',BUY:'Buying an item',SKIP_SHOP:'Passing the shop',LEAVE_SHOP:'Leaving the shop',END:'Ending turn'},
+    ja:{PREPARE:'ターン準備中',SEND:'ロボットを派遣',ROLL:'サイコロで移動中',ENTER_SHOP:'ショップに入る',BUY:'アイテム購入',SKIP_SHOP:'ショップを通過',LEAVE_SHOP:'ショップを出る',END:'ターン終了'}
+  } as const;
+  return `🤖 ${cpu.name} · ${labels[lang][current]}`;
+}
 function render():void {
   const active=!!state;const playing=active&&state!.phase!=='lobby';
   el('home').hidden=active;el('lobby').hidden=!active||playing;el('match').hidden=!playing;
@@ -402,8 +413,18 @@ function render():void {
   el('viewKicker').textContent=isWorld?'EXPEDITION · 02':'GAME BOARD · 01';
   el('viewDescription').textContent=isWorld?t('survey'):t('robot');
   el('turnTitle').textContent=s.phase==='finished'?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:`${activePlayer.name}${mine?` (${t('you')})`:''}`;
-  el('turnBadge').textContent=s.phase==='finished'?'🏆':!mine?'WAITING':dispatchAnimating?t('launching'):!s.rolled&&selfLaunchMission(s)?'ROLL DICE':'YOUR TURN';
+  el('turnBadge').textContent=s.phase==='finished'?'🏆':activePlayer.isBot?'CPU TURN':!mine?'WAITING':dispatchAnimating?t('launching'):!s.rolled&&selfLaunchMission(s)?'ROLL DICE':'YOUR TURN';
   el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
+  const cpuActive=s.phase==='playing'&&activePlayer.isBot;
+  el('cpuStatus').hidden=!cpuActive;
+  if(cpuActive)el('cpuStatus').textContent=cpuStatusText(s);
+  if(s.botEvent&&s.botEvent.step!==lastCpuVisualStep){
+    lastCpuVisualStep=s.botEvent.step;
+    if(s.botEvent.kind==='SEND' && activePlayer.id===s.botEvent.playerId && activePlayer.isBot && !dispatchAnimating){
+      // Only animate confirmed server CPU actions. No automatic rolls on client.
+      playDispatch(false);
+    }
+  }
   if(s.rolled&&s.dice){
     const diceKey=s.code+':'+s.turn+':'+s.currentPlayerIndex+':'+s.dice.join(',');
     if(lastDiceEvent!==diceKey){lastDiceEvent=diceKey;revealDice(s.dice[0],s.dice[1]);}
@@ -547,7 +568,7 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){
