@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
 import type { GameState, Player } from '../engine/types.ts';
-import { ISLAND_SIZE, ISLAND_TERRAIN, expeditionProgress } from '../engine/island.ts';
-import type { Ground, IslandSpot } from '../engine/island.ts';
+import { expeditionProgress } from '../engine/island.ts';
+import type { Ground } from '../engine/island.ts';
+import { mapProjection, perimeterPoint, robotOnRoute, clamp } from './world-map-geometry.ts';
+import type { Point } from './world-map-geometry.ts';
 
 /**
  * First-pass illustrated World Map for portrait phones. Phaser is responsible
@@ -12,7 +14,6 @@ import type { Ground, IslandSpot } from '../engine/island.ts';
  * This is a lightweight 2.5D diorama, NOT a 3D model or copyrighted game art.
  * Four camera orientations rotate the map without changing logical tile IDs.
  */
-type Point={x:number;y:number};
 const point=(x:number,y:number)=>new Phaser.Geom.Point(x,y);
 const TILE_COLORS={START:0xffd56b,SHOP:0xf8d06d,GALLERY:0xb4e9f6,
   EVENT:0xeaaaee,SUPPORT:0x92f0a3,PLAIN:0x8fb9f6} as const;
@@ -21,26 +22,9 @@ const TERRAIN_COLORS:Record<Ground,number>={
   WATER:0x60cbdc,VOLCANO:0xd38461,ICE:0xd4f9ff
 };
 const color=(hex:string)=>Phaser.Display.Color.HexStringToColor(hex).color;
-const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const hash=(n:number)=>Math.abs(Math.sin(n*47.831+19.343))*1;
 const waterWave=(n:number)=>Math.sin(n*23.5)*.5+.5;
 
-export function mapProjection(
-  x:number,y:number,turns:number,center:Point,rx:number,ry:number
-):Point{
-  // Rotating the display never mutates the server's island coordinates.
-  let xx=x-(ISLAND_SIZE-1)/2,yy=y-(ISLAND_SIZE-1)/2;
-  for(let i=0;i<((turns%4)+4)%4;i++)[xx,yy]=[-yy,xx];
-  return {x:center.x+(xx-yy)*rx/5.5,y:center.y+(xx+yy)*ry/5.5};
-}
-export function perimeterPoint(index:number,center:Point,rx:number,ry:number,turns=0):Point{
-  const angle=(index/TILES.length)*Math.PI*2+Math.PI/2+turns*Math.PI/2;
-  return {x:center.x+Math.cos(angle)*rx,y:center.y+Math.sin(angle)*ry};
-}
-export function robotOnRoute(start:Point,end:Point,progress:number):Point{
-  const t=clamp(progress,0,1);
-  return {x:start.x+(end.x-start.x)*t,y:start.y+(end.y-start.y)*t};
-}
 const drawLabel=(scene:Phaser.Scene,parent:Phaser.GameObjects.Container,x:number,y:number,
   text:string,size:number,fg:string,stroke='#143954')=>{
   const label=scene.add.text(x,y,text,{
