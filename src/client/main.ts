@@ -6,6 +6,7 @@ import './dispatch.css';
 import './cpu-turns.css';
 import './shop-encounter.css';
 import './world-hud.css';
+import './board-view-three.css';
 import './gallery-dialog.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
@@ -26,6 +27,7 @@ if(!translations[lang])lang='en';
 const t=(key:keyof typeof translations.en)=>translations[lang][key];
 const escapeHtml=(s:string):string=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
 const threePreviewParam=new URLSearchParams(location.search).get('map3d')==='1'?'&map3d=1':'';
+const boardLegacyParam=new URLSearchParams(location.search).get('board2d')==='1'?'&board2d=1':'';
 let state:PublicState|null=null;let token='';let board:ReturnType<typeof mountBoard>|null=null;
 let socket:WebSocket|null=null;let poll:ReturnType<typeof setInterval>|null=null;
 let busy=false;
@@ -352,7 +354,7 @@ async function api(path:string,method='GET',body?:unknown,accessToken=token):Pro
 async function startSession(response:{state:PublicState,token:string}):Promise<void> {
   resetDispatch();lastCpuVisualStep=0;state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
   localStorage.setItem(`treasure-bots-${state.code}`,token);
-  history.replaceState(null,'',`/?room=${state.code}${threePreviewParam}`);
+  history.replaceState(null,'',`/?room=${state.code}${threePreviewParam}${boardLegacyParam}`);
   connect();render();
 }
 async function createRoom():Promise<void>{
@@ -619,7 +621,7 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',threePreviewParam?'/?map3d=1':'/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',(threePreviewParam||boardLegacyParam)?'/?'+[threePreviewParam,boardLegacyParam].filter(Boolean).map(x=>x.slice(1)).join('&'):'/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();if(state)galleryDialog.update(state);};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){

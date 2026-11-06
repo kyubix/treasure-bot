@@ -1,0 +1,35 @@
+/* Three.js HD Board View — cinematic info surfaces, not new controls. */
+#board{position:relative;isolation:isolate;overflow:hidden}
+#board .board-view-three{display:block;width:100%;height:100%}
+#board .board3d-hud{
+ display:block;position:absolute;inset:0;pointer-events:none;z-index:2;
+ font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fdf8e8;
+}
+.board3d-plaque{
+ position:absolute;top:clamp(8px,2%,17px);left:clamp(8px,2%,17px);
+ display:flex;flex-direction:column;gap:3px;
+ width:max-content;max-width:min(58%,300px);
+ background:linear-gradient(135deg,#14314cd9,#235473cb);
+ border:2px solid #f4d28e;border-radius:11px;
+ padding:8px 11px;box-shadow:0 6px 16px #09263d69;
+ backdrop-filter:blur(5px);
+}
+.board3d-plaque span{
+ font-weight:850;font-size:clamp(9px,2.05vw,12px);
+ color:#f7e4af;letter-spacing:.11em
+}
+.board3d-plaque strong{
+ font-size:clamp(12px,2.8vw,20px);letter-spacing:.03em;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.board3d-minimap{
+ position:absolute;right:clamp(8px,2%,18px);top:clamp(8px,2%,16px);
+ width:clamp(84px,21%,143px);aspect-ratio:124/114;
+ padding:5px;border-radius:13px;background:#18415cc7;
+ border:2px solid #f0d99b;box-shadow:0 6px 18px #0b284350
+}
+.board3d-minimap svg{width:100%;height:100%}
+@media(max-width:430px){
+ .board3d-plaque{max-width:60%;padding:7px 9px;border-width:1.5px}
+ .board3d-minimap{width:86px;padding:3px;border-width:1.5px}
+}

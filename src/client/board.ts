@@ -6,6 +6,7 @@ import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
 import { drawWorldIsland } from './world-map.ts';
 import type { WorldThreeLayer } from './world-map-three.ts';
+import type { ThreeBoardVisual } from './board-view-three.ts';
 
 export type GameView = 'board' | 'world';
 
@@ -37,6 +38,7 @@ export class BoardScene extends Phaser.Scene {
   private lastLaunchPaint=0;
   private layoutFrame=0;
   private threeLayer:WorldThreeLayer|null=null;
+  private boardThree:ThreeBoardVisual|null=null;
   private orbitTouches=new Map<number,{x:number;y:number}>();
   private orbitMoved=0;
   private lastPinchDistance=0;
@@ -52,6 +54,15 @@ export class BoardScene extends Phaser.Scene {
   disposeWorldPreview():void{
     this.threeLayer?.dispose();
     this.threeLayer=null;
+  }
+  setBoardThreeLayer(layer:ThreeBoardVisual):void{
+    this.boardThree?.dispose();
+    this.boardThree=layer;
+    if(this.sys.isActive()&&this.view==='board')this.scheduleLayoutPaint();
+  }
+  disposeBoardThreeLayer():void{
+    this.boardThree?.dispose();
+    this.boardThree=null;
   }
   isLaunching():boolean{return this.launchProgress!==null;}
   launchRobot(playerId:string):void {
@@ -202,6 +213,9 @@ export class BoardScene extends Phaser.Scene {
   setView(value:GameView):void {
     if(this.view===value)return;
     this.view=value;
+    // Hide the previous WebGL scene immediately, even during CSS resize.
+    if(value==='world')this.boardThree?.visible(false);
+    else this.threeLayer?.visible(false);
     this.movement?.stop();
     this.movement=undefined;
     this.travelingPlayer=null;
@@ -257,7 +271,20 @@ export class BoardScene extends Phaser.Scene {
       this.world(container,w,h,rendered3D);
     }else{
       this.threeLayer?.visible(false);
-      this.board(container,w,h);
+      const active=this.match?.players[this.match.currentPlayerIndex];
+      const focus=this.visualPosition!==null&&this.travelingPlayer===active?.id?
+        this.visualPosition:(active?.position??0);
+      let rendered3D=false;
+      if(this.boardThree){
+        try{
+          rendered3D=this.boardThree.draw(this.match,w,h,focus,
+            this.travelingPlayer,this.launchProgress,this.launchPlayerId);
+        }catch{rendered3D=false;}
+      }
+      if(!rendered3D){
+        this.boardThree?.visible(false);
+        this.board(container,w,h);
+      }
     }
   }
   private tree(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void {
@@ -521,18 +548,33 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   launchRobot(playerId:string):void;
   destroy():void;
 }{
-  // Opt-in preview only: never allocate an extra WebGL context for standard
-  // gameplay. Canvas-backed Phaser keeps the live state overlays interactive.
-  const map3D=new URLSearchParams(location.search).get('map3d')==='1';
+  // HD Three.js Board View is enabled by default. ?board2d=1 forces the
+  // original Phaser Board View for safe rollback on low-end Android/WebGL.
+  const params=new URLSearchParams(location.search);
+  const map3D=params.get('map3d')==='1';
+  const board3D=params.get('board2d')!=='1';
   const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
-    type:map3D?Phaser.CANVAS:Phaser.AUTO,
-    transparent:map3D,
-    parent:element,backgroundColor:map3D?'#000000':'#245879',
+    // Canvas-backed Phaser avoids a second competing WebGL renderer and
+    // retains deterministic game interaction / fallback rendering.
+    type:(map3D||board3D)?Phaser.CANVAS:Phaser.AUTO,
+    transparent:map3D||board3D,
+    parent:element,backgroundColor:(map3D||board3D)?'#000000':'#245879',
     scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
     render:{pixelArt:false,antialias:true},scene:[scene]
   });
   let destroyed=false;
+  if(board3D){
+    void import('./board-view-three.ts').then(({createThreeBoardView})=>{
+      if(destroyed)return;
+      const layer=createThreeBoardView(element);
+      if(!layer)return;
+      game.canvas.style.position='relative';
+      game.canvas.style.zIndex='1';
+      game.canvas.style.touchAction='none';
+      scene.setBoardThreeLayer(layer);
+    }).catch(()=>{/* Phaser remains a fully working Board View fallback. */});
+  }
   if(map3D){
     // Loaded only on demand; ordinary Phaser map remains unchanged in output.
     void import('./world-map-three.ts').then(({createThreeWorldLayer})=>{
@@ -562,6 +604,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
       // The Three layer's lifecycle follows the Phaser scene and host.
       // The wrapper below also permits a late import to be cancelled.
       scene.disposeWorldPreview();
+      scene.disposeBoardThreeLayer();
     }
   };
 }

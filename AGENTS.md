@@ -44,5 +44,17 @@ Read this FIRST before changing assets or gameplay. The older README describes v
 ## World Map art instructions
 Use ONE coherent 3D/layered island master scene and derive all camera rotations (0/90/180/270) from it. Never independently generate 4 unrelated views pretending to rotate. Keep 100% of colored perimeter path visible with margin; markers, Gallery numbers, ownership, players, robot routes and HUD are DYNAMIC OVERLAYS from game state. Do not bake labels/characters into background.
 
+## HD Three.js Board View renderer
+- Read `docs/BOARD_VIEW_THREE_HD.md` for implementation, rollback and Android QA.
+- Board View uses Three.js by default, `?board2d=1` forces the prior Phaser
+  renderer. World Map Three remains `?map3d=1`. No additional controls added.
+- Main Board is a close-up with raised white Gallery NUMBER plates, colored
+  lower panels, chibi GLTF actors, Gallery/Shop facade, and biomes. Gallery
+  facade is permitted in Board View only, never as a numbered World Map site.
+- No requirement to keep PS1/low-poly pixelation: user approves polished HD
+  graphics; prioritize clarity, cohesive lighting and Android performance.
+- Renderer consumes existing authoritative GameState, galleryNumberAt(),
+  and old movement tweens. Do not duplicate turn/shop/Gallery logic in Three.
+
 ## Engineering guardrails
 Stack: TypeScript, Phaser 3, Cloudflare Workers/Durable Objects. Server authoritative; respect persistent state migrations and multiplayer reconnection. Avoid full Phaser scene reconstruction per animation frame; preserve Android fullscreen width/canvas hotfix. Run smoke/unit/typecheck/build and manual phone visual checks. Do not assume GitHub merge confirms Cloudflare deployment. Original assets only: do not copy proprietary PS1 pixels, sprites, audio or code.
