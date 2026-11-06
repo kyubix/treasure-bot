@@ -94,6 +94,100 @@ function setInfoOpen(open:boolean):void {
   if(open)el<HTMLButtonElement>('closeInfo').focus();
   else if(state&&state.phase!=='lobby')el<HTMLButtonElement>('openInfo').focus();
 }
+
+function diceIdle():void {
+  if(dicePreview){clearInterval(dicePreview);dicePreview=null;}
+  diceHeld=false;
+  el<HTMLButtonElement>('roll').classList.remove('is-held');
+}
+function revealDice(first:number,second:number):void {
+  diceIdle();
+  if(diceHideTimer)clearTimeout(diceHideTimer);
+  const box=el('diceOverlay');
+  box.hidden=false;
+  box.dataset.phase='result';
+  el('dieOne').textContent=String(first);
+  el('dieTwo').textContent=String(second);
+  el('diceTotal').textContent='= '+String(first+second);
+  diceHideTimer=setTimeout(()=>{if(box.dataset.phase==='result')box.hidden=true;},2100);
+}
+function beginDiceHold():void {
+  const s=state;
+  if(!s||s.phase!=='playing'||s.rolled||viewMode!=='board'||busy||settingsOpen||infoOpen||shopOpen||
+    s.players[s.currentPlayerIndex]?.id!==s.yourId||diceHeld)return;
+  diceHeld=true;
+  const box=el('diceOverlay');
+  box.hidden=false;
+  box.dataset.phase='holding';
+  el('diceTotal').textContent='🎲';
+  el<HTMLButtonElement>('roll').classList.add('is-held');
+  const preview=()=>{
+    el('dieOne').textContent=String(1+Math.floor(Math.random()*6));
+    el('dieTwo').textContent=String(1+Math.floor(Math.random()*6));
+  };
+  preview();
+  dicePreview=setInterval(preview,80);
+}
+function cancelDiceHold():void {
+  if(!diceHeld)return;
+  diceIdle();
+  el('diceOverlay').hidden=true;
+}
+function releaseDiceHold():void {
+  if(!diceHeld)return;
+  diceIdle();
+  lastRollRelease=Date.now();
+  const overlay=el('diceOverlay');
+  overlay.hidden=false;
+  overlay.dataset.phase='waiting';
+  el('diceTotal').textContent=t('rolling');
+  void sendAction({type:'ROLL'});
+  setTimeout(()=>{if(overlay.dataset.phase==='waiting')overlay.hidden=true;},3500);
+}
+function setShopOpen(open:boolean):void {
+  shopOpen=open;
+  el('shopOverlay').hidden=!open;
+  if(open) {
+    setInfoOpen(false);
+    syncShop();
+    el<HTMLButtonElement>('shopClose').focus();
+  } else {
+    el<HTMLButtonElement>('openShop').focus();
+  }
+}
+function syncShop():void {
+  if(!shopOpen||!state)return;
+  const s=state;
+  const self=s.players.find(p=>p.id===s.yourId);
+  if(!self||s.phase!=='playing'||s.players[s.currentPlayerIndex]?.id!==s.yourId||!s.shopAccess){
+    shopOpen=false;
+    el('shopOverlay').hidden=true;
+    return;
+  }
+  el('shopWallet').textContent=self.gold.toLocaleString()+' G · '+self.gateCards+' Gate Cards';
+  el<HTMLButtonElement>('shopBuyGate').disabled=busy||self.gold<300||self.gateCards>=5;
+  const slots=['HEAD','BODY','ARM','LEG'] as const;
+  el('shopPartList').innerHTML=slots.map(slot=>
+    \`<button type="button" class="secondary shop-product" data-shop-part="\${slot}" \${busy||self.gold<450||self.robot.parts?.[slot]?'disabled':''}>\${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')} · \${self.robot.parts?.[slot]?'✓':'450 G'}</button>\`
+  ).join('');
+  document.querySelectorAll<HTMLButtonElement>('[data-shop-part]').forEach(button=>{
+    button.onclick=()=>void sendAction({type:'BUY_PART',slot:button.dataset.shopPart as 'HEAD'|'BODY'|'ARM'|'LEG'});
+  });
+}
+function offerShopAfterMovement(s:PublicState):void {
+  const local=s.players[s.currentPlayerIndex]?.id===s.yourId;
+  if(!s.rolled||!s.shopAccess||!local||s.phase!=='playing'||!s.dice)return;
+  const eventId=s.code+':'+s.turn+':'+s.currentPlayerIndex+':'+s.dice.join(',');
+  if(lastShopOffer===eventId)return;
+  lastShopOffer=eventId;
+  if(shopOfferTimer)clearTimeout(shopOfferTimer);
+  const steps=s.dice[0]+s.dice[1];
+  shopOfferTimer=setTimeout(()=>{
+    if(!state||state.code!==s.code||state.turn!==s.turn||
+      state.currentPlayerIndex!==s.currentPlayerIndex||!state.shopAccess||settingsOpen)return;
+    setShopOpen(true);
+  },Math.max(1600,steps*220+450));
+}
 function toast(msg:string):void { const node=el('message');node.textContent=msg;node.hidden=false;setTimeout(()=>node.hidden=true,3600); }
 function gameUrl(code:string):string {return `${location.origin}/?room=${encodeURIComponent(code)}`;}
 async function api(path:string,method='GET',body?:unknown,accessToken=token):Promise<any> {
@@ -155,6 +249,7 @@ function render():void {
   el('leave').hidden=!active;
   document.body.classList.toggle('in-game',playing);
   if(!playing&&infoOpen)setInfoOpen(false);
+  if(!playing&&shopOpen)setShopOpen(false);
   if(!active)return;
   const s=state!;
   if(!playing){
@@ -177,7 +272,13 @@ function render():void {
   el('viewDescription').textContent=isWorld?t('survey'):t('robot');
   el('turnTitle').textContent=s.phase==='finished'?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:`${activePlayer.name}${mine?` (${t('you')})`:''}`;
   el('turnBadge').textContent=s.phase==='finished'?'🏆':mine?'YOUR TURN':'WAITING';
-  el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')}`:'🎲 —';
+  el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
+  if(s.rolled&&s.dice){
+    const diceKey=s.code+':'+s.turn+':'+s.currentPlayerIndex+':'+s.dice.join(',');
+    if(lastDiceEvent!==diceKey){lastDiceEvent=diceKey;revealDice(s.dice[0],s.dice[1]);}
+    offerShopAfterMovement(s);
+  }
+  syncShop();
   el('players').innerHTML=s.players.map((p,i)=>{
     const galleries=s.galleries.filter(g=>g.ownerId===p.id).length;
     return `<div class="person ${i===s.currentPlayerIndex?'current':''}"><span class="dot" style="background:${p.color}"></span><div class="person-info"><strong>${escapeHtml(p.name)} ${p.isBot?'🤖':''}</strong><small>${t('gold')}: ${p.gold.toLocaleString()} G · ${t('gallery')}: ${galleries}</small><small>${t('energy')}: ${p.robot.energy} · ${t('cards')}: ${p.gateCards}</small></div></div>`;
@@ -187,8 +288,8 @@ function render():void {
     const stats=getRobotStats(self.robot);
     const slots=['HEAD','BODY','ARM','LEG'] as const;
     const statValues=[stats.search,stats.energy,stats.battle,stats.walk];
-    el('robotWorkshop').innerHTML=`<div class="robot-overview"><div class="robot-emoji">🤖</div><div><strong>${escapeHtml(self.robot.chassis)}</strong><small>⚡ ${self.robot.energy}/${stats.energy} E · ${self.robot.mission?.phase ?? 'READY'}</small></div></div><div class="robot-stats">${['S','E','B','W'].map((label,i)=>`<span>${label}<b>${statValues[i]}</b></span>`).join('')}</div><div class="part-grid">${slots.map(slot=>`<button class="part-button" data-slot="${slot}" ${!mine||!s.rolled||!s.shopAccess||self.gold<450||self.robot.parts?.[slot]?'disabled':''}>${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')}<span>${self.robot.parts?.[slot]?'✓':'450 G'}</span></button>`).join('')}</div><small class="shop-hint">${t('shopHint')}</small>`;
-    document.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(btn=>btn.onclick=()=>void sendAction({type:'BUY_PART',slot:btn.dataset.slot as 'HEAD'|'BODY'|'ARM'|'LEG'}));
+    el('robotWorkshop').innerHTML=`<div class="robot-overview"><div class="robot-emoji">🤖</div><div><strong>${escapeHtml(self.robot.chassis)}</strong><small>⚡ ${self.robot.energy}/${stats.energy} E · ${self.robot.mission?.phase ?? 'READY'}</small></div></div><div class="robot-stats">${['S','E','B','W'].map((label,i)=>`<span>${label}<b>${statValues[i]}</b></span>`).join('')}</div><div class="part-grid">${slots.map(slot=>`<button class="part-button" data-slot="${slot}" ${true?'disabled':''}>${t(slot.toLowerCase() as 'head'|'body'|'arm'|'leg')}<span>${self.robot.parts?.[slot]?'✓':'450 G'}</span></button>`).join('')}</div><small class="shop-hint">${t('shopHint')}</small>`;
+    // Robot overview is read-only. Equipment purchases happen exclusively inside a shop encounter.
   }
   el('inventory').innerHTML=self?.inventory.length?self.inventory.map(item=>`<div class="item"><div><strong>${escapeHtml(item.name)}</strong><small>${item.value} G · ${escapeHtml(item.category)}</small></div><button class="tiny secondary" data-treasure="${escapeHtml(item.id)}">${t('display')}</button></div>`).join(''):'<p class="muted">No treasures yet. Send your robot to explore!</p>';
   document.querySelectorAll<HTMLButtonElement>('[data-treasure]').forEach(btn=>btn.onclick=()=>void sendAction({type:'DISPLAY_TREASURE',treasureId:btn.dataset.treasure!}));
@@ -199,15 +300,16 @@ function render():void {
   el('turnCommands').hidden=isWorld;
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
   el<HTMLButtonElement>('openWorld').disabled=!canAct||s.rolled||!!self?.robot.mission;
-  el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
+  el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled||busy;
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled;
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
   el<HTMLButtonElement>('sendRobot').disabled=!canAct||s.rolled||!!self?.robot.mission||!self?.gateCards||!site||site.depleted;
   el<HTMLButtonElement>('returnRobot').disabled=!canAct||s.rolled||!self?.robot.mission||self?.robot.mission.phase==='INBOUND';
-  el('returnRobot').hidden=!self?.robot.mission||self.robot.mission.phase==='INBOUND';
-  el<HTMLButtonElement>('buyGate').disabled=!canAct||!s.rolled||!s.shopAccess||self!.gold<300;
-  el('buyGate').hidden=!s.shopAccess;
+  // Preserve all three button slots to avoid changing canvas height after dice resolution.
+  el<HTMLButtonElement>('openShop').disabled=!canAct||!s.rolled||!s.shopAccess;
+  el<HTMLButtonElement>('openShop').classList.toggle('shop-available',Boolean(canAct&&s.shopAccess));
+  syncShop();
   for(const btn of document.querySelectorAll<HTMLButtonElement>('[data-treasure]'))btn.disabled=!canAct;
   if(!board){
     board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();});
@@ -221,7 +323,38 @@ function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
   el<HTMLButtonElement>('join').onclick=()=>void joinRoom();
   el<HTMLButtonElement>('start').onclick=()=>void sendAction({type:'START',bots:Number(el<HTMLSelectElement>('botCount').value)});
-  el<HTMLButtonElement>('roll').onclick=()=>void sendAction({type:'ROLL'});
+  const rollButton=el<HTMLButtonElement>('roll');
+  rollButton.addEventListener('pointerdown',event=>{
+    if(event.button!==0||rollButton.disabled)return;
+    event.preventDefault();
+    rollButton.setPointerCapture(event.pointerId);
+    beginDiceHold();
+  });
+  rollButton.addEventListener('pointerup',event=>{
+    if(!diceHeld)return;
+    event.preventDefault();
+    releaseDiceHold();
+  });
+  rollButton.addEventListener('pointercancel',cancelDiceHold);
+  rollButton.addEventListener('lostpointercapture',()=>{if(diceHeld)cancelDiceHold();});
+  rollButton.addEventListener('keydown',event=>{
+    if((event.code==='Space'||event.code==='Enter')&&!event.repeat){
+      event.preventDefault();beginDiceHold();
+    }
+  });
+  rollButton.addEventListener('keyup',event=>{
+    if(event.code==='Space'||event.code==='Enter'){
+      event.preventDefault();releaseDiceHold();
+    }
+  });
+  rollButton.addEventListener('click',()=>{
+    // Screen readers may synthesize click without pointer/keyboard events.
+    if(Date.now()-lastRollRelease>600&&!busy&&!diceHeld){
+      beginDiceHold();releaseDiceHold();
+    }
+  });
+  window.addEventListener('blur',cancelDiceHold);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDiceHold();});
   el<HTMLButtonElement>('end').onclick=()=>void sendAction({type:'END_TURN'});
   el<HTMLButtonElement>('openWorld').onclick=()=>{setInfoOpen(false);viewMode='world';render();};
   el<HTMLButtonElement>('backBoard').onclick=()=>{setInfoOpen(false);viewMode='board';render();};
@@ -232,7 +365,14 @@ function init():void {
     });
   };
   el<HTMLButtonElement>('returnRobot').onclick=()=>void sendAction({type:'RETURN_ROBOT'});
-  el<HTMLButtonElement>('buyGate').onclick=()=>void sendAction({type:'BUY_GATE_CARD'});
+  el<HTMLButtonElement>('openShop').onclick=()=>{if(state?.shopAccess&&!shopOpen)setShopOpen(true);};
+  const leaveShop=()=>{if(!shopOpen)return;void sendAction({type:'CLOSE_SHOP'},()=>setShopOpen(false));};
+  el<HTMLButtonElement>('shopClose').onclick=leaveShop;
+  el<HTMLButtonElement>('shopLeave').onclick=leaveShop;
+  el<HTMLButtonElement>('shopBuyGate').onclick=()=>void sendAction({type:'BUY_GATE_CARD'});
+  el('shopOverlay').addEventListener('click',event=>{
+    if(event.target===el('shopOverlay'))leaveShop();
+  });
   el<HTMLButtonElement>('settingsTrigger').onclick=()=>setSettingsOpen(true,el('settingsTrigger'));
   el<HTMLButtonElement>('gameSettingsTrigger').onclick=()=>setSettingsOpen(true,el('gameSettingsTrigger'));
   el<HTMLButtonElement>('closeSettings').onclick=()=>setSettingsOpen(false);
@@ -244,11 +384,12 @@ function init():void {
   el<HTMLDivElement>('infoBackdrop').onclick=()=>setInfoOpen(false);
   document.addEventListener('keydown',event=>{
     if(event.key!=='Escape')return;
-    if(settingsOpen)setSettingsOpen(false);
+    if(shopOpen)el<HTMLButtonElement>('shopLeave').click();
+    else if(settingsOpen)setSettingsOpen(false);
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){
