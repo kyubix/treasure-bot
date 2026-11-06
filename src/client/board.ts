@@ -32,7 +32,8 @@ export class BoardScene extends Phaser.Scene {
   private movement?:Phaser.Tweens.Tween;
   private lastMotionPaint=0;
 
-  constructor(private readonly onSelect:(id:string)=>void) {super('Board');}
+  constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
+  isMoving():boolean{return Boolean(this.movement?.isPlaying());}
   create():void {this.scale.on('resize',()=>this.paint());this.paint();}
   setMatch(value:GameState):void {
     const previous=this.match;
@@ -66,6 +67,7 @@ export class BoardScene extends Phaser.Scene {
           this.travelingPlayer=null;
           this.movement=undefined;
           this.paint();
+          this.onTravelEnd();
         }
       });
     }else if(this.sys.isActive())this.paint();
@@ -300,13 +302,14 @@ export class BoardScene extends Phaser.Scene {
   }
 }
 
-export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{
+export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTravelEnd:()=>void=()=>{}):{
   update(state:GameState):void;
   select(id:string):void;
   setView(mode:GameView):void;
+  isMoving():boolean;
   destroy():void;
 }{
-  const scene=new BoardScene(onSelect);
+  const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
     type:Phaser.AUTO,parent:element,backgroundColor:'#245879',
     scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
@@ -316,6 +319,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void):{
     update(state){scene.setMatch(state);},
     select(id){scene.selectSpot(id);},
     setView(mode){scene.setView(mode);},
+    isMoving(){return scene.isMoving();},
     destroy(){game.destroy(true);}
   };
 }
