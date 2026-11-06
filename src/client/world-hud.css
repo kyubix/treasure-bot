@@ -286,6 +286,13 @@
     gap:5px;
     min-height:50px;
   }
+  body.in-game #match[data-view="world"] #worldCommands #backBoard,
+  body.in-game #match[data-view="world"] #worldCommands #rotateLeft,
+  body.in-game #match[data-view="world"] #worldCommands #rotateRight,
+  body.in-game #match[data-view="world"] #worldCommands #sendRobot {
+    grid-row:1!important;
+    grid-column:auto!important;
+  }
   body.in-game #match[data-view="world"] #worldCommands button{
     height:49px;
     min-height:49px;
