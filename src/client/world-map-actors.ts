@@ -3,107 +3,68 @@ import type {GameState,Player} from '../engine/types.ts';
 import type {IslandSpot} from '../engine/island.ts';
 import {expeditionProgress} from '../engine/island.ts';
 import {terrainHeight} from './world-map-terrain.ts';
+import {createOriginalActor,disposeActorModel} from './world-map-models.ts';
+import type {ActorAnimation,ActorKind,ActorModel} from './world-map-models.ts';
+import {loadActorAsset} from './world-map-actor-assets.ts';
+import type {ActorAssetLoader} from './world-map-actor-assets.ts';
 
-/**
- * V4: real Three.js chibi players and companion/mission robots.
- * All positions are derived from authoritative GameState, not local movement.
- * Models are original lightweight low-poly geometry. A future GLB animation
- * asset can replace the rig without changing the server or the board renderer.
- */
-type Anchors={
-  tile:(index:number)=>THREE.Vector3;
-  site:(x:number,y:number)=>THREE.Vector3;
-};
-type Rig={
-  root:THREE.Group;
-  motion:THREE.Group;
-  mixer:THREE.AnimationMixer;
-};
-type Pair={player:Rig;robot:Rig;robotTarget:THREE.Vector3};
+type Anchors={tile:(index:number)=>THREE.Vector3;site:(x:number,y:number)=>THREE.Vector3};
+type Rig={root:THREE.Group;model:ActorModel;mixer:THREE.AnimationMixer;
+  actions:Map<string,THREE.AnimationAction>;active:ActorAnimation;colour:string};
+type Pair={player:Rig;robot:Rig;robotTarget:THREE.Vector3;path:THREE.Vector3[];
+  tile:number;phase:Player['robot']['mission'];fast:boolean;returning:boolean};
 export interface AnimatedWorldActors{
   sync(state:GameState|null):void;
-  update(deltaSeconds:number):void;
+  update(deltaSeconds:number,cosmeticMotion?:boolean):void;
+  pause(value:boolean):void;
   dispose():void;
 }
-const TAU=Math.PI*2;
-const bodyMaterial=(hex:number)=>new THREE.MeshStandardMaterial({
-  color:hex,roughness:.91,flatShading:true
-});
-function part(parent:THREE.Object3D,g:THREE.BufferGeometry,
-  m:THREE.Material,x:number,y:number,z:number):THREE.Mesh{
-  const mesh=new THREE.Mesh(g,m);
-  mesh.position.set(x,y,z);
-  mesh.castShadow=true;
-  parent.add(mesh);
-  return mesh;
-}
-function animRig(root:THREE.Group, motion:THREE.Group,phase:number):Rig{
-  const mixer=new THREE.AnimationMixer(motion);
-  // Keyframes are on the figure, NOT on the server-controlled world anchor.
-  const clip=new THREE.AnimationClip('idle',.8,[
-    new THREE.NumberKeyframeTrack('.position[y]',[0,.2,.4,.6,.8],
-      [0,.027,.048,.017,0])
-  ]);
-  const action=mixer.clipAction(clip);
-  action.setLoop(THREE.LoopRepeat,Infinity);
-  action.play();
-  mixer.setTime(phase);
-  return {root,motion,mixer};
-}
-function avatar(colour:string,phase:number):Rig{
-  const root=new THREE.Group();
-  const motion=new THREE.Group();root.add(motion);
-  const main=bodyMaterial(new THREE.Color(colour).getHex());
-  const skin=bodyMaterial(0xf2cb9b),hair=bodyMaterial(0x463c3a);
-  const boot=bodyMaterial(0x374969),metal=bodyMaterial(0xe4dabc);
-  const eye=bodyMaterial(0x24314c);
-  // Chunky PS1-inspired big-head chibi with two distinct feet and arms.
-  part(motion,new THREE.CylinderGeometry(.125,.15,.23,7),main,0,.265,0);
-  for(const side of [-1,1]){
-    part(motion,new THREE.BoxGeometry(.085,.16,.10),boot,side*.073,.09,0);
-    const arm=part(motion,new THREE.CylinderGeometry(.045,.058,.20,6),main,
-      side*.19,.29,0);
-    arm.rotation.z=side*.19;
-  }
-  part(motion,new THREE.IcosahedronGeometry(.18,1),skin,0,.525,0);
-  part(motion,new THREE.SphereGeometry(.16,7,5),hair,0,.64,-.018);
-  // A colored short cap makes players identifiable even from the back.
-  part(motion,new THREE.CylinderGeometry(.173,.172,.05,9),main,0,.679,0);
-  part(motion,new THREE.BoxGeometry(.13,.024,.07),main,0,.67,.17);
-  for(const side of [-1,1])
-    part(motion,new THREE.SphereGeometry(.021,5,4),eye,
-      side*.066,.53,.168);
-  part(motion,new THREE.BoxGeometry(.14,.045,.014),metal,0,.31,.147);
-  return animRig(root,motion,phase);
-}
-function companion(colour:string,phase:number):Rig{
-  const root=new THREE.Group();
-  const motion=new THREE.Group();root.add(motion);
-  const paint=bodyMaterial(new THREE.Color(colour).getHex());
-  const armor=bodyMaterial(0x3c5572),glass=bodyMaterial(0xa7e8fa);
-  const eye=bodyMaterial(0x214669),gold=bodyMaterial(0xffd475);
-  // Compact robot: face panel, two legs and antenna; not a billboard.
-  part(motion,new THREE.BoxGeometry(.24,.20,.19),paint,0,.19,0);
-  part(motion,new THREE.BoxGeometry(.205,.095,.022),glass,0,.22,.103);
-  for(const x of [-.065,.065]){
-    part(motion,new THREE.BoxGeometry(.065,.10,.09),armor,x,.055,0);
-    part(motion,new THREE.SphereGeometry(.017,5,4),eye,x,.23,.121);
-  }
-  part(motion,new THREE.CylinderGeometry(.013,.013,.12,5),armor,0,.36,0);
-  part(motion,new THREE.IcosahedronGeometry(.041,0),gold,0,.42,0);
-  return animRig(root,motion,phase+.3);
-}
-function recycle(rig:Rig):void{
-  rig.mixer.stopAllAction();
-  rig.mixer.uncacheRoot(rig.motion);
-  rig.root.parent?.remove(rig.root);
-  rig.root.traverse(o=>{
-    if(!(o instanceof THREE.Mesh))return;
-    o.geometry.dispose();
+
+function rig(model:ActorModel,colour:string):Rig{
+  const root=new THREE.Group();root.add(model.scene);
+  const mixer=new THREE.AnimationMixer(model.scene);
+  const actions=new Map(model.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
+  const result={root,model,mixer,actions,active:'idle' as const,colour};
+  model.scene.traverse(o=>{if(o instanceof THREE.Mesh){
     const materials=Array.isArray(o.material)?o.material:[o.material];
-    for(const m of materials)m.dispose();
-  });
+    for(const m of materials)if(m.name==='PlayerPaint'&&m instanceof THREE.MeshStandardMaterial)m.color.set(colour);
+  }});
+  actions.get('idle')?.play();root.userData.animation='idle';
+  return result;
 }
+function animate(r:Rig,name:ActorAnimation):void{
+  if(r.active===name)return;
+  const previous=r.actions.get(r.active),next=r.actions.get(name);
+  // Reset stale fading actions before reuse, without allocating actions/frames.
+  for(const [key,action] of r.actions)if(key!==r.active&&key!==name)action.stop();
+  next?.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();
+  if(previous&&next)next.crossFadeFrom(previous,.16,false);
+  r.active=name;r.root.userData.animation=name;
+}
+function recycle(r:Rig):void{
+  r.mixer.stopAllAction();r.mixer.uncacheRoot(r.model.scene);
+  r.root.removeFromParent();disposeActorModel(r.model);
+}
+function cloneModel(source:ActorModel):ActorModel{
+  const scene=source.scene.clone(true);
+  // Each rig owns its resources, so removing one player cannot invalidate peers.
+  const materials=new Map<THREE.Material,THREE.Material>();
+  scene.traverse(o=>{if(o instanceof THREE.Mesh){
+    o.geometry=o.geometry.clone();o.castShadow=true;
+    const clone=(m:THREE.Material)=>{let c=materials.get(m);if(!c){c=m.clone();materials.set(m,c);}return c;};
+    o.material=Array.isArray(o.material)?o.material.map(clone):clone(o.material);
+  }});
+  return {scene,animations:source.animations};
+}
+function upgrade(r:Rig,source:ActorModel):void{
+  const replacement=rig(cloneModel(source),r.colour);
+  r.mixer.stopAllAction();r.mixer.uncacheRoot(r.model.scene);
+  r.root.remove(r.model.scene);disposeActorModel(r.model);
+  r.model=replacement.model;r.mixer=replacement.mixer;r.actions=replacement.actions;
+  r.root.add(r.model.scene);const active=r.active;r.active='idle';animate(r,active);
+  r.root.userData.asset='gltf';
+}
+
 export function missionRobotAnchor(
   player:Player,spots:readonly IslandSpot[],anchors:Anchors
 ):THREE.Vector3 {
@@ -125,70 +86,112 @@ export function missionRobotAnchor(
     mission.phase==='SEARCH'?1:1-t;
   return start.lerp(finish,THREE.MathUtils.clamp(progress,0,1));
 }
-export function createWorldActors(
-  scene:THREE.Scene,anchors:Anchors
-):AnimatedWorldActors {
-  const group=new THREE.Group();
-  group.name='worldmap-3d-actors';
-  scene.add(group);
+
+export function createWorldActors(scene:THREE.Scene,anchors:Anchors,
+  loader:ActorAssetLoader=loadActorAsset):AnimatedWorldActors{
+  const group=new THREE.Group();group.name='worldmap-3d-actors';scene.add(group);
   const rigs=new Map<string,Pair>();
-  let lastState:GameState|null=null;
-  const clear=(id:string,entry:Pair)=>{
-    recycle(entry.player);
-    recycle(entry.robot);
-    rigs.delete(id);
+  const assets=new Map<ActorKind,ActorModel>();
+  let dead=false,paused=false;
+  // Per-layer cache, at most two fetches. Failed downloads retain original rigs.
+  for(const kind of ['avatar','robot'] as const){
+    void loader(kind).then(model=>{
+      if(dead){disposeActorModel(model);return;}
+      assets.set(kind,model);
+      for(const entry of rigs.values())upgrade(kind==='avatar'?entry.player:entry.robot,model);
+    }).catch(()=>{/* Immediate procedural fallback remains animated and usable. */});
+  }
+  const make=(kind:ActorKind,colour:string)=>{
+    const asset=assets.get(kind);
+    const result=rig(asset?cloneModel(asset):createOriginalActor(kind),colour);
+    result.root.userData.asset=asset?'gltf':'procedural';return result;
   };
+  const clear=(id:string,entry:Pair)=>{recycle(entry.player);recycle(entry.robot);rigs.delete(id);};
+  // Scratch vector reused for all actors: no allocations in the render loop.
+  const movement=new THREE.Vector3();
+  function move(root:THREE.Group,target:THREE.Vector3,step:number):boolean{
+    movement.subVectors(target,root.position);
+    const distance=movement.length();
+    if(distance<.004){root.position.copy(target);return false;}
+    root.rotation.y=Math.atan2(movement.x,movement.z);
+    root.position.addScaledVector(movement,Math.min(1,step/distance));return true;
+  }
   return {
     sync(state){
-      lastState=state;
+      if(dead)return;
       const present=new Set(state?.players.map(p=>p.id)??[]);
       for(const [id,entry] of rigs)if(!present.has(id))clear(id,entry);
       if(!state)return;
       for(let i=0;i<state.players.length;i++){
-        const p=state.players[i];
-        let entry=rigs.get(p.id);
-        const tile=anchors.tile(p.position);
-        const ordinal=state.players.slice(0,i)
-          .filter(other=>other.position===p.position).length;
+        const p=state.players[i];const tile=anchors.tile(p.position);
+        const ordinal=state.players.slice(0,i).filter(other=>other.position===p.position).length;
         const spread=state.players.filter(other=>other.position===p.position).length;
-        // Different player models sharing a board tile stay distinguishable.
-        const angle=(ordinal/Math.max(1,spread))*TAU;
-        const radius=spread>1?.12:0;
+        const angle=ordinal/Math.max(1,spread)*Math.PI*2,radius=spread>1?.12:0;
+        const target=tile.clone().add(new THREE.Vector3(Math.cos(angle)*radius,0,Math.sin(angle)*radius));
+        let entry=rigs.get(p.id);
         if(!entry){
-          const character=avatar(p.color,i*.19);
-          const robot=companion(p.color,i*.27);
-          group.add(character.root,robot.root);
-          const target=missionRobotAnchor(p,state.islandSpots,anchors);
-          robot.root.position.copy(target);
-          entry={player:character,robot,robotTarget:target.clone()};
+          const character=make('avatar',p.color),robot=make('robot',p.color);
+          character.root.position.copy(target);character.root.rotation.y=Math.atan2(-tile.x,-tile.z);
+          const robotTarget=missionRobotAnchor(p,state.islandSpots,anchors);
+          robot.root.position.copy(robotTarget);group.add(character.root,robot.root);
+          entry={player:character,robot,robotTarget,path:[],tile:p.position,phase:null,fast:false,returning:false};
           rigs.set(p.id,entry);
-        }
-        entry.player.root.position.set(
-          tile.x+Math.cos(angle)*radius,tile.y,tile.z+Math.sin(angle)*radius
-        );
-        entry.player.root.rotation.y=Math.atan2(-tile.x,-tile.z);
+        }else if(paused){
+          entry.path.length=0;entry.tile=p.position;entry.player.root.position.copy(target);
+        }else if(entry.tile!==p.position){
+          // Append snapshot changes to the pending route; never shortcut across
+          // the island. Initial/reconnected snapshots snap, later ones traverse.
+          const steps=(p.position-entry.tile+28)%28;
+          for(let n=1;n<=steps;n++)entry.path.push(anchors.tile((entry.tile+n)%28));
+          entry.path[entry.path.length-1]=target;
+          entry.tile=p.position;
+          if(entry.path.length>28){entry.path.length=0;entry.player.root.position.copy(target);}
+        }else if(entry.path.length){
+          entry.path[entry.path.length-1].copy(target);
+        }else entry.player.root.position.copy(target);
+        if(p.robot.mission)entry.returning=false;
+        else if(entry.phase?.phase==='INBOUND')entry.returning=true;
+        entry.phase=p.robot.mission?{...p.robot.mission}:null;
+        entry.fast=p.robot.chassis==='DASH';
         entry.robotTarget.copy(missionRobotAnchor(p,state.islandSpots,anchors));
-        entry.robot.root.visible=true;
+        if(paused){
+          entry.robot.root.position.copy(entry.robotTarget);entry.returning=false;
+          animate(entry.player,'idle');animate(entry.robot,entry.phase?.phase==='SEARCH'?'search':'idle');
+        }
       }
     },
-    update(deltaSeconds){
-      const delta=Math.max(0,Math.min(.06,deltaSeconds));
+    pause(value){
+      paused=value;
+      if(value)for(const entry of rigs.values()){
+        const latest=entry.path.at(-1);if(latest)entry.player.root.position.copy(latest);
+        entry.path.length=0;entry.robot.root.position.copy(entry.robotTarget);entry.returning=false;
+        animate(entry.player,'idle');animate(entry.robot,entry.phase?.phase==='SEARCH'?'search':'idle');
+      }
+    },
+    update(deltaSeconds,cosmeticMotion=true){
+      if(dead||paused)return;
+      const delta=Number.isFinite(deltaSeconds)?Math.max(0,Math.min(.06,deltaSeconds)):0;
+      if(!delta)return;
       for(const entry of rigs.values()){
-        entry.player.mixer.update(delta);
-        entry.robot.mixer.update(delta);
-        const before=entry.robot.root.position.clone();
-        entry.robot.root.position.lerp(entry.robotTarget,
-          Math.min(1,delta*5));
-        const movement=entry.robot.root.position.clone().sub(before);
-        if(movement.lengthSq()>.0000001){
-          entry.robot.root.rotation.y=Math.atan2(movement.x,movement.z);
+        const destination=entry.path[0];
+        if(destination){
+          move(entry.player.root,destination,delta*3.4);
+          if(entry.player.root.position.distanceToSquared(destination)<.000016)entry.path.shift();
         }
+        animate(entry.player,entry.path.length?'walk':'idle');
+        const travelling=move(entry.robot.root,entry.robotTarget,delta*(entry.fast?3.6:2.4));
+        const phase=entry.phase?.phase;
+        animate(entry.robot,travelling?(phase==='INBOUND'||entry.returning?'return':entry.fast?'run':'walk'):
+          phase==='SEARCH'?'search':'idle');
+        if(!travelling)entry.returning=false;
+        if(cosmeticMotion){entry.player.mixer.update(delta);entry.robot.mixer.update(delta);}
+        else {entry.player.mixer.setTime(0);entry.robot.mixer.setTime(0);}
       }
     },
     dispose(){
+      if(dead)return;dead=true;
       for(const [id,entry] of rigs)clear(id,entry);
-      group.parent?.remove(group);
-      lastState=null;
+      for(const asset of assets.values())disposeActorModel(asset);assets.clear();group.removeFromParent();
     }
   };
 }

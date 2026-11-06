@@ -33,6 +33,7 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
   const vertexColors=new Float32Array(positions.count*3);
   geometry.setAttribute('color',new THREE.BufferAttribute(vertexColors,3));
   const colors=geometry.getAttribute('color') as THREE.BufferAttribute;
+  const shoreLight=Float32Array.from({length:positions.count},(_,i)=>coastLight(positions.getX(i),positions.getZ(i)));
   const base=new THREE.Color(0x167da8);
   const shallow=new THREE.Color(0x3ab8cb);
   const crest=new THREE.Color(0x9edbd7);
@@ -82,7 +83,7 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
       const x=positions.getX(i),z=positions.getZ(i);
       const h=waveHeight(x,z,t);
       positions.setY(i,h);
-      const near=coastLight(x,z);
+      const near=shoreLight[i];
       const sparkle=Math.pow(Math.max(0,Math.sin(x*2.6+z*1.7+t*1.25)),9);
       const mix=THREE.MathUtils.clamp(.12+near*.44+sparkle*.22,0,.90);
       const foam=sparkle*(.05+near*.14);
@@ -93,7 +94,7 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
       );
     }
     positions.needsUpdate=true;colors.needsUpdate=true;
-    geometry.computeVertexNormals();
+    // Flat-shaded material derives face normals in the shader; no CPU normal rebuild.
     for(let i=0;i<glints;i++){
       const x=layout[i*3],z=layout[i*3+1];
       const len=layout[i*3+2];

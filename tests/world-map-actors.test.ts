@@ -64,3 +64,67 @@ describe('Three.js V4 animated World Map actors',()=>{
     expect(scene.children.includes(host)).toBe(false);
   });
 });
+
+
+describe('V5 state-driven animation',()=>{
+  it('walks around perimeter and settles to idle without mutating state',()=>{
+    const scene=new THREE.Scene();const actors=createWorldActors(scene,anchors);
+    const a=player('a',4);actors.sync(state(a));
+    const host=scene.getObjectByName('worldmap-3d-actors')!;
+    const root=host.children[0];
+    a.position=7;const snapshot=JSON.stringify(a);actors.sync(state(a));
+    expect(root.position.x).toBeCloseTo(4);
+    actors.update(.05);
+    expect(root.userData.animation).toBe('walk');
+    expect(root.position.x).toBeGreaterThan(4);
+    expect(root.position.x).toBeLessThan(7);
+    for(let i=0;i<100;i++)actors.update(.05);
+    expect(root.position.x).toBeCloseTo(7);
+    expect(root.userData.animation).toBe('idle');
+    expect(JSON.stringify(a)).toBe(snapshot);actors.dispose();
+  });
+  it('searches only on arrival, runs for DASH and returns to immutable origin',()=>{
+    const scene=new THREE.Scene();const actors=createWorldActors(scene,anchors);
+    const a=player('a',2);actors.sync(state(a));
+    const robot=scene.getObjectByName('worldmap-3d-actors')!.children[1];
+    a.robot.chassis='DASH';
+    a.robot.mission={siteId:'valley',launchTile:2,phase:'OUTBOUND',turnsRemaining:1,transitTotal:4};
+    actors.sync(state(a));actors.update(.05);
+    expect(robot.userData.animation).toBe('run');
+    a.robot.mission.phase='SEARCH';actors.sync(state(a));
+    for(let i=0;i<100;i++)actors.update(.05);
+    expect(robot.userData.animation).toBe('search');
+    a.position=19;a.robot.mission.phase='INBOUND';a.robot.mission.turnsRemaining=0;
+    actors.sync(state(a));actors.update(.05);
+    expect(robot.userData.animation).toBe('return');
+    for(let i=0;i<100;i++)actors.update(.05);
+    expect(robot.position.x).toBeCloseTo(2);
+    expect(robot.userData.animation).toBe('idle');actors.dispose();
+  });
+});
+
+describe('V5 redraw and visibility regressions',()=>{
+  it('keeps return animation across repeated redraws until arrival',()=>{
+    const scene=new THREE.Scene(),actors=createWorldActors(scene,anchors);
+    const a=player('a',19,{siteId:'valley',launchTile:2,phase:'INBOUND',turnsRemaining:0,transitTotal:4});
+    actors.sync(state(a));const robot=scene.getObjectByName('worldmap-3d-actors')!.children[1];
+    a.robot.mission=null;actors.sync(state(a));actors.update(.05);
+    expect(robot.userData.animation).toBe('return');
+    actors.sync(state(a));actors.update(.05);
+    expect(robot.userData.animation).toBe('return');actors.dispose();
+  });
+  it('snaps hidden state changes on resume instead of replaying stale laps',()=>{
+    const scene=new THREE.Scene(),actors=createWorldActors(scene,anchors);
+    const a=player('a',2);actors.sync(state(a));actors.pause(true);
+    for(const position of [8,18,26,4,12]){a.position=position;actors.sync(state(a));}
+    actors.pause(false);actors.update(.05);
+    const avatar=scene.getObjectByName('worldmap-3d-actors')!.children[0];
+    expect(avatar.position.x).toBeCloseTo(12);expect(avatar.userData.animation).toBe('idle');actors.dispose();
+  });
+  it('suppresses cosmetic motion when reduced motion is requested',()=>{
+    const scene=new THREE.Scene(),actors=createWorldActors(scene,anchors);
+    actors.sync(state(player('a',2)));
+    const motion=scene.getObjectByName('worldmap-3d-actors')!.children[0].children[0];
+    actors.update(.05,false);expect(motion.position.y).toBe(0);actors.dispose();
+  });
+});

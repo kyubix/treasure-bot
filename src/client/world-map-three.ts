@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type {GameState} from '../engine/types.ts';
+import {createWorldAmbience} from './world-map-environment.ts';
 import {createWorldActors} from './world-map-actors.ts';
 import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
 import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from './world-map-terrain.ts';
@@ -109,6 +110,7 @@ function broadTree(root:THREE.Group,x:number,z:number,size:number,n:number):void
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.055*size,.08*size,.42*size,6),bark);
   place(trunk,x,.66*size,z);root.add(trunk);
   const crown=new THREE.Group();
+  crown.userData.swayPhase=n*1.7;
   place(crown,x,.94*size,z);root.add(crown);
   const leaf=foliageMaterials[n%3];
   const bits=[
@@ -132,6 +134,7 @@ function pine(root:THREE.Group,x:number,z:number,size:number,n:number):void{
       foliageMaterials[(n+layer)%3]);
     place(cone,x,(.84+layer*.23)*size,z);
     cone.castShadow=true;
+    cone.userData.swayPhase=n*1.7+layer*.2;
     root.add(cone);
   }
 }
@@ -250,7 +253,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   let renderer:THREE.WebGLRenderer;
   try{
     renderer=new THREE.WebGLRenderer({
-      alpha:false,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:false
+      alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:false
     });
   }catch{return null;} // WebGL unavailable: full procedural Phaser fallback.
   // PS1-inspired fixed visual language. No toggle or additional UI control:
@@ -281,6 +284,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const ocean=createAnimatedOcean(scene);
   const land=island(scene);
+  const ambience=createWorldAmbience(land,new THREE.Vector3(1.86,terrainHeight(1.86,2.28)+.63,2.28));
   // The same coordinates drive both the 3D characters and the 2D overlays.
   // No per-angle screenspace offsets or actor images are needed.
   const actors=createWorldActors(scene,{
@@ -297,8 +301,11 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   let waterFrame=0,waterRunning=false,lastWaterPaint=-Infinity;
   let lastActorFrame=-Infinity;
   let viewVisible=false;
+  let animationTime=0;
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const stopWater=()=>{
     waterRunning=false;
+    actors.pause(true);
     if(waterFrame)cancelAnimationFrame(waterFrame);
     waterFrame=0;
     lastActorFrame=-Infinity;
@@ -314,8 +321,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       const delta=Number.isFinite(lastActorFrame)?
         Math.min(.06,(timeMs-lastActorFrame)/1000):0;
       lastActorFrame=timeMs;
-      actors.update(delta);
-      ocean.update(timeMs/1000);
+      actors.update(delta,!reducedMotion.matches);
+      if(!reducedMotion.matches){
+        animationTime+=delta;
+        ambience.update(animationTime);
+        ocean.update(animationTime);
+      }
       try{renderer.render(scene,camera);}
       catch{stopWater();canvas.style.display='none';return;}
     }
@@ -324,6 +335,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   const startWater=()=>{
     if(waterRunning||dead||contextIsLost||document.hidden||!viewVisible)return;
     waterRunning=true;
+    actors.pause(false);
     lastWaterPaint=-Infinity;
     waterFrame=requestAnimationFrame(waterTick);
   };
@@ -370,7 +382,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   const contextRestored=()=>{
     contextIsLost=false;
     if(viewVisible&&lastW>0&&lastH>0){
-      ocean.update(performance.now()/1000);
+      ocean.update(animationTime);
       renderer.render(scene,camera);
       canvas.style.display='block';
       startWater();
@@ -445,6 +457,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       actors.dispose();
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
+        if(o instanceof THREE.InstancedMesh)o.dispose();
         if(o instanceof THREE.Mesh || o instanceof THREE.Line){
           geometries.add(o.geometry);
           const m=o.material;
@@ -454,6 +467,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       });
       for(const geometry of geometries)geometry.dispose();
       for(const material of materials)material.dispose();
+      sun.shadow.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       canvas.remove();

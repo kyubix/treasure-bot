@@ -8,6 +8,10 @@ Read this FIRST before changing assets or gameplay. The older README describes v
 3. docs/GAP_BACKLOG.md — implementation gaps and roadmap.
 4. docs/FAITHFUL_REBUILD.md — older gameplay research, distinguish verified from provisional.
 
+## Latest visual implementation
+- Read `docs/WORLD_MAP_V5.md` for the opt-in Three.js V5 model pipeline, animation/state contract, performance budgets, verification and remaining Android QA.
+- `world-map-models.ts` is the source for generated glTF; regenerate and test both assets after changing it. Never change server rules to drive cosmetic animation.
+
 ## Critical correction (confirmed by latest PS1 screenshot)
 - Gallery No.1/2/3 etc are NUMBERS DIRECTLY ON COLORED PERIMETER BOARD TILES. They are NOT buildings inside the island.
 - Previous AI-generated concept with Gallery No.1–5 landmark buildings inside the island is INCORRECT; do not reuse it as geography.

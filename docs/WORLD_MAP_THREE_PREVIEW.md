@@ -106,3 +106,7 @@ visual/performance QA before it becomes the default.
 2D Phaser overlays projected through the shared 3D camera, not 3D meshes.
 They can visually overlay the front face of hills. True depth occlusion,
 mesh raycasting and more realistic materials are future opt-in tasks.
+
+## V5 — glTF animation and living scenery
+
+See [WORLD_MAP_V5.md](WORLD_MAP_V5.md) for the current implementation and handoff. V5 retains this opt-in URL and all existing controls. Original avatar/robot models load through GLTFLoader with idle/walk/run/search/return clips, tree sway, waterfall streaks/spray and a rotating lighthouse beacon. Engine/server and Phaser Board View are unchanged.
