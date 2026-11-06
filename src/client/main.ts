@@ -2,6 +2,7 @@ import './style.css';
 import './theme.css';
 import './mobile.css';
 import './roll-shop.css';
+import './dispatch.css';
 import './shop-encounter.css';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
@@ -11,9 +12,9 @@ import type { GameAction, PublicState } from '../engine/types.ts';
 
 type Lang='en'|'id'|'ja';
 const translations={
-  en:{tagline:'An online treasure-hunting board adventure',name:'Your nickname',room:'Room code',create:'Create room',join:'Join room',invite:'Share invite',start:'Start game',waiting:'Waiting for players',bots:'Computer players',turn:'Turn',current:'Playing',roll:'Roll dice',end:'End turn',send:'Send robot',claim:'Claim gallery',inventory:'Treasures',gallery:'Galleries',players:'Explorers',feed:'Activity log',leave:'Leave room',rules:'Alpha rules are provisional. Original-game formulas require verification.',lost:'Connection interrupted; trying to reconnect.',online:'Live',offline:'Reconnecting',solo:'Play against bots or invite friends',copy:'Copy invite',energy:'Energy',worth:'Assets',winner:'Winner',you:'you',robot:'Robot expedition',display:'Display',gold:'Gold',cards:'Gate cards',help:'First buy a Gate Card when passing a shop. Next turn select a treasure in the central map, launch, roll and watch the journey.',locale:'Language',workshop:'Robot workshop',head:'Sensor head',body:'Battery body',arm:'Power arm',leg:'Speed legs',shopHint:'Upgrades available when passing a robot shop',mapTitle:'TREASURE ISLAND',survey:'Tap any island tile to explore',mapSub:'Select treasure or an unmarked location',boardView:'BOARD VIEW',worldMap:'WORLD MAP',openMap:'Send robot / World map',backToBoard:'← Back to board',targetHint:'Choose a destination on the island map',holdRoll:'Hold to roll · release to throw',rolling:'Rolling…',shop:'Robot Shop',shopHint2:'Only during a shop encounter',closeShop:'Leave shop',shopArrived:'A robot shop is on your path!',enterShop:'Enter shop',skipShop:'Keep walking',shopWelcome:'Welcome to the robot shop',shopSupplies:'Supplies',energyCell:'Energy Cell · 200 G',repairKit:'Repair Kit · 280 G',repairUse:'Use Repair Kit',repairStock:'Repair kits',sellTreasures:'Sell treasures',noTreasuresToSell:'No recovered treasures to sell',gatePurchase:'Gate Card · 300 G',shopParts:'Robot parts · 450 G each',settings:'Settings',details:'Game details',close:'Close',menu:'Menu'},
-  id:{tagline:'Petualangan board game pencari harta online',name:'Nama pemain',room:'Kode room',create:'Buat room',join:'Gabung room',invite:'Bagikan undangan',start:'Mulai permainan',waiting:'Menunggu pemain',bots:'Jumlah pemain AI',turn:'Giliran',current:'Sedang bermain',roll:'Lempar dadu',end:'Akhiri giliran',send:'Kirim robot',claim:'Klaim galeri',inventory:'Harta',gallery:'Galeri',players:'Pemain',feed:'Aktivitas',leave:'Keluar room',rules:'Aturan alpha masih sementara. Rumus original perlu diverifikasi.',lost:'Koneksi terputus; menyambung kembali.',online:'Terhubung',offline:'Menyambung ulang',solo:'Main melawan AI atau undang teman',copy:'Salin undangan',energy:'Energi',worth:'Aset',winner:'Pemenang',you:'kamu',robot:'Ekspedisi robot',display:'Pajang',gold:'Emas',cards:'Gate Card',help:'Beli Gate Card saat melewati toko. Di giliran berikutnya, tap harta di peta tengah, kirim robot, lalu lempar dadu.',locale:'Bahasa',workshop:'Bengkel robot',head:'Kepala sensor',body:'Bodi baterai',arm:'Lengan tempur',leg:'Kaki cepat',shopHint:'Upgrade tersedia ketika melewati toko robot',mapTitle:'PULAU HARTA',survey:'Sentuh petak pulau untuk eksplorasi',mapSub:'Pilih harta atau lokasi belum ditandai',boardView:'PAPAN PERMAINAN',worldMap:'PETA DUNIA',openMap:'Kirim robot / Peta dunia',backToBoard:'← Kembali ke papan',targetHint:'Pilih tujuan robot pada peta pulau',holdRoll:'Tahan dadu · lepas untuk lempar',rolling:'Dadu dilempar…',shop:'Toko Robot',shopHint2:'Hanya saat melewati atau berhenti di toko',closeShop:'Keluar toko',shopArrived:'Ada toko robot di jalurmu!',enterShop:'Masuk toko',skipShop:'Lewati',shopWelcome:'Selamat datang di toko robot',shopSupplies:'Perbekalan',energyCell:'Sel Energi · 200 G',repairKit:'Repair Kit · 280 G',repairUse:'Gunakan Repair Kit',repairStock:'Repair kit',sellTreasures:'Jual harta',noTreasuresToSell:'Belum ada harta untuk dijual',gatePurchase:'Gate Card · 300 G',shopParts:'Komponen robot · 450 G per item',settings:'Pengaturan',details:'Info permainan',close:'Tutup',menu:'Menu'},
-  ja:{tagline:'オンライン宝探しボードゲーム',name:'プレイヤー名',room:'ルームコード',create:'ルーム作成',join:'参加',invite:'招待を共有',start:'ゲーム開始',waiting:'プレイヤー待機中',bots:'CPU人数',turn:'ターン',current:'プレイ中',roll:'サイコロ',end:'ターン終了',send:'ロボット派遣',claim:'ギャラリーを獲得',inventory:'宝物',gallery:'ギャラリー',players:'プレイヤー',feed:'イベント履歴',leave:'退出',rules:'アルファ版のルールは仮設定です。原作の計算式は要確認。',lost:'接続が切れました。再接続中…',online:'接続中',offline:'再接続中',solo:'CPUと対戦、または友達を招待',copy:'招待リンクをコピー',energy:'エネルギー',worth:'資産',winner:'勝者',you:'あなた',robot:'ロボット探検',display:'展示',gold:'ゴールド',cards:'ゲートカード',help:'店を通過してゲートカードを購入。次のターンに中央の宝をタップしてロボットを発進。',locale:'言語',workshop:'ロボ工房',head:'センサーヘッド',body:'バッテリーボディ',arm:'パワーアーム',leg:'スピードレッグ',shopHint:'ショップを通過するとパーツ購入可能',mapTitle:'宝島',survey:'島のマスをタップして探索',mapSub:'宝物や未探索地点を選択',boardView:'ボード画面',worldMap:'ワールドマップ',openMap:'ロボット派遣・マップ',backToBoard:'← ボードに戻る',targetHint:'島の目的地を選んでください',holdRoll:'押し続けて離すとサイコロ',rolling:'サイコロを投げています…',shop:'ロボットショップ',shopHint2:'ショップ通過時または停止時のみ',closeShop:'ショップを出る',shopArrived:'進行方向にロボットショップがあります！',enterShop:'店に入る',skipShop:'通過する',shopWelcome:'ロボットショップへようこそ',shopSupplies:'消耗品',energyCell:'エネルギーセル · 200 G',repairKit:'修理キット · 280 G',repairUse:'修理キットを使う',repairStock:'修理キット',sellTreasures:'宝物を売る',noTreasuresToSell:'売却できる宝物はありません',gatePurchase:'ゲートカード · 300 G',shopParts:'ロボットパーツ · 各450 G',settings:'設定',details:'ゲーム情報',close:'閉じる',menu:'メニュー'}
+  en:{tagline:'An online treasure-hunting board adventure',name:'Your nickname',room:'Room code',create:'Create room',join:'Join room',invite:'Share invite',start:'Start game',waiting:'Waiting for players',bots:'Computer players',turn:'Turn',current:'Playing',roll:'Roll dice',end:'End turn',send:'Send robot',claim:'Claim gallery',inventory:'Treasures',gallery:'Galleries',players:'Explorers',feed:'Activity log',leave:'Leave room',rules:'Alpha rules are provisional. Original-game formulas require verification.',lost:'Connection interrupted; trying to reconnect.',online:'Live',offline:'Reconnecting',solo:'Play against bots or invite friends',copy:'Copy invite',energy:'Energy',worth:'Assets',winner:'Winner',you:'you',robot:'Robot expedition',display:'Display',gold:'Gold',cards:'Gate cards',help:'First buy a Gate Card when passing a shop. Next turn select a treasure in the central map, launch, roll and watch the journey.',locale:'Language',workshop:'Robot workshop',head:'Sensor head',body:'Battery body',arm:'Power arm',leg:'Speed legs',shopHint:'Upgrades available when passing a robot shop',mapTitle:'TREASURE ISLAND',survey:'Tap any island tile to explore',mapSub:'Select treasure or an unmarked location',boardView:'BOARD VIEW',worldMap:'WORLD MAP',openMap:'Send robot / World map',backToBoard:'← Back to board',targetHint:'Choose a destination on the island map',holdRoll:'Hold to roll · release to throw',rolling:'Rolling…',shop:'Robot Shop',shopHint2:'Only during a shop encounter',closeShop:'Leave shop',shopArrived:'A robot shop is on your path!',enterShop:'Enter shop',skipShop:'Keep walking',shopWelcome:'Welcome to the robot shop',shopSupplies:'Supplies',rollFirst:'Roll dice first',launching:'Launching robot…',robotReady:'Robot dispatched! Hold and release dice to continue.',energyCell:'Energy Cell · 200 G',repairKit:'Repair Kit · 280 G',repairUse:'Use Repair Kit',repairStock:'Repair kits',sellTreasures:'Sell treasures',noTreasuresToSell:'No recovered treasures to sell',gatePurchase:'Gate Card · 300 G',shopParts:'Robot parts · 450 G each',settings:'Settings',details:'Game details',close:'Close',menu:'Menu'},
+  id:{tagline:'Petualangan board game pencari harta online',name:'Nama pemain',room:'Kode room',create:'Buat room',join:'Gabung room',invite:'Bagikan undangan',start:'Mulai permainan',waiting:'Menunggu pemain',bots:'Jumlah pemain AI',turn:'Giliran',current:'Sedang bermain',roll:'Lempar dadu',end:'Akhiri giliran',send:'Kirim robot',claim:'Klaim galeri',inventory:'Harta',gallery:'Galeri',players:'Pemain',feed:'Aktivitas',leave:'Keluar room',rules:'Aturan alpha masih sementara. Rumus original perlu diverifikasi.',lost:'Koneksi terputus; menyambung kembali.',online:'Terhubung',offline:'Menyambung ulang',solo:'Main melawan AI atau undang teman',copy:'Salin undangan',energy:'Energi',worth:'Aset',winner:'Pemenang',you:'kamu',robot:'Ekspedisi robot',display:'Pajang',gold:'Emas',cards:'Gate Card',help:'Beli Gate Card saat melewati toko. Di giliran berikutnya, tap harta di peta tengah, kirim robot, lalu lempar dadu.',locale:'Bahasa',workshop:'Bengkel robot',head:'Kepala sensor',body:'Bodi baterai',arm:'Lengan tempur',leg:'Kaki cepat',shopHint:'Upgrade tersedia ketika melewati toko robot',mapTitle:'PULAU HARTA',survey:'Sentuh petak pulau untuk eksplorasi',mapSub:'Pilih harta atau lokasi belum ditandai',boardView:'PAPAN PERMAINAN',worldMap:'PETA DUNIA',openMap:'Kirim robot / Peta dunia',backToBoard:'← Kembali ke papan',targetHint:'Pilih tujuan robot pada peta pulau',holdRoll:'Tahan dadu · lepas untuk lempar',rolling:'Dadu dilempar…',shop:'Toko Robot',shopHint2:'Hanya saat melewati atau berhenti di toko',closeShop:'Keluar toko',shopArrived:'Ada toko robot di jalurmu!',enterShop:'Masuk toko',skipShop:'Lewati',shopWelcome:'Selamat datang di toko robot',shopSupplies:'Perbekalan',rollFirst:'Lempar dadu dahulu',launching:'Robot sedang dikirim…',robotReady:'Robot terkirim! Tahan lalu lepas tombol dadu untuk melanjutkan.',energyCell:'Sel Energi · 200 G',repairKit:'Repair Kit · 280 G',repairUse:'Gunakan Repair Kit',repairStock:'Repair kit',sellTreasures:'Jual harta',noTreasuresToSell:'Belum ada harta untuk dijual',gatePurchase:'Gate Card · 300 G',shopParts:'Komponen robot · 450 G per item',settings:'Pengaturan',details:'Info permainan',close:'Tutup',menu:'Menu'},
+  ja:{tagline:'オンライン宝探しボードゲーム',name:'プレイヤー名',room:'ルームコード',create:'ルーム作成',join:'参加',invite:'招待を共有',start:'ゲーム開始',waiting:'プレイヤー待機中',bots:'CPU人数',turn:'ターン',current:'プレイ中',roll:'サイコロ',end:'ターン終了',send:'ロボット派遣',claim:'ギャラリーを獲得',inventory:'宝物',gallery:'ギャラリー',players:'プレイヤー',feed:'イベント履歴',leave:'退出',rules:'アルファ版のルールは仮設定です。原作の計算式は要確認。',lost:'接続が切れました。再接続中…',online:'接続中',offline:'再接続中',solo:'CPUと対戦、または友達を招待',copy:'招待リンクをコピー',energy:'エネルギー',worth:'資産',winner:'勝者',you:'あなた',robot:'ロボット探検',display:'展示',gold:'ゴールド',cards:'ゲートカード',help:'店を通過してゲートカードを購入。次のターンに中央の宝をタップしてロボットを発進。',locale:'言語',workshop:'ロボ工房',head:'センサーヘッド',body:'バッテリーボディ',arm:'パワーアーム',leg:'スピードレッグ',shopHint:'ショップを通過するとパーツ購入可能',mapTitle:'宝島',survey:'島のマスをタップして探索',mapSub:'宝物や未探索地点を選択',boardView:'ボード画面',worldMap:'ワールドマップ',openMap:'ロボット派遣・マップ',backToBoard:'← ボードに戻る',targetHint:'島の目的地を選んでください',holdRoll:'押し続けて離すとサイコロ',rolling:'サイコロを投げています…',shop:'ロボットショップ',shopHint2:'ショップ通過時または停止時のみ',closeShop:'ショップを出る',shopArrived:'進行方向にロボットショップがあります！',enterShop:'店に入る',skipShop:'通過する',shopWelcome:'ロボットショップへようこそ',shopSupplies:'消耗品',rollFirst:'先にサイコロを振る',launching:'ロボットを派遣中…',robotReady:'ロボット派遣完了！サイコロを長押しして離してください。',energyCell:'エネルギーセル · 200 G',repairKit:'修理キット · 280 G',repairUse:'修理キットを使う',repairStock:'修理キット',sellTreasures:'宝物を売る',noTreasuresToSell:'売却できる宝物はありません',gatePurchase:'ゲートカード · 300 G',shopParts:'ロボットパーツ · 各450 G',settings:'設定',details:'ゲーム情報',close:'閉じる',menu:'メニュー'}
 } as const;
 let lang:Lang=(localStorage.getItem('treasure-bots-lang') as Lang)||((navigator.language||'').toLowerCase().startsWith('id')?'id':'en');
 if(!translations[lang])lang='en';
@@ -38,13 +39,54 @@ let shopDecisionOpen=false;
 let shopEntranceTimer:ReturnType<typeof setTimeout>|null=null;
 let shopOpen=false;
 let lastRollRelease=0;
+let dispatchAnimating=false;
+let dispatchTimer:ReturnType<typeof setTimeout>|null=null;
+function resetDispatch():void {
+  if(dispatchTimer){clearTimeout(dispatchTimer);dispatchTimer=null;}
+  dispatchAnimating=false;
+  const portal=el('robotDispatch');
+  portal.hidden=true;
+  portal.classList.remove('is-active');
+}
+function playDispatch():void {
+  resetDispatch();
+  dispatchAnimating=true;
+  const portal=el('robotDispatch');
+  portal.hidden=false;
+  portal.classList.add('is-active');
+  const room=state?.code;
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  dispatchTimer=setTimeout(()=>{
+    resetDispatch();
+    if(state?.code!==room)return;
+    render();
+    if(state?.phase==='playing'&&!state.rolled)toast(t('robotReady'));
+  },reduce?160:1350);
+}
 const root=document.querySelector<HTMLDivElement>('#app')!;
 root.innerHTML=`
   <header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>TREASURE BOTS</strong><small>SHOP VISIT · v0.9</small></div></div><div class="header-actions"><span id="status" class="status"></span><button id="settingsTrigger" class="gear-button" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div></header>
   <main>
     <section id="home" class="home-panel"><div class="hero"><div class="hero-gem">✦</div><div class="eyebrow">BOARD × ROBOTS × TREASURE</div><h1>Your robot.<br>Your island.<br><em>Your treasure.</em></h1><p data-i18n="tagline"></p></div><div class="card form-card"><label for="playerName" data-i18n="name"></label><input id="playerName" autocomplete="nickname" maxlength="22" placeholder="Explorer" value="Explorer"/><button id="create" class="primary" data-i18n="create"></button><div class="or">— OR —</div><label for="roomInput" data-i18n="room"></label><div class="inline"><input id="roomInput" maxlength="6" placeholder="ABCD23" autocapitalize="characters"/><button id="join" class="secondary" data-i18n="join"></button></div><p class="muted" data-i18n="solo"></p></div></section>
     <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
-    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div><div id="diceOverlay" class="dice-overlay" role="status" aria-live="polite" hidden><div id="diceFaces" class="dice-faces"><span id="dieOne" class="die-face">?</span><span id="dieTwo" class="die-face">?</span></div><span id="diceTotal" class="dice-total"></span></div><div id="shopCinematic" class="shop-cinematic" hidden aria-hidden="true">
+    <section id="match" hidden><div class="match-head"><div><span class="eyebrow" id="matchCode"></span><h2 id="turnTitle"></h2></div><div class="turn-badge" id="turnBadge"></div><button id="openInfo" class="hud-tool" type="button" aria-label="Game details" aria-expanded="false">☷</button><button id="gameSettingsTrigger" class="hud-tool" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div><div class="match-grid"><div class="board-shell"><div class="map-caption"><div><small id="viewKicker">BOARD · 01</small><h3 id="viewHeading"></h3></div><span id="viewDescription"></span></div><div id="board"></div>
+    <div id="robotDispatch" class="robot-dispatch" hidden aria-hidden="true">
+      <div class="dispatch-stage">
+        <div class="dispatch-portal">
+          <div class="dispatch-door dispatch-door-left"></div>
+          <div class="dispatch-door dispatch-door-right"></div>
+          <div class="dispatch-glow"></div>
+        </div>
+        <div class="dispatch-bot">
+          <span class="dispatch-antenna"></span>
+          <span class="dispatch-head"><span class="dispatch-eyes"></span></span>
+          <span class="dispatch-body"></span>
+          <span class="dispatch-feet"></span>
+        </div>
+      </div>
+      <div class="dispatch-label" data-i18n="launching"></div>
+    </div>
+    <div id="diceOverlay" class="dice-overlay" role="status" aria-live="polite" hidden><div id="diceFaces" class="dice-faces"><span id="dieOne" class="die-face">?</span><span id="dieTwo" class="die-face">?</span></div><span id="diceTotal" class="dice-total"></span></div><div id="shopCinematic" class="shop-cinematic" hidden aria-hidden="true">
           <svg class="shop-cinematic-building" viewBox="0 0 360 320" preserveAspectRatio="xMidYMid meet">
             <ellipse cx="181" cy="303" rx="160" ry="14" fill="#2d6e60" opacity=".3"/>
             <rect x="59" y="122" width="240" height="160" rx="8" fill="#f4e0b2" stroke="#7d684d" stroke-width="7"/>
@@ -278,7 +320,7 @@ async function api(path:string,method='GET',body?:unknown,accessToken=token):Pro
   const data=await response.json() as {error?:string};if(!response.ok)throw new Error(data.error||'Request failed.');return data;
 }
 async function startSession(response:{state:PublicState,token:string}):Promise<void> {
-  state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
+  resetDispatch();state=response.state;token=response.token;viewMode='board';selectedSiteId='';lastDiceEvent='';lastShopOffer='';lastShopSteps=0;shopDecisionOpen=false;
   localStorage.setItem(`treasure-bots-${state.code}`,token);
   history.replaceState(null,'',`/?room=${state.code}`);
   connect();render();
@@ -326,6 +368,10 @@ function reconnect():void{
 function status(connected:boolean):void{
   const node=el('status');node.className=`status ${connected?'connected':'disconnected'}`;node.textContent=state?(connected?t('online'):t('offline')):'';
 }
+function selfLaunchMission(s:PublicState):boolean {
+  const own=s.players.find(p=>p.id===s.yourId);
+  return Boolean(own?.robot.mission);
+}
 function render():void {
   const active=!!state;const playing=active&&state!.phase!=='lobby';
   el('home').hidden=active;el('lobby').hidden=!active||playing;el('match').hidden=!playing;
@@ -356,7 +402,7 @@ function render():void {
   el('viewKicker').textContent=isWorld?'EXPEDITION · 02':'GAME BOARD · 01';
   el('viewDescription').textContent=isWorld?t('survey'):t('robot');
   el('turnTitle').textContent=s.phase==='finished'?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:`${activePlayer.name}${mine?` (${t('you')})`:''}`;
-  el('turnBadge').textContent=s.phase==='finished'?'🏆':mine?'YOUR TURN':'WAITING';
+  el('turnBadge').textContent=s.phase==='finished'?'🏆':!mine?'WAITING':dispatchAnimating?t('launching'):!s.rolled&&selfLaunchMission(s)?'ROLL DICE':'YOUR TURN';
   el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
   if(s.rolled&&s.dice){
     const diceKey=s.code+':'+s.turn+':'+s.currentPlayerIndex+':'+s.dice.join(',');
@@ -394,6 +440,7 @@ function render():void {
   el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
   el<HTMLButtonElement>('roll').textContent=s.rolled&&s.dice?`🎲 ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled||!!s.shopOffer||s.shopAccess||(s.pendingSteps??0)>0;
+  el<HTMLButtonElement>('end').textContent=mine&&!s.rolled?t('rollFirst'):t('end');
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   const terrainRank=site&&self?terrainGrade(self.robot.chassis,site.ground):null;
   const danger=terrainRank?Math.round(terrainTroubleChance(terrainRank)*100):0;
@@ -412,7 +459,7 @@ function render():void {
     board.setView(viewMode);
     board.update(s);
   }
-  if(board?.isMoving()||board?.isLaunching()){
+  if(dispatchAnimating||board?.isMoving()){
     el<HTMLButtonElement>('end').disabled=true;
     el<HTMLButtonElement>('roll').disabled=true;
   }
@@ -460,12 +507,9 @@ function init():void {
     if(selectedSiteId)void sendAction({type:'SEND_ROBOT',siteId:selectedSiteId},()=>{
       viewMode='board';
       selectedSiteId='';
-      const owner=state?.yourId;
-      // First restore the board view and apply the authoritative robot mission,
-      // then show the gateway animation. The animation is presentation-only.
-      requestAnimationFrame(()=>{
-        if(owner&&board)board.launchRobot(owner);
-      });
+      // CSS compositor handles the gateway. Phaser redraws only on server-state
+      // changes; the animation never reconstructs an entire game scene.
+      playDispatch();
     });
   };
   el<HTMLButtonElement>('returnRobot').onclick=()=>void sendAction({type:'RETURN_ROBOT'});
@@ -503,7 +547,7 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';setSettingsOpen(false);setInfoOpen(false);if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'','/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){
