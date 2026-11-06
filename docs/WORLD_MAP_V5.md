@@ -43,3 +43,13 @@ No engine/server/DO schema, commands, economy, inventory, multiplayer, shop, gal
 - Real Android FPS, thermal load and visual quality remain device-validation items; automated geometry budgets are not an FPS benchmark. Keep V5 opt-in until these are checked.
 
 Phone acceptance: open preview, start a match, switch to World Map, orbit all 360° with drag and pinch, select destinations, dispatch, advance turns through search/return, switch Board/World, background/foreground app, and verify all board tiles/markers stay aligned. Failed glTF download must leave animated original fallback actors. Normal URL must retain Phaser map and board interactions.
+
+## Deployment verification — 2026-11-06
+
+Implementation commit: `fd3b17a3569da9e48ed41accd1bef6ee28812f9b`.
+
+- GitHub Actions [42216783801](https://github.com/kyubix/treasure-bot/actions/runs/42216783801): **success**; smoke 30/30, unit 34/34, TypeScript/Vite build.
+- GitHub check `Workers Builds: treasure-bot`: **success**, build `a30f04be-4e0c-4863-9736-9cbfee0d0db3`.
+- Independent HTTPS reads from `treasure.endeavor.lt`: production HTML references `index-ESH5VRD2.js`; browser loads `world-map-three-DKAx0Qbq.js`, matching the local build. Both public glTF responses are byte-for-byte identical to repository files (avatar 114,776 bytes; robot 76,667 bytes).
+- Browser smoke: create room, start with three CPUs, enter World Map. Cloud browser reports WebGL disabled / context creation failure; Phaser fallback displays the map, actors, markers, energy and existing controls. This verifies fallback, **not** Three.js visual quality. Real-device Android 3D/gesture/FPS verification remains open.
+- Review fixes are covered by regression tests: retain return animation through repeated redraws; discard stale hidden-tab routes; honor reduced-motion cosmetic animation. No outstanding review findings.
