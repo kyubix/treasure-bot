@@ -20,6 +20,9 @@
   outline:3px solid #168c8a;outline-offset:3px;
 }
 .match-head .hud-tool {margin-left:2px}
+/* Desktop keeps the information sidebar visible; the drawer trigger is mobile-only. */
+#openInfo {display:none}
+
 .drawer-head {display:none;align-items:center;justify-content:space-between;gap:12px}
 .info-backdrop,.settings-backdrop {
   position:fixed;
@@ -129,6 +132,7 @@ body.in-game .toast {z-index:90}
     box-shadow:none;
   }
   body.in-game .hud-tool {width:36px;height:36px;font-size:22px}
+  body.in-game #openInfo {display:grid}
   body.in-game #match[data-view="board"] .match-grid,
   body.in-game #match[data-view="world"] .match-grid {
     display:flex!important;
