@@ -210,7 +210,7 @@ async function joinRoom():Promise<void>{
 }
 async function withBusy(work:()=>Promise<void>):Promise<void>{
   if(busy)return;busy=true;
-  try{await work();}catch(e){toast(e instanceof Error?e.message:'Unexpected error.');}finally{busy=false;}
+  try{await work();}catch(e){toast(e instanceof Error?e.message:'Unexpected error.');}finally{busy=false;if(shopOpen)syncShop();}
 }
 async function sendAction(action:GameAction,onSuccess?:()=>void):Promise<void>{
   if(!state)return;
@@ -301,6 +301,7 @@ function render():void {
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
   el<HTMLButtonElement>('openWorld').disabled=!canAct||s.rolled||!!self?.robot.mission;
   el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
+  el<HTMLButtonElement>('roll').textContent=s.rolled&&s.dice?`🎲 ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled;
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
