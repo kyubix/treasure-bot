@@ -187,6 +187,19 @@ function special(g:Phaser.GameObjects.Graphics,kind:Ground,x:number,y:number,r:n
   }
   tree(g,x,y,r*.52);
 }
+function coast(g:Phaser.GameObjects.Graphics,cx:number,cy:number,rx:number,ry:number,
+  offsetY:number,turns:number,fill:number):void{
+  // One shoreline shape sampled in model-space. Rotation changes which
+  // original coastal bumps face the camera without changing logical anchors.
+  const ring:Phaser.Geom.Point[]=[];
+  for(let i=0;i<72;i++){
+    const theta=i*Math.PI*2/72,worldTheta=theta+turns*Math.PI*.5;
+    const jitter=1+.014*Math.sin(worldTheta*5+.3)+.012*Math.sin(worldTheta*9+1.7);
+    ring.push(point(cx+Math.cos(theta)*rx*jitter,cy+offsetY+Math.sin(theta)*ry*jitter));
+  }
+  g.fillStyle(fill);
+  g.fillPoints(ring,true);
+}
 function drawSea(g:Phaser.GameObjects.Graphics,w:number,h:number):void{
   g.fillGradientStyle(0x1a7eb2,0x1784ba,0x0b5e91,0x0d5a8d,1);
   g.fillRect(0,0,w,h);
@@ -216,19 +229,21 @@ export function drawWorldIsland(args:{
   let g=scene.add.graphics();parent.add(g);
   drawSea(g,w,h);
   const cx=w*.5,cy=h*.535;
-  const rx=Math.min(w*.445,280),ry=Math.min(h*.36,300);
+  // Keep the entire perimeter visible with a safe border on portrait phones.
+  const rx=Math.min(w*.40,280),ry=Math.min(h*.35,300);
   const center={x:cx,y:cy};
 
-  // Layered perimeter gives the island a raised diorama-like coast.
-  g.fillStyle(0x0b4b6b,.55);g.fillEllipse(cx,cy+19,rx*2.18,ry*2.12);
-  g.fillStyle(0x83d6da,.88);g.fillEllipse(cx,cy+15,rx*2.15,ry*2.05);
-  g.fillStyle(0xd8a96b);g.fillEllipse(cx,cy+11,rx*2.02,ry*1.98);
-  g.fillStyle(0x82684d);g.fillEllipse(cx,cy+13,rx*1.92,ry*1.83);
-  g.fillStyle(0xf4df9c);g.fillEllipse(cx,cy-4,rx*1.99,ry*1.82);
-  g.fillStyle(0x4fa56f);g.fillEllipse(cx,cy-11,rx*1.83,ry*1.76);
-  g.fillStyle(0x75c56b);g.fillEllipse(cx-rx*.18,cy-ry*.28,rx*1.21,ry*1.05);
-  g.fillStyle(0x3f9e6a);g.fillEllipse(cx+rx*.26,cy+ry*.21,rx*1.37,ry*.96);
-  g.fillStyle(0x91d277,.47);g.fillEllipse(cx-rx*.21,cy-ry*.24,rx*.72,ry*.51);
+  // A raised, gently uneven coastline: turquoise surf, golden beach, rocky
+  // island wall, and grassy land. Only Phaser vector geometry is used.
+  g.fillStyle(0x0b4b6b,.42);g.fillEllipse(cx,cy+21,rx*2.16,ry*2.13);
+  coast(g,cx,cy,rx*1.06,ry*1.03,16,rotation,0x83d6da);
+  coast(g,cx,cy,rx*1.018,ry*.99,14,rotation,0xd0b17b);
+  coast(g,cx,cy,rx*.973,ry*.94,17,rotation,0x745941);
+  coast(g,cx,cy,rx*1.004,ry*.96,-2,rotation,0xf1d8a0);
+  coast(g,cx,cy,rx*.929,ry*.89,-10,rotation,0x4b9867);
+  g.fillStyle(0x74b85f);g.fillEllipse(cx-rx*.20,cy-ry*.25,rx*1.26,ry*1.04);
+  g.fillStyle(0x438e63);g.fillEllipse(cx+rx*.27,cy+ry*.18,rx*1.30,ry*.89);
+  g.fillStyle(0xa3d27b,.37);g.fillEllipse(cx-rx*.23,cy-ry*.24,rx*.72,ry*.48);
 
   // Repeat the approved grass surface at every camera angle. Island details
   // rotate via projected coordinates; the grass material is view-independent.
@@ -326,9 +341,13 @@ export function drawWorldIsland(args:{
     const owner=state?.galleries.find(item=>item.tile===i)?.ownerId;
     const home=owner?state?.players.find(pl=>pl.id===owner):undefined;
     const paint=home?color(home.color):TILE_COLORS[TILES[i]];
-    g.fillStyle(0x345368,.8);g.fillPoints(shape.map(a=>point(a.x+1,a.y+3)),true);
+    // Golden-raised board trim and state-driven colored top face.
+    g.fillStyle(0x355161,.80);
+    g.fillPoints(shape.map(a=>point(a.x+1.2,a.y+4.5*scale)),true);
+    g.fillStyle(0xb88941,.92);
+    g.fillPoints(shape.map(a=>point(a.x,a.y+2.5*scale)),true);
     g.fillStyle(paint,1);g.fillPoints(shape,true);
-    g.lineStyle(1.5,0xf8fff4,.9);g.strokePoints(shape,true);
+    g.lineStyle(1.5,0xfff8d5,.92);g.strokePoints(shape,true);
     if(TILES[i]==='SHOP'||TILES[i]==='START'){
       g.fillStyle(TILES[i]==='START'?0xffef95:0xc26f40);
       g.fillCircle(p.x,p.y,3.4*scale);
