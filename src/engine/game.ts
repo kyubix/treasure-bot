@@ -115,7 +115,7 @@ function sendRobot(state:GameState, player:Player, siteId:string):void {
   player.gateCards--;
   const grade=terrainGrade(player.robot.chassis,site.ground);
   const steps=travelTurns(site,getRobotStats(player.robot).walk)+terrainTravelPenalty(grade);
-  player.robot.mission={siteId,phase:'OUTBOUND',turnsRemaining:steps,transitTotal:steps};
+  player.robot.mission={siteId,launchTile:player.position,phase:'OUTBOUND',turnsRemaining:steps,transitTotal:steps};
   log(state,`${player.name} launched a robot toward ${site.label} (${steps} travel turns).`);
 }
 function returnRobot(state:GameState,player:Player):void {

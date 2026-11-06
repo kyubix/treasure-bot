@@ -221,7 +221,10 @@ export function drawWorldIsland(args:{
     if(!mission)continue;
     const site=state.islandSpots.find(spot=>spot.id===mission.siteId);
     if(!site)continue;
-    const start=perimeterPoint(player.position,center,rx*.95,ry*.89,rotation);
+    // Use immutable dispatch tile A, never the owner's new board position B.
+    // Legacy missions created before v0.14 lack launchTile and must fall back.
+    const sourceTile=mission.launchTile??player.position;
+    const start=perimeterPoint(sourceTile,center,rx*.95,ry*.89,rotation);
     const end=mapProjection(site.x,site.y,rotation,center,rx,ry);
     const progress=mission.phase==='OUTBOUND'?expeditionProgress(mission):
       mission.phase==='SEARCH'?1:1-expeditionProgress(mission);
@@ -233,6 +236,9 @@ export function drawWorldIsland(args:{
       g.fillStyle(i/num<=progress?0xd7ffff:0x6bb4c0,i/num<=progress?1:.6);
       g.fillCircle(at.x,at.y,2.4*scale);
     }
+    // Make the fixed dispatch point visible even after the owner moves away.
+    g.fillStyle(0xffd57f,.34);g.fillCircle(start.x,start.y,7.5*scale);
+    g.lineStyle(2,0xffffff,.95);g.strokeCircle(start.x,start.y,5.2*scale);
     robot(g,p.x,p.y,11*scale,color(player.color));
   }
 

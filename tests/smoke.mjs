@@ -271,4 +271,37 @@ check('world map route always starts by real player tile and robot progress is b
  const halfway=robotOnRoute(start,goal,.5);
  assert.ok(Math.abs(halfway.x-(start.x+goal.x)/2)<.001);
 });
+check('robot stays anchored to launch tile A when player rolls to tile B',()=>{
+ const s=setup();start(s);
+ const player=s.players[0];
+ player.position=6; // A is not the starting tile
+ player.gateCards=1;
+ applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'});
+ assert.equal(player.robot.mission.launchTile,6);
+ assert.equal(player.position,6);
+ const origin=perimeterPoint(player.robot.mission.launchTile,{x:200,y:290},170,145);
+ roll(s,'a',()=>0); // 1+1, player moves to 8
+ assert.equal(player.position,8);
+ assert.equal(player.robot.mission.launchTile,6);
+ const fixed=perimeterPoint(player.robot.mission.launchTile,{x:200,y:290},170,145);
+ const moved=perimeterPoint(player.position,{x:200,y:290},170,145);
+ assert.deepEqual(fixed,origin);
+ assert.notDeepEqual(fixed,moved);
+ const serverJSON=JSON.parse(JSON.stringify(s));
+ assert.equal(serverJSON.players[0].robot.mission.launchTile,6);
+ end(s,'a');roll(s,'b',()=>0);end(s,'b');
+ assert.equal(s.players[0].robot.mission?.launchTile,6);
+});
+check('CPU robot launch keeps original tile even after CPU dice',()=>{
+ const s=newGame('CPU_ORIGIN',createPlayer('a','Ada'));
+ applyAction(s,'a',{type:'START',bots:1});
+ roll(s,'a',()=>0);end(s,'a');
+ const cpu=s.players[1];
+ cpu.position=6;cpu.gateCards=1;
+ assert.equal(advanceBotStep(s,()=>0).kind,'SEND');
+ assert.equal(cpu.robot.mission.launchTile,6);
+ assert.equal(advanceBotStep(s,()=>0).kind,'ROLL');
+ assert.notEqual(cpu.position,6);
+ assert.equal(cpu.robot.mission.launchTile,6);
+});
 console.log(`PASS ${passed} faithful-slice smoke checks`);
