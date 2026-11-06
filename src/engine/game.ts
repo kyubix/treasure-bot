@@ -94,6 +94,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     case 'ENTER_SHOP': enterShop(state,player); break;
     case 'SKIP_SHOP': skipShop(state,player,random); break;
     case 'BUY_SUPPLY': buySupply(state,player,action.supply); break;
+    case 'SELL_TREASURE': sellTreasure(state,player,action.treasureId); break;
     case 'USE_REPAIR_KIT': useRepairKit(state,player); break;
     case 'BUY_PART': buyPart(state,player,action.slot); break;
     case 'DISPLAY_TREASURE': displayTreasure(state,player,action.treasureId); break;
@@ -164,6 +165,15 @@ function buySupply(state:GameState,player:Player,supply:'ENERGY_CELL'|'REPAIR_KI
     player.repairKits=(player.repairKits??0)+1;
     log(state,`${player.name} bought a repair kit.`);
   } else throw new GameError('Unknown shop item.');
+}
+function sellTreasure(state:GameState,player:Player,treasureId:string):void {
+  if(!state.rolled||!state.shopAccess)throw new GameError('Enter a shop to sell treasures.');
+  const idx=player.inventory.findIndex(item=>item.id===treasureId);
+  if(idx<0)throw new GameError('Treasure is not in your inventory.');
+  const [treasure]=player.inventory.splice(idx,1);
+  const payout=Math.floor(treasure.value*.6); // PROVISIONAL resale ratio
+  player.gold+=payout;
+  log(state,`${player.name} sold ${treasure.name} for ${payout} G.`);
 }
 function useRepairKit(state:GameState,player:Player):void {
   if(state.rolled || player.robot.mission)throw new GameError('Use repair kits at base before rolling.');
@@ -369,5 +379,5 @@ function autoPlayBots(state:GameState,random:Random):void {
 }
 export const PROVISIONAL_RULES = {
   startingGold:START_GOLD, winAssets:WIN_ASSETS, gatePrice:GATE_PRICE,
-  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, energyCellPrice:200, repairKitPrice:280, robotSearchFormula:'provisional'
+  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, energyCellPrice:200, repairKitPrice:280, resaleRate:0.6, robotSearchFormula:'provisional'
 } as const;
