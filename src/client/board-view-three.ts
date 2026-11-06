@@ -141,7 +141,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  const hud=document.createElement('div');
  hud.className='board3d-hud';
  hud.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;display:none';
- host.append(hud);
+ host.insertAdjacentElement('beforeend',hud);
  const scene=new THREE.Scene();
  scene.background=new THREE.Color(0xa5d5df);
  scene.fog=new THREE.Fog(0xa5d5df,19,67);
@@ -396,7 +396,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     setLandmark(TILES[focusedTile],galleryNumberAt(focusedTile));
     // Background moves at a lower rate for an actual 3D parallax effect.
     backdropRoot.position.x=-(view%4)*.12;
-    syncActors(state??({players:[],currentPlayerIndex:0} as GameState),view,traveler,launch,launchId);
+    syncActors(state??({players:[],currentPlayerIndex:0} as unknown as GameState),view,traveler,launch,launchId);
     portal.visible=launch!==null;
     if(launch!==null){
      const p=Math.max(0,Math.min(1,launch));
