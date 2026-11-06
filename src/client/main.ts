@@ -210,7 +210,7 @@ async function joinRoom():Promise<void>{
 }
 async function withBusy(work:()=>Promise<void>):Promise<void>{
   if(busy)return;busy=true;
-  try{await work();}catch(e){toast(e instanceof Error?e.message:'Unexpected error.');}finally{busy=false;}
+  try{await work();}catch(e){toast(e instanceof Error?e.message:'Unexpected error.');}finally{busy=false;if(shopOpen)syncShop();}
 }
 async function sendAction(action:GameAction,onSuccess?:()=>void):Promise<void>{
   if(!state)return;
