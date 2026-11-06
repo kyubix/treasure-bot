@@ -390,27 +390,30 @@ export function drawWorldIsland(args:{
     {x:3.01,y:2.43,type:'waterfall',size:18}
   ] as const;
   const scale=clamp(w/410,.73,1.4);
+  // Do not let wide/short landscape canvases stretch cliffs into the pond.
+  // Dynamic player/robot markers still use the original gameplay-safe scale.
+  const sceneryScale=clamp(Math.min(w/410,h/660),.68,1.4);
   const projected=landmarks.map(l=>({...l,p:mapProjection(l.x,l.y,rotation,center,rx,ry)}))
     .sort((a,b)=>a.p.y-b.p.y);
   for(const l of projected){
     const {x,y}=l.p;
-    if(l.type==='mountain')mountain(g,x,y,l.size*scale);
-    else if(l.type==='ruins')ruins(g,x,y,l.size*scale);
-    else if(l.type==='lighthouse')lighthouse(g,x,y,l.size*scale);
+    if(l.type==='mountain')mountain(g,x,y,l.size*sceneryScale);
+    else if(l.type==='ruins')ruins(g,x,y,l.size*sceneryScale);
+    else if(l.type==='lighthouse')lighthouse(g,x,y,l.size*sceneryScale);
     else if(l.type==='waterfall'){
       // Water meets the bank at its base, not a free-floating blue ellipse.
-      g.fillStyle(0x316d6d,.85);g.fillEllipse(x,y+12*scale,22*scale,12*scale);
-      g.fillStyle(0x2e8aa5,.76);g.fillEllipse(x,y+4*scale,20*scale,28*scale);
-      g.fillStyle(0xa9ecf5,.86);g.fillEllipse(x-2*scale,y+1*scale,10*scale,25*scale);
+      g.fillStyle(0x316d6d,.85);g.fillEllipse(x,y+12*sceneryScale,22*sceneryScale,12*sceneryScale);
+      g.fillStyle(0x2e8aa5,.76);g.fillEllipse(x,y+4*sceneryScale,20*sceneryScale,28*sceneryScale);
+      g.fillStyle(0xa9ecf5,.86);g.fillEllipse(x-2*sceneryScale,y+1*sceneryScale,10*sceneryScale,25*sceneryScale);
       g.lineStyle(2,0xffffff,.72);
-      g.lineBetween(x-4*scale,y-9*scale,x-4*scale,y+14*scale);
-      g.fillStyle(0xe3ffed,.77);g.fillEllipse(x,y+15*scale,21*scale,5*scale);
+      g.lineBetween(x-4*sceneryScale,y-9*sceneryScale,x-4*sceneryScale,y+14*sceneryScale);
+      g.fillStyle(0xe3ffed,.77);g.fillEllipse(x,y+15*sceneryScale,21*sceneryScale,5*sceneryScale);
     }else{
       const count=7;
       for(let i=0;i<count;i++){
-        const dx=((i*3)%7-3)*6.5*scale;
-        const dy=(Math.floor(i/3)-1)*8.8*scale;
-        const treeRadius=(l.size+(i%3-1)*2.2)*scale;
+        const dx=((i*3)%7-3)*6.5*sceneryScale;
+        const dy=(Math.floor(i/3)-1)*8.8*sceneryScale;
+        const treeRadius=(l.size+(i%3-1)*2.2)*sceneryScale;
         // Store every decorative tree in the same logical map coordinates.
         // Reproject the offset rather than moving the screen-space silhouette.
         const a=dx/(rx/5.5),b=dy/(ry/5.5);
