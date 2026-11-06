@@ -4,6 +4,7 @@ import {ROBOTS,TILES} from '../src/engine/types.ts';
 import {initialIsland,travelTurns,searchSuccess,battleVictory} from '../src/engine/island.ts';
 import { terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from '../src/engine/island.ts';
 import { boardScenery, relativeParallax } from '../src/client/board-environment.ts';
+import { mapProjection, perimeterPoint, robotOnRoute } from '../src/client/world-map-geometry.ts';
 let passed=0;
 function check(name,run){run();console.log('✓',name);passed++;}
 const setup=()=>{const s=newGame('ABC123',createPlayer('a','Ada'));addGuest(s,createPlayer('b','Bima'));return s;};
@@ -244,5 +245,30 @@ check('CPU robot dispatch is a separate visible step before dice',()=>{
  const rolled=advanceBotStep(s,()=>0);
  assert.equal(rolled.kind,'ROLL');
  assert.equal(s.rolled,true);
+});
+check('world map camera rotates without mutating selected site coordinates',()=>{
+ const origin={x:210,y:330};
+ const p0=mapProjection(0,2,0,origin,180,220);
+ const p1=mapProjection(0,2,1,origin,180,220);
+ const p2=mapProjection(0,2,2,origin,180,220);
+ const p3=mapProjection(0,2,3,origin,180,220);
+ const p4=mapProjection(0,2,4,origin,180,220);
+ assert.notDeepEqual(p0,p1);
+ assert.notDeepEqual(p1,p2);
+ assert.notDeepEqual(p2,p3);
+ assert.deepEqual(p4,p0);
+ assert.deepEqual(mapProjection(2,2,1,origin,180,220),origin);
+ assert.equal(mapProjection(0,2,0,origin,180,220).y,origin.y-220*2/5.5);
+});
+check('world map route always starts by real player tile and robot progress is bounded',()=>{
+ const origin={x:195,y:260};
+ const start=perimeterPoint(3,origin,170,140);
+ const goal=mapProjection(4,1,3,origin,170,140);
+ assert.deepEqual(robotOnRoute(start,goal,-10),start);
+ assert.deepEqual(robotOnRoute(start,goal,0),start);
+ assert.deepEqual(robotOnRoute(start,goal,1),goal);
+ assert.deepEqual(robotOnRoute(start,goal,99),goal);
+ const halfway=robotOnRoute(start,goal,.5);
+ assert.ok(Math.abs(halfway.x-(start.x+goal.x)/2)<.001);
 });
 console.log(`PASS ${passed} faithful-slice smoke checks`);
