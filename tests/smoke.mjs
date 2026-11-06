@@ -162,4 +162,20 @@ check('terrain trouble recalls unprotected robot, but a repair kit can absorb on
  assert.notEqual(saved.players[0].robot.mission,null);
  assert.ok(saved.logs.some(x=>x.message.includes('repair kit')));
 });
+check('dispatch is a pre-roll action and does not strand turn state',()=>{
+  const s=setup();start(s);
+  s.players[0].gateCards=1;
+  applyAction(s,'a',{type:'SEND_ROBOT',siteId:'relic'});
+  assert.equal(s.players[0].gateCards,0);
+  assert.ok(s.players[0].robot.mission);
+  assert.equal(s.rolled,false);
+  assert.equal(s.dice,null);
+  assert.equal(currentPlayer(s).id,'a');
+  assert.throws(()=>applyAction(s,'a',{type:'END_TURN'}),/Roll dice before ending/);
+  roll(s,'a',()=>0);
+  assert.equal(s.rolled,true);
+  assert.deepEqual(s.dice,[1,1]);
+  end(s,'a');
+  assert.equal(currentPlayer(s).id,'b');
+});
 console.log(`PASS ${passed} faithful-slice smoke checks`);
