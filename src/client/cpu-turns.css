@@ -1,0 +1,24 @@
+/* v0.12: spectator UI; never changes Phaser viewport size. */
+.cpu-status {
+  position:absolute;
+  z-index:17;
+  top:17%;
+  left:50%;
+  max-width:88%;
+  min-width:min(220px,75%);
+  transform:translateX(-50%);
+  padding:9px 13px;
+  border:2px solid #f5df9b;
+  border-radius:12px;
+  background:#183f62ed;
+  color:#fff4c5;
+  box-shadow:0 4px 12px #14384c66;
+  font:800 clamp(12px,3.4vw,16px)/1.35 system-ui,sans-serif;
+  text-align:center;
+  white-space:normal;
+  pointer-events:none;
+}
+.cpu-status[hidden] {display:none!important}
+@media(max-width:380px) {
+  .cpu-status {top:15%;padding:6px 8px;font-size:11px}
+}

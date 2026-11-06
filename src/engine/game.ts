@@ -77,7 +77,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     state.galleries.forEach((gallery,i)=>{gallery.ownerId=state.players[i % state.players.length].id;});
     state.phase='playing';
     log(state, 'The expedition begins!');
-    autoPlayBots(state,random);
+    // CPU turns are resolved in durable, visible steps by the room alarm.
     state.version++;
     return state;
   }
@@ -86,7 +86,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
   if(player.id !== actorId || player.isBot) throw new GameError('It is not your turn.');
   switch(action.type) {
     case 'ROLL': if (state.rolled) throw new GameError('You have already rolled this turn.'); rollAndResolve(state,random); break;
-    case 'END_TURN': if (!state.rolled) throw new GameError('Roll dice before ending your turn.'); endTurn(state); autoPlayBots(state,random); break;
+    case 'END_TURN': if (!state.rolled) throw new GameError('Roll dice before ending your turn.'); endTurn(state); break;
     case 'SEND_ROBOT': sendRobot(state, player, action.siteId); break;
     case 'RETURN_ROBOT': returnRobot(state,player); break;
     case 'BUY_GATE_CARD': buyGate(state,player); break;
@@ -376,22 +376,78 @@ function resolveTile(state:GameState,player:Player,random:Random):void {
     player.gold+=START_GOLD;log(state,`${player.name} stopped at the Robot Center (+${START_GOLD*2} G total for passing and stopping).`);
   }
 }
-function autoPlayBots(state:GameState,random:Random):void {
-  let safety=0;
-  while(state.phase==='playing' && currentPlayer(state).isBot && safety++<state.players.length) {
-    const bot=currentPlayer(state);
-    if(!bot.robot.mission && bot.gateCards>0 && bot.robot.energy>=10){ const spot=state.islandSpots.find(s=>!s.depleted);if(spot)sendRobot(state,bot,spot.id); }
-    rollAndResolve(state,random);
-    let safetyShops=0;
-    while(state.phase==='playing' && state.shopOffer && safetyShops++<14) {
-      if(bot.gold>=GATE_PRICE && bot.gateCards<2) {
-        enterShop(state,bot);
-        buyGate(state,bot);
-        closeShop(state,bot,random);
-      } else skipShop(state,bot,random);
+/**
+ * Resolve ONE visible CPU action. Called only from the Durable Object alarm.
+ * Never run the entire bot turn in one request: clients must see each snapshot.
+ * The server remains authoritative for random dice, shopping and robot decisions.
+ */
+export function advanceBotStep(state:GameState,random:Random=Math.random):{
+  kind:NonNullable<GameState['botEvent']>['kind']; waitMs:number
+}|null {
+  if(state.phase!=='playing'||!currentPlayer(state).isBot)return null;
+  const bot=currentPlayer(state);
+  const beforePending=state.pendingSteps??0;
+  let kind:NonNullable<GameState['botEvent']>['kind'];
+  let waitMs=900;
+  if(!state.rolled) {
+    // Sending is deliberately its own stage, followed by a separate roll stage.
+    if(!bot.robot.mission && bot.gateCards>0 && bot.robot.energy>=10) {
+      const target=state.islandSpots.find(spot=>!spot.depleted);
+      if(target){
+        sendRobot(state,bot,target.id);
+        kind='SEND';
+        waitMs=1500;
+      }else{
+        rollAndResolve(state,random);
+        kind='ROLL';
+      }
+    } else {
+      rollAndResolve(state,random);
+      kind='ROLL';
     }
-    if(state.phase==='playing' && !state.shopOffer && !state.shopAccess && !(state.pendingSteps??0)) endTurn(state);
+    if(kind==='ROLL'){
+      const walked=(state.dice?.[0]??0)+(state.dice?.[1]??0)-(state.pendingSteps??0);
+      waitMs=Math.max(1400,Math.min(4300,walked*230+850));
+    }
+  }else if(state.shopOffer){
+    if(bot.gold>=GATE_PRICE && bot.gateCards<2){
+      enterShop(state,bot);
+      kind='ENTER_SHOP';
+      waitMs=1100;
+    }else{
+      skipShop(state,bot,random);
+      kind='SKIP_SHOP';
+      const walked=beforePending-(state.pendingSteps??0);
+      waitMs=Math.max(800,Math.min(3600,walked*230+650));
+    }
+  }else if(state.shopAccess){
+    // Buy at most one ticket per shop visit; then visibly exit.
+    // This also prevents a bot looping through unlimited purchases in one turn.
+    const alreadyBoughtHere=state.botEvent?.playerId===bot.id && state.botEvent.kind==='BUY';
+    if(!alreadyBoughtHere && bot.gold>=GATE_PRICE && bot.gateCards<2){
+      buyGate(state,bot);
+      kind='BUY';
+      waitMs=950;
+    }else{
+      closeShop(state,bot,random);
+      kind='LEAVE_SHOP';
+      const walked=beforePending-(state.pendingSteps??0);
+      waitMs=Math.max(950,Math.min(3600,walked*230+650));
+    }
+  }else if((state.pendingSteps??0)===0){
+    endTurn(state);
+    kind='END';
+    waitMs=650;
+  }else{
+    // Defensive recovery from stale in-progress movement.
+    advanceMovement(state,bot,random);
+    kind='ROLL';
+    const walked=beforePending-(state.pendingSteps??0);
+    waitMs=Math.max(900,Math.min(3600,walked*230+650));
   }
+  state.botEvent={playerId:bot.id,kind,step:(state.botEvent?.step??0)+1};
+  state.version++;
+  return {kind,waitMs};
 }
 export const PROVISIONAL_RULES = {
   startingGold:START_GOLD, winAssets:WIN_ASSETS, gatePrice:GATE_PRICE,
