@@ -25,11 +25,14 @@ describe('Terrain-attached waterfall',()=>{
     const mesh=cascade.mesh;
     const geo=mesh.geometry as THREE.BufferGeometry;
     const color=geo.getAttribute('color') as THREE.BufferAttribute;
-    const initial=color.getX(10);
+    // Some individual pixels/stripes can match at two instants by chance.
+    // Verify the entire ribbon changes while reusing the same color buffer.
+    const initial=Array.from(color.array);
     const buffer=color.array;
     cascade.update(1.4);
     expect(color.array).toBe(buffer);
-    expect(color.getX(10)).not.toBeCloseTo(initial,5);
+    const changed=initial.filter((v,i)=>Math.abs(v-color.array[i])>.0001).length;
+    expect(changed).toBeGreaterThan(10);
     const spray=root.getObjectByName('waterfall-spray') as THREE.InstancedMesh;
     expect(spray).toBeInstanceOf(THREE.InstancedMesh);
     const m=new THREE.Matrix4();spray.getMatrixAt(3,m);
