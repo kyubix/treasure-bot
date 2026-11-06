@@ -73,3 +73,29 @@ export function expeditionProgress(mission:Expedition):number {
   const elapsed=mission.transitTotal-mission.turnsRemaining;
   return Math.max(0,Math.min(1,elapsed/Math.max(1,mission.transitTotal)));
 }
+
+/** PROVISIONAL terrain adaptation: the PS1 uses A-D grades, but this
+ * table is original balancing and must be replaced with documented values. */
+export type TerrainGrade='A'|'B'|'C'|'D';
+export const ROBOT_TERRAIN:Readonly<Record<import('./types.ts').RobotType,Readonly<Record<Ground,TerrainGrade>>>>={
+  NORMAL: {GRASS:'B',CLIFF:'C',DESERT:'C',WATER:'D',VOLCANO:'D',ICE:'D'},
+  FIGHTER:{GRASS:'B',CLIFF:'B',DESERT:'C',WATER:'D',VOLCANO:'B',ICE:'C'},
+  SEARCHER:{GRASS:'A',CLIFF:'C',DESERT:'B',WATER:'C',VOLCANO:'D',ICE:'B'},
+  DIVER:  {GRASS:'B',CLIFF:'D',DESERT:'C',WATER:'A',VOLCANO:'D',ICE:'B'},
+  MULTI:  {GRASS:'B',CLIFF:'B',DESERT:'B',WATER:'B',VOLCANO:'B',ICE:'B'},
+  HUNTER: {GRASS:'A',CLIFF:'A',DESERT:'B',WATER:'C',VOLCANO:'C',ICE:'C'},
+  DASH:   {GRASS:'A',CLIFF:'C',DESERT:'A',WATER:'D',VOLCANO:'C',ICE:'D'}
+};
+export function terrainGrade(chassis:import('./types.ts').RobotType,ground:Ground):TerrainGrade{
+  return ROBOT_TERRAIN[chassis][ground];
+}
+export function terrainTroubleChance(grade:TerrainGrade):number{
+  return ({A:.015,B:.065,C:.13,D:.23} as const)[grade];
+}
+export function terrainEnergyCost(grade:TerrainGrade,ground:Ground):number{
+  const base=({A:5,B:6,C:8,D:11} as const)[grade];
+  return base+(ground==='ICE'||ground==='VOLCANO'?4:0);
+}
+export function terrainTravelPenalty(grade:TerrainGrade):number{
+  return ({A:0,B:0,C:1,D:2} as const)[grade];
+}
