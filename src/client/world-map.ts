@@ -5,6 +5,7 @@ import { expeditionProgress } from '../engine/island.ts';
 import type { Ground } from '../engine/island.ts';
 import { mapProjection, perimeterPoint, robotOnRoute, clamp } from './world-map-geometry.ts';
 import type { Point } from './world-map-geometry.ts';
+import type { WorldThreeLayer } from './world-map-three.ts';
 
 /**
  * First-pass illustrated World Map for portrait phones. Phaser is responsible
@@ -311,12 +312,18 @@ export function drawWorldIsland(args:{
   width:number;height:number;state:GameState|null;
   rotation:number;selectedSpot:string|null;onSelect:(id:string)=>void;
   renderScenery?:boolean;
+  project3D?:WorldThreeLayer;
+  isPointerTap?:()=>boolean;
 }):void{
   const {scene,parent,width:w,height:h,state,rotation,selectedSpot,onSelect}=args;
   const cx=w*.5,cy=h*.535;
   const rx=Math.min(w*.40,280),ry=Math.min(h*.35,300);
   const center={x:cx,y:cy};
   const scale=clamp(w/410,.73,1.4);
+  const sitePoint=(x:number,y:number)=>args.project3D?.projectSite(x,y) ??
+    mapProjection(x,y,rotation,center,rx,ry);
+  const tilePoint=(i:number)=>args.project3D?.projectTile(i) ??
+    perimeterPoint(i,center,rx*.97,ry*.92,rotation);
   // Only static scenery switches renderer in Three preview. The entire
   // state-driven perimeter, routes, players and touch targets stay Phaser.
   let g=scene.add.graphics();parent.add(g);
@@ -431,20 +438,26 @@ export function drawWorldIsland(args:{
   // The decorative board route follows the entire coastline; every tile
   // is real TILES data. Avatars are taken from the authoritative game state.
   for(let i=0;i<TILES.length;i++){
-    const p=perimeterPoint(i,center,rx*.97,ry*.92,rotation);
-    const before=perimeterPoint((i+TILES.length-1)%TILES.length,center,rx*.97,ry*.92,rotation);
-    const after=perimeterPoint((i+1)%TILES.length,center,rx*.97,ry*.92,rotation);
-    const a={x:(before.x+p.x)*.5,y:(before.y+p.y)*.5};
-    const b={x:(after.x+p.x)*.5,y:(after.y+p.y)*.5};
-    const tangent={x:b.x-a.x,y:b.y-a.y};
-    const len=Math.max(1,Math.hypot(tangent.x,tangent.y));
-    const nx=-tangent.y/len,ny=tangent.x/len;
-    const depth=.62+.37*(p.y-(cy-ry))/(ry*2);
-    const thick=Math.max(5,13*scale*depth);
-    const shape=[
-      point(a.x+nx*thick,a.y+ny*thick),point(b.x+nx*thick,b.y+ny*thick),
-      point(b.x-nx*thick,b.y-ny*thick),point(a.x-nx*thick,a.y-ny*thick)
-    ];
+    const p=tilePoint(i);
+    let shape:Phaser.Geom.Point[];
+    if(args.project3D){
+      // All four corners come from the SAME camera as the 3D island.
+      shape=args.project3D.tilePolygon(i).map(q=>point(q.x,q.y));
+    }else{
+      const before=tilePoint((i+TILES.length-1)%TILES.length);
+      const after=tilePoint((i+1)%TILES.length);
+      const a={x:(before.x+p.x)*.5,y:(before.y+p.y)*.5};
+      const b={x:(after.x+p.x)*.5,y:(after.y+p.y)*.5};
+      const tangent={x:b.x-a.x,y:b.y-a.y};
+      const len=Math.max(1,Math.hypot(tangent.x,tangent.y));
+      const nx=-tangent.y/len,ny=tangent.x/len;
+      const depth=.62+.37*(p.y-(cy-ry))/(ry*2);
+      const thick=Math.max(5,13*scale*depth);
+      shape=[
+        point(a.x+nx*thick,a.y+ny*thick),point(b.x+nx*thick,b.y+ny*thick),
+        point(b.x-nx*thick,b.y-ny*thick),point(a.x-nx*thick,a.y-ny*thick)
+      ];
+    }
     const owner=state?.galleries.find(item=>item.tile===i)?.ownerId;
     const home=owner?state?.players.find(pl=>pl.id===owner):undefined;
     const paint=home?color(home.color):TILE_COLORS[TILES[i]];
@@ -471,8 +484,8 @@ export function drawWorldIsland(args:{
     // Use immutable dispatch tile A, never the owner's new board position B.
     // Legacy missions created before v0.14 lack launchTile and must fall back.
     const sourceTile=mission.launchTile??player.position;
-    const start=perimeterPoint(sourceTile,center,rx*.95,ry*.89,rotation);
-    const end=mapProjection(site.x,site.y,rotation,center,rx,ry);
+    const start=tilePoint(sourceTile);
+    const end=sitePoint(site.x,site.y);
     const progress=mission.phase==='OUTBOUND'?expeditionProgress(mission):
       mission.phase==='SEARCH'?1:1-expeditionProgress(mission);
     const p=robotOnRoute(start,end,progress);
@@ -493,7 +506,7 @@ export function drawWorldIsland(args:{
   // into a static illustration: actions must always correspond to real IDs.
   if(state){
     for(const spot of state.islandSpots){
-      const p=mapProjection(spot.x,spot.y,rotation,center,rx,ry);
+      const p=sitePoint(spot.x,spot.y);
       if(spot.kind!=='LOCATION'&&!spot.depleted){
         const isKeeper=spot.kind==='KEEPER';
         marker(g,scene,parent,p.x,p.y,8*scale,isKeeper?0x9f5f92:0xe7a841,isKeeper?'⚔':'◆');
@@ -511,11 +524,15 @@ export function drawWorldIsland(args:{
       }
       const hit=scene.add.circle(p.x,p.y,Math.max(13,18*scale),0x000000,0)
         .setInteractive({useHandCursor:true});
-      hit.on('pointerdown',()=>onSelect(spot.id));
+      if(args.project3D){
+        hit.on('pointerup',()=>{if(args.isPointerTap?.()??true)onSelect(spot.id);});
+      }else{
+        hit.on('pointerdown',()=>onSelect(spot.id));
+      }
       parent.add(hit);
     }
     for(const pl of state.players){
-      const p=perimeterPoint(pl.position,center,rx*.97,ry*.92,rotation);
+      const p=tilePoint(pl.position);
       const ordinal=state.players.filter(other=>other.position===pl.position).indexOf(pl);
       const x=p.x+(ordinal%2===0?-8:9)*scale;
       const y=p.y+((ordinal/2)|0)*10*scale;

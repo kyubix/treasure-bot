@@ -1,14 +1,29 @@
 import * as THREE from 'three';
 
 /**
- * Static, original low-poly 3D diorama for the opt-in ?map3d=1 preview.
- *
- * Only the *scenery* is rendered here. Phaser stays authoritative for the
- * numbered/colored board, players, robots, route and clickable site IDs.
- * Geometry is made once and the same island is rotated in 90-degree steps.
+ * One original, camera-orbitable island shared by WebGL scenery and Phaser's
+ * interactive overlay. Every marker and board tile is projected by THIS camera.
+ * This optional layer never owns gameplay or changes GameState.
  */
+export type ScreenPoint={x:number;y:number};
+
+/** The one shared mapping between authoritative logical coordinates and 3D. */
+export function siteWorldPosition(x:number,y:number,elevation=.48):THREE.Vector3{
+  return new THREE.Vector3((x-2)*1.16,elevation,(y-2)*1.16);
+}
+export function boardTileWorldPosition(index:number,radius=3.48,elevation=.49):THREE.Vector3{
+  // The first tile is at the camera-near end with the default 45° azimuth.
+  const angle=(index/28)*Math.PI*2+Math.PI/2-Math.PI/4;
+  return new THREE.Vector3(Math.cos(angle)*radius,elevation,Math.sin(angle)*radius);
+}
 export interface WorldThreeLayer {
-  draw(width:number,height:number,turns:number):boolean;
+  draw(width:number,height:number):boolean;
+  projectSite(x:number,y:number,elevation?:number):ScreenPoint;
+  projectTile(index:number,elevation?:number):ScreenPoint;
+  tilePolygon(index:number):ScreenPoint[];
+  orbit(deltaX:number,deltaY:number):void;
+  zoom(amount:number):void;
+  rotateBy(radians:number):void;
   visible(value:boolean):void;
   dispose():void;
 }
@@ -43,6 +58,10 @@ function disk(radius:number,material:THREE.Material,y:number,x:number,z:number):
 function mesa(root:THREE.Group,x:number,z:number,radius:number,height:number):void{
   const group=new THREE.Group();
   root.add(group);group.position.set(x,0,z);
+  const baseShadow=disk(radius*1.22,new THREE.MeshBasicMaterial({
+    color:0x1d4c3d,transparent:true,opacity:.32,depthWrite:false
+  }),.423,0,0);
+  baseShadow.scale.y=.78;group.add(baseShadow);
   group.add(disk(radius*1.24,darkGrass,.04,0,0));
   const tiers=[
     {y:.09,h:height*.45,r:radius*1.04,top:radius*.91},
@@ -54,6 +73,7 @@ function mesa(root:THREE.Group,x:number,z:number,radius:number,height:number):vo
     const geo=new THREE.CylinderGeometry(t.top,t.r,t.h,11,1,false);
     const body=new THREE.Mesh(geo,[i%2?rock:rockShade,rock,rockShade]);
     body.position.y=t.y+t.h/2;body.rotation.y=i*.22;
+    body.castShadow=true;
     group.add(body);
     const cap = new THREE.Mesh(
       new THREE.CylinderGeometry(t.top*.99,t.top*1.015,.105,11),
@@ -76,10 +96,14 @@ function mesa(root:THREE.Group,x:number,z:number,radius:number,height:number):vo
   }
 }
 function broadTree(root:THREE.Group,x:number,z:number,size:number,n:number):void{
+  const shadow=disk(.42*size,new THREE.MeshBasicMaterial({
+    color:0x1e5841,transparent:true,opacity:.19,depthWrite:false
+  }),.424,x,z);
+  shadow.scale.y=.70;root.add(shadow);
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.055*size,.08*size,.42*size,6),bark);
-  place(trunk,x,.25*size,z);root.add(trunk);
+  place(trunk,x,.66*size,z);root.add(trunk);
   const crown=new THREE.Group();
-  place(crown,x,.56*size,z);root.add(crown);
+  place(crown,x,.94*size,z);root.add(crown);
   const leaf=foliageMaterials[n%3];
   const bits=[
     [-.16,.02,-.03,.34],[.17,.02,.09,.31],[.01,.22,-.04,.37],[-.04,.08,.19,.31]
@@ -87,16 +111,21 @@ function broadTree(root:THREE.Group,x:number,z:number,size:number,n:number):void
   for(const [dx,dy,dz,r] of bits){
     const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r*size,1),leaf);
     m.position.set(dx*size,dy*size,dz*size);
+    m.castShadow=true;
     crown.add(m);
   }
 }
 function pine(root:THREE.Group,x:number,z:number,size:number,n:number):void{
+  const shadow=disk(.30*size,new THREE.MeshBasicMaterial({
+    color:0x175644,transparent:true,opacity:.20,depthWrite:false
+  }),.425,x,z);shadow.scale.y=.70;root.add(shadow);
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.044*size,.068*size,.52*size,5),bark);
-  place(trunk,x,.24*size,z);root.add(trunk);
+  place(trunk,x,.70*size,z);root.add(trunk);
   for(let layer=0;layer<3;layer++){
     const cone=new THREE.Mesh(new THREE.ConeGeometry((.38-layer*.07)*size,.58*size,7),
       foliageMaterials[(n+layer)%3]);
-    place(cone,x,(.40+layer*.23)*size,z);
+    place(cone,x,(.84+layer*.23)*size,z);
+    cone.castShadow=true;
     root.add(cone);
   }
 }
@@ -131,18 +160,36 @@ function lighthouse(root:THREE.Group,x:number,z:number):void{
   const top=new THREE.Mesh(new THREE.ConeGeometry(.20,.18,9),red);
   place(top,x,.80,z);root.add(top);
 }
+function organicCylinder(top:number,bottom:number,height:number):THREE.CylinderGeometry{
+  const geometry=new THREE.CylinderGeometry(top,bottom,height,72,1,false);
+  const positions=geometry.getAttribute('position') as THREE.BufferAttribute;
+  for(let i=0;i<positions.count;i++){
+    const x=positions.getX(i),z=positions.getZ(i);
+    const angle=Math.atan2(z,x);
+    // Same deterministic irregular shore for caps, walls and every viewpoint.
+    const scale=1+.024*Math.sin(angle*5+.33)+.016*Math.sin(angle*9-1.1)
+      +.010*Math.cos(angle*13+.3);
+    positions.setX(i,x*scale);
+    positions.setZ(i,z*scale);
+  }
+  positions.needsUpdate=true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
 function island(scene:THREE.Scene):THREE.Group{
   const root=new THREE.Group();
   scene.add(root);
 
   // The same coastline mesh is rotated, never four independently generated views.
-  const under=new THREE.Mesh(new THREE.CylinderGeometry(3.50,3.63,.54,64),[rockShade,rockShade,rockShade]);
+  const under=new THREE.Mesh(organicCylinder(3.50,3.62,.62),[rockShade,rockShade,rockShade]);
+  under.castShadow=true;
   place(under,0,-.17,0);root.add(under);
   const foamRing=new THREE.Mesh(new THREE.RingGeometry(3.51,3.73,72),foam);
   foamRing.rotation.x=-Math.PI/2;place(foamRing,0,-.40,0);root.add(foamRing);
-  const beach=new THREE.Mesh(new THREE.CylinderGeometry(3.49,3.52,.16,64),[sandy,rim,rock]);
+  const beach=new THREE.Mesh(organicCylinder(3.49,3.52,.19),[sandy,rim,rock]);
   place(beach,0,.14,0);root.add(beach);
-  const turf=new THREE.Mesh(new THREE.CylinderGeometry(3.18,3.33,.22,64),[darkGrass,grass,rock]);
+  const turf=new THREE.Mesh(organicCylinder(3.18,3.33,.24),[darkGrass,grass,rock]);
+  turf.receiveShadow=true;
   place(turf,0,.29,0);root.add(turf);
 
   // Organic green patches give relief without baking any gameplay information.
@@ -164,11 +211,11 @@ function island(scene:THREE.Scene):THREE.Group{
   const fallBright=new THREE.Mesh(new THREE.BoxGeometry(.045,.73,.125),white);
   place(fallBright,.50,.79,.47);root.add(fallBright);
 
-  forest(root,-1.64,-.52,8,7);
-  forest(root,-2.02,1.25,8,18);
-  forest(root,.78,-2.22,9,32);
-  forest(root,1.92,1.23,8,45);
-  forest(root,-.26,2.10,7,58);
+  forest(root,-1.64,-.52,11,7);
+  forest(root,-2.02,1.25,11,18);
+  forest(root,.78,-2.22,13,32);
+  forest(root,1.92,1.23,12,45);
+  forest(root,-.26,2.10,11,58);
 
   ruins(root,2.10,-1.50);
   lighthouse(root,1.86,2.28);
@@ -203,9 +250,19 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
 
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x1c7baa);
-  scene.add(new THREE.HemisphereLight(0xdff5fa,0x786349,2.55));
-  const sun=new THREE.DirectionalLight(0xffefcb,2.5);
-  sun.position.set(-5,9,7);scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xedf8fa,0x745a3c,2.0));
+  scene.add(new THREE.AmbientLight(0xffffff,.23));
+  const sun=new THREE.DirectionalLight(0xffeed0,2.4);
+  sun.position.set(-5,10,6);
+  sun.castShadow=true;
+  sun.shadow.mapSize.set(768,768);
+  sun.shadow.camera.left=-5;sun.shadow.camera.right=5;
+  sun.shadow.camera.top=5;sun.shadow.camera.bottom=-5;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=23;
+  sun.shadow.bias=-.0003;
+  scene.add(sun);
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const sea=new THREE.Mesh(new THREE.PlaneGeometry(70,70),new THREE.MeshStandardMaterial({
     color:0x1786b6,roughness:.40,metalness:.03
   }));
@@ -213,41 +270,99 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   sea.position.y=-.48;
   scene.add(sea);
   const land=island(scene);
-  const camera=new THREE.OrthographicCamera(-4.85,4.85,4.1,-4.1,.1,100);
-  camera.position.set(8,11,8);
-  camera.lookAt(0,.11,0);
-  camera.updateProjectionMatrix();
-  let lastW=0,lastH=0,lastTurn=-1,dead=false;
-  const contextLost=(e:Event)=>{e.preventDefault();canvas.style.display='none';};
+  const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
+  let yaw=Math.PI/4;
+  let pitch=56*Math.PI/180;
+  let zoom=1;
+  const distance=15;
+  const focus=new THREE.Vector3(0,.38,0);
+  let lastW=0,lastH=0,dead=false,contextIsLost=false;
+  const adjustCamera=()=>{
+    // Board never crops: horizontal radius >= 4.7 world units even on
+    // portrait phones. Zoom range is deliberately limited for tap safety.
+    const aspect=Math.max(.4,lastW/Math.max(1,lastH));
+    const halfH=Math.max(5.2,4.85/aspect)/zoom;
+    camera.left=-halfH*aspect;camera.right=halfH*aspect;
+    camera.top=halfH;camera.bottom=-halfH;
+    camera.position.set(
+      focus.x+distance*Math.sin(yaw)*Math.cos(pitch),
+      focus.y+distance*Math.sin(pitch),
+      focus.z+distance*Math.cos(yaw)*Math.cos(pitch)
+    );
+    camera.lookAt(focus);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+  };
+  const screen=(x:number,y:number,z:number):ScreenPoint=>{
+    const p=new THREE.Vector3(x,y,z).project(camera);
+    return {x:(p.x+1)*lastW*.5,y:(1-p.y)*lastH*.5};
+  };
+  // Game model coordinates are mapped ONCE onto the Three island. They are
+  // never rotated independently of the orbit camera.
+  const sitePoint=(x:number,y:number,elevation=.48)=>{
+    const p=siteWorldPosition(x,y,elevation);
+    return screen(p.x,p.y,p.z);
+  };
+  const tileWorld=(angle:number,radius:number,elevation=.48)=>{
+    // Azimuth offset matches the PS1-inspired default angle: tile 0 is at
+    // the near / bottom edge of the island, not the back or water.
+    const a=angle-Math.PI/4;
+    return new THREE.Vector3(Math.cos(a)*radius,elevation,Math.sin(a)*radius);
+  };
+  const contextLost=(e:Event)=>{
+    e.preventDefault();contextIsLost=true;canvas.style.display='none';
+  };
+  const contextRestored=()=>{contextIsLost=false;lastW=0;};
   canvas.addEventListener('webglcontextlost',contextLost);
+  canvas.addEventListener('webglcontextrestored',contextRestored);
+
   const stage:WorldThreeLayer={
-    draw(width,height,turns){
-      if(dead)return false;
+    draw(width,height){
+      if(dead||contextIsLost)return false;
       const w=Math.round(width),h=Math.round(height);
       if(w<40||h<40)return false;
       try{
         if(w!==lastW||h!==lastH){
+          lastW=w;lastH=h;
           renderer.setSize(w,h,false);
-          lastW=w;lastH=h;lastTurn=-1;
         }
-        const quarter=((turns%4)+4)%4;
-        if(quarter!==lastTurn){
-          land.rotation.y=-quarter*Math.PI/2;
-          lastTurn=quarter;
-        }
+        adjustCamera();
         renderer.render(scene,camera);
         canvas.style.display='block';
         return true;
       }catch{
-        canvas.style.display='none';
-        return false;
+        canvas.style.display='none';return false;
       }
     },
+    projectSite(x,y,elevation=.48){return sitePoint(x,y,elevation);},
+    projectTile(index,elevation=.50){
+      const theta=(index/28)*Math.PI*2+Math.PI/2;
+      const v=boardTileWorldPosition(index,3.48,elevation);
+      return screen(v.x,v.y,v.z);
+    },
+    tilePolygon(index){
+      const theta=(index/28)*Math.PI*2+Math.PI/2;
+      const half=(Math.PI*2/28)*.48;
+      const points=[
+        tileWorld(theta-half,3.68,.49),
+        tileWorld(theta+half,3.68,.49),
+        tileWorld(theta+half,3.29,.49),
+        tileWorld(theta-half,3.29,.49)
+      ];
+      return points.map(v=>screen(v.x,v.y,v.z));
+    },
+    orbit(deltaX,deltaY){
+      yaw+=deltaX*.0078;
+      pitch=THREE.MathUtils.clamp(pitch+deltaY*.0055,28*Math.PI/180,76*Math.PI/180);
+    },
+    zoom(amount){zoom=THREE.MathUtils.clamp(zoom*Math.exp(amount),.82,1.38);},
+    rotateBy(radians){yaw+=radians;},
     visible(value){if(!dead)canvas.style.display=value?'block':'none';},
     dispose(){
       if(dead)return;
       dead=true;
       canvas.removeEventListener('webglcontextlost',contextLost);
+      canvas.removeEventListener('webglcontextrestored',contextRestored);
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
         if(o instanceof THREE.Mesh){
@@ -257,8 +372,8 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
           else materials.add(m);
         }
       });
-      for(const g of geometries)g.dispose();
-      for(const m of materials)m.dispose();
+      for(const geometry of geometries)geometry.dispose();
+      for(const material of materials)material.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       canvas.remove();

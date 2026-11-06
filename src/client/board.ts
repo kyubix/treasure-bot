@@ -36,6 +36,10 @@ export class BoardScene extends Phaser.Scene {
   private lastLaunchPaint=0;
   private layoutFrame=0;
   private threeLayer:WorldThreeLayer|null=null;
+  private orbitTouches=new Map<number,{x:number;y:number}>();
+  private orbitMoved=0;
+  private lastPinchDistance=0;
+  private lastOrbitPaint=0;
 
   constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
   isMoving():boolean{return Boolean(this.movement?.isPlaying());}
@@ -72,12 +76,56 @@ export class BoardScene extends Phaser.Scene {
     // Phaser.Scale.RESIZE may fire while the Board/World CSS layout changes.
     // Batch resize + view rendering to one frame after the new layout settles.
     this.scale.on('resize',()=>this.scheduleLayoutPaint());
+    // Phaser owns touch hit areas; Three owns only camera and background.
+    this.input.addPointer(1);
+    this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>this.orbitDown(p));
+    this.input.on('pointermove',(p:Phaser.Input.Pointer)=>this.orbitMove(p));
+    this.input.on('pointerup',(p:Phaser.Input.Pointer)=>this.orbitUp(p));
+    this.input.on('pointerupoutside',(p:Phaser.Input.Pointer)=>this.orbitUp(p));
     this.events.once('shutdown',()=>{
+      this.orbitTouches.clear();
       if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);
       this.layoutFrame=0;
     });
     this.paint();
   }
+  private orbitDown(pointer:Phaser.Input.Pointer):void{
+    if(this.view!=='world'||!this.threeLayer)return;
+    if(this.orbitTouches.size===0)this.orbitMoved=0;
+    this.orbitTouches.set(pointer.id,{x:pointer.x,y:pointer.y});
+    this.lastPinchDistance=0;
+  }
+  private orbitMove(pointer:Phaser.Input.Pointer):void{
+    if(this.view!=='world'||!this.threeLayer||!pointer.isDown)return;
+    const prev=this.orbitTouches.get(pointer.id);
+    if(!prev)return;
+    const dx=pointer.x-prev.x,dy=pointer.y-prev.y;
+    this.orbitTouches.set(pointer.id,{x:pointer.x,y:pointer.y});
+    this.orbitMoved+=Math.hypot(dx,dy);
+    if(this.orbitTouches.size>=2){
+      const points=[...this.orbitTouches.values()];
+      const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+      if(this.lastPinchDistance>0&&distance>5)
+        this.threeLayer.zoom(Math.log(distance/this.lastPinchDistance));
+      this.lastPinchDistance=distance;
+      this.orbitMoved=100;
+    }else{
+      this.threeLayer.orbit(-dx,dy);
+    }
+    if(this.time.now-this.lastOrbitPaint>=33){
+      this.lastOrbitPaint=this.time.now;
+      if(!this.layoutFrame)this.paint();
+    }
+  }
+  private orbitUp(pointer:Phaser.Input.Pointer):void{
+    if(!this.orbitTouches.has(pointer.id))return;
+    this.orbitTouches.delete(pointer.id);
+    this.lastPinchDistance=0;
+    // A tap must keep its Phaser hit target alive until pointerup dispatch.
+    // Drag samples already repaint at a mobile-friendly capped frequency.
+    if(this.orbitMoved>=8&&this.view==='world'&&this.threeLayer&&!this.layoutFrame)this.paint();
+  }
+  private isOrbitTap():boolean{return this.orbitMoved<8;}
   private scheduleLayoutPaint():void {
     if(this.layoutFrame||!this.sys.isActive())return;
     // World HUD and command rows change the flex layout. Browser viewport
@@ -163,7 +211,11 @@ export class BoardScene extends Phaser.Scene {
   selectSpot(value:string):void {this.selected=value;if(this.sys.isActive())this.paint();}
   rotateMap(delta:number):void {
     if(!Number.isFinite(delta))return;
-    this.worldRotation=((this.worldRotation+Math.sign(delta))%4+4)%4;
+    if(this.view==='world'&&this.threeLayer){
+      this.threeLayer.rotateBy(Math.sign(delta)*Math.PI/4);
+    }else{
+      this.worldRotation=((this.worldRotation+Math.sign(delta))%4+4)%4;
+    }
     if(this.sys.isActive()&&this.view==='world'&&!this.layoutFrame)this.paint();
   }
   private text(parent:Phaser.GameObjects.Container,x:number,y:number,value:string,
@@ -185,7 +237,7 @@ export class BoardScene extends Phaser.Scene {
     this.display=container;
     if(this.view==='world'){
       // When WebGL cannot initialize, continue with the full Phaser map.
-      const rendered3D=this.threeLayer?.draw(w,h,this.worldRotation)??false;
+      const rendered3D=this.threeLayer?.draw(w,h)??false;
       if(!rendered3D)this.threeLayer?.visible(false);
       this.world(container,w,h,rendered3D);
     }else{
@@ -426,6 +478,8 @@ export class BoardScene extends Phaser.Scene {
     drawWorldIsland({
       scene:this,parent,width:w,height:h,state:this.match,
       renderScenery:!rendered3D,
+      project3D:rendered3D?this.threeLayer??undefined:undefined,
+      isPointerTap:()=>this.isOrbitTap(),
       rotation:this.worldRotation,selectedSpot:this.selected,
       onSelect:id=>{
         this.selected=id;
@@ -467,6 +521,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
       // The renderer sits behind transparent Phaser interaction graphics.
       game.canvas.style.position='relative';
       game.canvas.style.zIndex='1';
+      game.canvas.style.touchAction='none';
       scene.setThreeLayer(layer);
     }).catch(()=>{
       // This is a preview, never block room entry or robot controls.
