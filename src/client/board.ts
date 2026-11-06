@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { TILES } from '../engine/types.ts';
+import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
+import type { BoardBiome } from './board-environment.ts';
 import { ISLAND_SIZE, ISLAND_TERRAIN, expeditionProgress } from '../engine/island.ts';
 import type { GameState, TileType } from '../engine/types.ts';
 import type { Ground } from '../engine/island.ts';
@@ -31,9 +33,33 @@ export class BoardScene extends Phaser.Scene {
   private visualPosition:number|null=null;
   private movement?:Phaser.Tweens.Tween;
   private lastMotionPaint=0;
+  private launchEffect?:Phaser.Tweens.Tween;
+  private launchProgress:number|null=null;
+  private launchPlayerId:string|null=null;
+  private lastLaunchPaint=0;
 
   constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
   isMoving():boolean{return Boolean(this.movement?.isPlaying());}
+  isLaunching():boolean{return this.launchProgress!==null;}
+  launchRobot(playerId:string):void {
+    if(!this.sys.isActive())return;
+    if(this.view!=='board')this.setView('board');
+    this.launchEffect?.stop();
+    this.launchPlayerId=playerId;
+    this.launchProgress=0;
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.launchEffect=this.tweens.addCounter({
+      from:0,to:1,duration:reduce?100:2200,ease:'Sine.easeInOut',
+      onUpdate:tween=>{
+        this.launchProgress=tween.getValue();
+        if(this.time.now-this.lastLaunchPaint>34){this.lastLaunchPaint=this.time.now;this.paint();}
+      },
+      onComplete:()=>{
+        this.launchProgress=null;this.launchPlayerId=null;this.launchEffect=undefined;
+        this.paint();
+      }
+    });
+  }
   create():void {this.scale.on('resize',()=>this.paint());this.paint();}
   setMatch(value:GameState):void {
     const previous=this.match;
@@ -122,6 +148,40 @@ export class BoardScene extends Phaser.Scene {
     g.fillStyle(0x202d36);g.fillCircle(x-r*.22,y-r*1.87,r*.07);g.fillCircle(x+r*.22,y-r*1.87,r*.07);
     g.lineStyle(Math.max(1,r*.06),0x963f38);g.lineBetween(x-r*.12,y-r*1.56,x+r*.15,y-r*1.55);
   }
+  private robotCompanion(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,color:number,bob=0):void {
+    const wobble=bob*3;
+    g.fillStyle(0x274356,.25);g.fillEllipse(x,y+r*.3,r*1.7,r*.42);
+    g.fillStyle(0x354a69);g.fillRoundedRect(x-r*.66,y-r*.36-wobble,r*.5,r*.76,r*.2);
+    g.fillRoundedRect(x+r*.16,y-r*.36-wobble,r*.5,r*.76,r*.2);
+    g.fillStyle(color);g.fillRoundedRect(x-r*.75,y-r*1.55-wobble,r*1.5,r*1.2,r*.25);
+    g.lineStyle(Math.max(1,r*.11),0xf4efdc);g.strokeRoundedRect(x-r*.75,y-r*1.55-wobble,r*1.5,r*1.2,r*.25);
+    g.fillStyle(0xbff0f3);g.fillRoundedRect(x-r*.48,y-r*1.31-wobble,r*.96,r*.48,r*.13);
+    g.fillStyle(0x284a70);g.fillCircle(x-r*.21,y-r*1.06-wobble,r*.11);
+    g.fillCircle(x+r*.21,y-r*1.06-wobble,r*.11);
+    g.lineStyle(Math.max(1,r*.1),0x536c88);g.lineBetween(x,y-r*1.5-wobble,x,y-r*1.94-wobble);
+    g.fillStyle(0xffdf7c);g.fillCircle(x,y-r*2-wobble,r*.16);
+  }
+  private gateway(g:Phaser.GameObjects.Graphics,w:number,h:number,p:number):void {
+    const s=Math.min(w/640,h/480);
+    const open=Math.min(1,p/.42),split=Math.max(0,Math.min(1,(p-.18)/.33));
+    const width=97*s*open,height=137*s*open,x=w*.51,y=h*.54;
+    g.fillStyle(0x1d455d,.4);g.fillEllipse(x,y,width*1.25,18*s);
+    g.fillStyle(0xffe4a7,.95);g.fillRoundedRect(x-width*.57,y-height,width*1.14,height,14*s);
+    g.fillStyle(0x3b527c,.9);g.fillRoundedRect(x-width*.47,y-height*.93,width*.94,height*.92,11*s);
+    g.fillStyle(0x57cbdc,.87);g.fillEllipse(x,y-height*.45,width*.73,height*.8);
+    g.fillStyle(0xe0ffff,.65);g.fillEllipse(x,y-height*.46,width*.43,height*.58);
+    const door=width*.46*(1-split*.75);
+    g.fillStyle(0x725778,.95);
+    g.fillRoundedRect(x-width*.46,y-height*.93,door,height*.93,7*s);
+    g.fillRoundedRect(x+width*.46-door,y-height*.93,door,height*.93,7*s);
+    g.lineStyle(3*s,0xffebaa,.94);g.strokeRoundedRect(x-width*.57,y-height,width*1.14,height,14*s);
+  }
+  private gatewayRobot(g:Phaser.GameObjects.Graphics,w:number,h:number,p:number,color:number):void {
+    const progress=Math.min(1,Math.max(0,(p-.34)/.56));
+    const s=Math.min(w/640,h/480);
+    this.robotCompanion(g,w*.53,h*(.635-.145*progress),14*s*(1-progress*.72),color,
+      Math.abs(Math.sin(progress*15)));
+  }
   private board(parent:Phaser.GameObjects.Container,w:number,h:number):void {
     const g=this.add.graphics();parent.add(g);
     const s=Math.min(w/640,h/480);
@@ -197,7 +257,13 @@ export class BoardScene extends Phaser.Scene {
           const phase=walking&&this.visualPosition!==null?Math.abs(Math.sin(this.visualPosition*Math.PI*2)):0;
           const px=x+stride*(.40+i*.13), py=roadTop+8*s-phase*6*s;
           this.chibi(g,px,py,Math.max(9,17*s),asColor(p.color));
+          if(!p.robot.mission && !(this.launchPlayerId===p.id && this.launchProgress!==null))
+            this.robotCompanion(g,px+29*s,py+2*s-phase*4*s,Math.max(7,13*s),asColor(p.color),phase);
         });
+      }
+      if(this.launchProgress!==null){
+        const owner=state.players.find(p=>p.id===this.launchPlayerId);
+        if(owner)this.gatewayRobot(g,w,h,this.launchProgress,asColor(owner.color));
       }
       // The small upper-right map shows all players and current board location.
       const mmW=115*s,mmH=93*s,mmX=w-mmW-12*s,mmY=9*s;
@@ -307,6 +373,8 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   select(id:string):void;
   setView(mode:GameView):void;
   isMoving():boolean;
+  isLaunching():boolean;
+  launchRobot(playerId:string):void;
   destroy():void;
 }{
   const scene=new BoardScene(onSelect,onTravelEnd);
@@ -320,6 +388,8 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     select(id){scene.selectSpot(id);},
     setView(mode){scene.setView(mode);},
     isMoving(){return scene.isMoving();},
+    isLaunching(){return scene.isLaunching();},
+    launchRobot(id){scene.launchRobot(id);},
     destroy(){game.destroy(true);}
   };
 }
