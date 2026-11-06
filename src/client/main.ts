@@ -6,6 +6,7 @@ import './shop-encounter.css';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
 import { getRobotStats } from '../engine/game.ts';
+import { terrainGrade, terrainTroubleChance } from '../engine/island.ts';
 import type { GameAction, PublicState } from '../engine/types.ts';
 
 type Lang='en'|'id'|'ja';
@@ -394,7 +395,9 @@ function render():void {
   el<HTMLButtonElement>('roll').textContent=s.rolled&&s.dice?`🎲 ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled||!!s.shopOffer||s.shopAccess||(s.pendingSteps??0)>0;
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
-  el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
+  const terrainRank=site&&self?terrainGrade(self.robot.chassis,site.ground):null;
+  const danger=terrainRank?Math.round(terrainTroubleChance(terrainRank)*100):0;
+  el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground} ${terrainRank?'['+terrainRank+' · '+danger+'% risk]':''}${site.depleted?' (found)':''}`:t('mapSub');
   el<HTMLButtonElement>('sendRobot').disabled=!canAct||s.rolled||!!self?.robot.mission||!self?.gateCards||!site||site.depleted;
   el<HTMLButtonElement>('returnRobot').disabled=!canAct||s.rolled||!self?.robot.mission||self?.robot.mission.phase==='INBOUND';
   // Preserve all three button slots to avoid changing canvas height after dice resolution.
@@ -409,7 +412,10 @@ function render():void {
     board.setView(viewMode);
     board.update(s);
   }
-  if(board?.isMoving())el<HTMLButtonElement>('end').disabled=true;
+  if(board?.isMoving()||board?.isLaunching()){
+    el<HTMLButtonElement>('end').disabled=true;
+    el<HTMLButtonElement>('roll').disabled=true;
+  }
 }
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
@@ -454,6 +460,12 @@ function init():void {
     if(selectedSiteId)void sendAction({type:'SEND_ROBOT',siteId:selectedSiteId},()=>{
       viewMode='board';
       selectedSiteId='';
+      const owner=state?.yourId;
+      // First restore the board view and apply the authoritative robot mission,
+      // then show the gateway animation. The animation is presentation-only.
+      requestAnimationFrame(()=>{
+        if(owner&&board)board.launchRobot(owner);
+      });
     });
   };
   el<HTMLButtonElement>('returnRobot').onclick=()=>void sendAction({type:'RETURN_ROBOT'});
