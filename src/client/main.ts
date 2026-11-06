@@ -301,6 +301,7 @@ function render():void {
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
   el<HTMLButtonElement>('openWorld').disabled=!canAct||s.rolled||!!self?.robot.mission;
   el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
+  el<HTMLButtonElement>('roll').textContent=s.rolled&&s.dice?`🎲 ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled;
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   el('selectedSite').textContent=site?`${site.kind==='KEEPER'?'⚔':'◆'} ${site.label} · ${site.ground}${site.depleted?' (found)':''}`:t('mapSub');
