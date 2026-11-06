@@ -15,8 +15,12 @@ historically verified); all-player reverse-direction event.
 Japanese-language Glint Glitters article describes global reverse for
 **three turns or until the next event**, original normal travel
 right-to-left, reverse left-to-right. Research is community-sourced,
-NOT the official instruction manual; exact 'turn' interpretation
-unverified. Details and M01–M06 server/UI/test tasks:
+NOT the official instruction manual. **Treasure Bots user decision**:
+reverse counts 3 full cycles of the **triggering player's** turn
+(2P→next 2P is 1), not always 1P→1P. Activates immediately; expires
+at the third trigger-player return before their next move. Other
+effects must state their own duration basis. Match-winning turn limit
+still uses full 1P→1P rounds. Details and M01–M06 server/UI/test tasks:
 `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.
 
 This scope extends B01 (player palette) and B02 (movement), but

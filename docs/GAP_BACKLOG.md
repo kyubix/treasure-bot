@@ -11,11 +11,13 @@ Source and architecture: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.
 - M03: **user settled deterministic slot order 1P→2P→3P→4P**,
   selected before match (skip unoccupied seats); do NOT randomize
   or roll dice to determine order. Original historical rules not verified.
-- M04: original event **逆回り** reverses ALL players' movement
-  R->L to L->R for **three turns OR until the next event** (Japanese
-  Wikipedia article). User **defined one turn as a full 1P→1P
-  round**, hence **three complete rounds**, not three player actions.
-  Only mid-round event activation/expiry boundary remains open.
+- M04: global reverse **逆回り** targets ALL players. User corrected
+  event timer: **3 cycles anchored to the triggering player**,
+  e.g. 2P triggers → next 2P (1) → next 2P (2) → next 2P (3, expire
+  before acting). Activates immediately, cancels/replaces on next
+  qualifying event. Match turn/win-limit remains 1P→1P. Other effects
+  may use different explicit duration bases. Needs server persistence,
+  replay-safe countdown and tests. **Not implemented yet.**
 - M05: sync reversed path, actor direction/robot and both Three/Phaser
   renderers. Server tile order and rules are authoritative.
 - M06: tests, older-room migrations, bots and live Android/Cloudflare

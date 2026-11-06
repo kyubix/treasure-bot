@@ -31,9 +31,12 @@ Phaser fallback and production flow via direct main commits.
   happens before match and is independent of slot and Gallery No.
 - **1 turn = 1 entire round**, from the beginning of 1P's action
   until 1P becomes active again; every occupied slot acts once.
-- Global reverse for **3 TURNS = 3 COMPLETE ROUNDS** of all players,
-  NOT 3 individual player actions. The start boundary for an event
-  triggered mid-round is still to be decided.
+- **CORRECTION: effect-specific duration is anchored to the player who
+  TRIGGERS that effect.** For global reverse triggered by 2P,
+  2P→next 2P = 1 effect turn, after 3 returns to 2P the
+  effect expires before 2P acts; activation is immediate. Only the
+  **match round/win-limit counter** is 1P→1P. Do not apply trigger
+  anchoring to every effect automatically; declare per-effect basis.
 - Source of truth: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`. These
   are APPROVED rules, but gameplay changes are NOT YET IMPLEMENTED.
 
@@ -49,9 +52,10 @@ Phaser fallback and production flow via direct main commits.
   left-to-right rather than normal right-to-left.
 - Original dice-rolled order is historically unverified and not needed:
   user has **selected fixed slot order** (1P→2P→3P→4P).
-  Reverse effect lasts 3 full rounds; mid-round activation boundary
-  is still open. Current code uses join-order turns and static
-  WIN_ASSETS=20_000.
+  Reverse effect counts 3 full cycles of the TRIGGER PLAYER
+  (not necessarily 1P); immediate activation and expiry at the third
+  trigger-player turn start are confirmed. Current code uses
+  join-order turns and static WIN_ASSETS=20_000.
 - Keep player COLOR and AVATAR independent from seat/turn order and
   Gallery number; the 3-/4-/5-Gallery board mapping remains provisional.
 - **All match setup / reverse tasks M01–M06 are documentation/planning only,

@@ -5,6 +5,44 @@ NOT IMPLEMENTED.** Updated 2026-11-06.
 Repo: `kyubix/treasure-bot`, development from Android, commit to `main`
 in small, tested releases. Read this BEFORE changing game rules.
 
+## CONFIRMED 2026-11-06 — EFFECT-SPECIFIC TRIGGER-ANCHORED DURATION
+
+**Supersedes the earlier suggestion to count ALL effect timers from 1P.**
+
+- Match turn/round numbering and `TURN_LIMIT` winning mode retain the
+  **1P→next 1P** full-round boundary; slot order is always 1P,2P,3P,4P
+  (skip empty slots).
+- **For certain effects** (including the discussed reverse-direction
+  timer), the duration instead counts **complete cycles of the player who
+  triggered the event**. If **2P** triggers at any point in their turn,
+  the **next 2P turn start marks 1 effect turn**, the second return marks
+  2, and the third return marks 3; after that third return the effect
+  expires **before** that player's next move.
+- An effect activates **immediately on triggering**, even when triggered
+  mid-round. It applies to its stated targets (global Reverse applies
+  to all players, including CPU) while active.
+- Example with four occupied slots:
+  `2P(trigger)→3P→4P→1P→2P(1)→3P→4P→1P→2P(2)→
+  3P→4P→1P→2P(3,expire)`.
+- Event effects must expose an **explicit duration counting policy**;
+  do not automatically make every existing/future effect trigger-based.
+  Recommended `durationBasis: 'TRIGGER_PLAYER_CYCLE' |
+  'MATCH_ROUND' | 'INDIVIDUAL_ACTION'` per effect definition.
+- Persist `triggeringPlayerId`, `triggeringSlot`, `durationBasis`,
+  `remainingCycles` (and a stable activation sequence/id) on the
+  server. Update the counter once when the next turn starts for the
+  triggering slot, not on every player action or when `state.turn`
+  changes. Server-side expiry must occur before any actions for that
+  new turn; never depend on camera or client time.
+- Test 1P,2P,3P,4P triggers; empty seats, CPU players, wraparound,
+  multiplayer/reconnect, effect overwrite/cancellation by subsequent
+  event, and no double decrement from replayed END_TURN.
+- The source's "three turns or until next event" describes the
+  reverse rule at a high level. Trigger-anchored interpretation is a
+  **user-approved Treasure Bots rule**, not independently verified
+  original-game timer implementation.
+- **STATUS: SPECIFICATION ONLY; server/UI change not yet deployed.**
+
 ## CONFIRMED TURN ORDER AND ROUND UNIT — SUPERSEDES DICE-ORDER SPECULATION
 
 **User decision, 2026-11-06 (use this in implementation):**
@@ -20,12 +58,12 @@ in small, tested releases. Read this BEFORE changing game rules.
   the round counter advances. The game's existing `state.turn` scheme
   already increments after the last player (with join-order array), but
   lobby-assigned slot order must now be authoritative.
-- **Reverse-direction event lasting "three turns" means three
-  rounds**, not three individual player actions. Normal board advances
-  right→left; reverse advances left→right for ALL players.
-- **STILL UNDECIDED:** if reverse activates mid-round, does the partial
-  current round count as round 1, or do three complete rounds begin at
-  the next 1P? This affects expiry and must be specified before coding.
+- **Reverse-direction event lasting "three turns" means three complete
+  trigger-player cycles**, not three individual player actions and NOT
+  always 1P-anchored. Example: 2P triggers → 2P returns (1) → 2P (2)
+  → 2P (3, expire). Reverse movement is global, right→left becomes
+  left→right for ALL players. Activate immediately; expiry at the third
+  return to the triggering player's turn start.
 - The user already wants selectable **avatar and color** per player
   before play. Slot (1P…4P), selected avatar, chosen unique player
   color, gallery number and tile positions are separate concepts.
@@ -116,7 +154,11 @@ interface PlayerSelection {
 }
 interface TravelModifier {
   direction: 1 | -1;
-  expiresAfterTurnIndex?: number;  // precise interpretation pending
+  triggeringPlayerId: string;
+  triggeringSlot: 1 | 2 | 3 | 4;
+  durationBasis: 'TRIGGER_PLAYER_CYCLE'; // other effect policies may differ
+  remainingCycles: number; // e.g. 3, decrease on trigger player's next turn start
+  activationId: string; // idempotent for multiplayer/replay
   replacesOnNextEvent: boolean;
   sourceEventId?: string;
 }
@@ -156,11 +198,12 @@ Design rules:
 - Screen X presentation: forward normal should move R->L; reverse
   should move L->R. Ensure the Board View actor and robot face the
   correct direction; World Map marker positions remain tied to indexes.
-- Reverse applies to ALL players, including CPU, until the fixed timer
-  expires or a new event occurs (source says next event cancels/replaces
-  it). The exact start/expiry boundary is pending verification.
-  Avoid decrementing one 'turn' for every player if three *full rounds*
-  were intended; document the chosen interpretation.
+- Reverse applies to ALL players, including CPU, starting immediately
+  when the triggering event fires. For this effect, count 3 complete
+  cycles anchored at the TRIGGERING PLAYER'S next turn starts (not
+  `state.turn`); expire before the triggering player's move on the
+  third return or cancel/replace on the next event. Distinguish this
+  from normal 1P-anchored match turn numbering and other effect types.
 
 ## Implementation tasks — dependent and separately testable
 
@@ -184,11 +227,14 @@ full-round increments. Original dice-order research is optional and
 cannot override the user's chosen game rule.
 
 ### M04 [P0] Server-authoritative global reverse effect
-Implement event dispatch/selection, direction state, turn/round timer,
-'next event' replacement/cancellation, movement/landmarks/shop/START
-pass-and-stop, bot behavior, multi-step trajectory and replay-safe DO
-updates. Test wrapping index 0↔N-1, returning to normal, and
-multi-player timer consistency.
+Implement event dispatch/selection and `triggeringPlayerId`/`triggeringSlot`,
+`durationBasis='TRIGGER_PLAYER_CYCLE'` plus counter decremented at
+the trigger player's next turn starts only; activate immediately;
+expire before the third-return action or cancel/replace on next event.
+Keep movement/landmarks/shop/START pass-and-stop, bot behavior,
+multi-step trajectory and replay-safe DO updates. Test wrapping
+index 0↔N-1, returning to normal, 1P/2P/3P/4P triggers, empty
+slots and multi-player timer consistency.
 
 ### M05 [P1] Three/Phaser visual direction synchronization
 R->L normal and L->R reverse, avatar/robot turning, camera travel,
@@ -205,9 +251,10 @@ be replay-safe; no new mandatory buttons in the World Map.
 
 - Original dice-based order is historically unverified but NOT a
   product blocker: the user chose deterministic slot order.
-- Reverse counts **three full rounds**; clarify only whether a
-  partially elapsed activation round counts as the first round.
-  Next-event replacement and exact expiry timing remain important.
+- Reverse counts **three trigger-anchored player cycles** (e.g.
+  2P→next 2P is 1). The effect starts immediately on activation;
+  expiry is before the trigger player's action at the third return.
+  Next-event cancellation/replacement must remain idempotent.
 - Exact wealth goals / turn presets, whether host can type custom values,
   whether a fixed-limit game allows early finish on wealth.
 - Tie resolution at the turn limit, avatar/color uniqueness rules.
