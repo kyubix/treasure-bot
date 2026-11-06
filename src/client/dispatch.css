@@ -1,0 +1,150 @@
+/* v0.11: Compositor-only robot launch sequence.
+   No Phaser scene construction on animation frames; preserve board dimensions. */
+.robot-dispatch {
+  position:absolute;
+  inset:0;
+  z-index:19;
+  overflow:hidden;
+  pointer-events:none;
+  contain:layout paint style;
+}
+.robot-dispatch[hidden] {display:none!important}
+.dispatch-stage {
+  position:absolute;
+  left:50%;
+  top:45%;
+  width:164px;
+  height:193px;
+  transform:translate(-50%,-40%);
+  will-change:transform;
+}
+.dispatch-portal {
+  position:absolute;
+  left:19px;
+  top:8px;
+  width:126px;
+  height:151px;
+  border:9px solid #f0d59b;
+  border-bottom-width:13px;
+  border-radius:52% 52% 12px 12px;
+  background:#1d466b;
+  box-shadow:inset 0 0 0 5px #536084, 0 8px 0 #9b7858;
+  transform-origin:center bottom;
+  opacity:0;
+  overflow:hidden;
+}
+.dispatch-glow {
+  position:absolute;
+  inset:17px 17px 7px;
+  border-radius:50% 50% 5px 5px;
+  background:radial-gradient(ellipse at center,#f7ffff 0%,#8eeaff 35%,#56adfa 75%,#306c9a 100%);
+  opacity:.95;
+}
+.dispatch-door {
+  position:absolute;
+  top:14px;
+  bottom:0;
+  width:50%;
+  z-index:3;
+  background:linear-gradient(90deg,#76607d,#5c5275);
+  border:3px solid #fbe0a7;
+}
+.dispatch-door-left {left:0;transform-origin:left center}
+.dispatch-door-right {right:0;transform-origin:right center}
+.dispatch-bot {
+  position:absolute;
+  z-index:4;
+  left:60px;
+  top:119px;
+  width:45px;
+  height:63px;
+  transform-origin:center bottom;
+  opacity:0;
+}
+.dispatch-antenna {
+  position:absolute;
+  top:-10px;left:21px;
+  height:13px;width:4px;
+  border-radius:3px;background:#455f80;
+}
+.dispatch-antenna:before {
+  content:'';position:absolute;left:-4px;top:-6px;
+  width:12px;height:12px;border-radius:50%;background:#f8d376;
+}
+.dispatch-head {
+  position:absolute;
+  top:4px;left:3px;
+  width:40px;height:34px;
+  border-radius:13px 13px 10px 10px;
+  border:3px solid #2c6683;
+  background:#70d3c6;
+}
+.dispatch-eyes {
+  display:block;
+  position:absolute;left:7px;top:9px;
+  width:19px;height:8px;
+  border-radius:4px;
+  background:linear-gradient(90deg,#31496c 0 35%,transparent 35% 65%,#31496c 65%);
+}
+.dispatch-body {
+  position:absolute;
+  top:40px;left:7px;width:31px;height:19px;
+  border-radius:7px;background:#75b7d8;border:2px solid #2c6683;
+}
+.dispatch-feet {
+  position:absolute;
+  top:56px;left:8px;width:30px;height:8px;
+  background:linear-gradient(90deg,#344e77 0 43%,transparent 43% 57%,#344e77 57%);
+}
+.dispatch-label {
+  position:absolute;
+  left:50%;bottom:13%;transform:translateX(-50%);
+  max-width:90%;min-width:160px;
+  padding:7px 10px;
+  border:2px solid #e8d59a;
+  border-radius:11px;
+  background:#193f5be8;
+  color:#fff3c1;
+  font:800 clamp(12px,3.3vw,16px)/1.3 system-ui,sans-serif;
+  text-align:center;
+}
+.robot-dispatch.is-active .dispatch-portal {
+  animation:dispatch-appear .38s cubic-bezier(.18,.65,.26,1.18) forwards;
+}
+.robot-dispatch.is-active .dispatch-door-left {
+  animation:dispatch-open-left .4s ease-out .27s forwards;
+}
+.robot-dispatch.is-active .dispatch-door-right {
+  animation:dispatch-open-right .4s ease-out .27s forwards;
+}
+.robot-dispatch.is-active .dispatch-bot {
+  animation:dispatch-enter 1.12s ease-in-out .16s both;
+}
+@keyframes dispatch-appear {
+  from{opacity:0;transform:scale(.65) translateY(20px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+@keyframes dispatch-open-left {
+  to{transform:perspective(130px) rotateY(-68deg)}
+}
+@keyframes dispatch-open-right {
+  to{transform:perspective(130px) rotateY(68deg)}
+}
+@keyframes dispatch-enter {
+  0%{opacity:0;transform:translateY(37px) scale(1)}
+  15%{opacity:1;transform:translateY(23px) scale(1)}
+  35%{opacity:1;transform:translateY(0) scale(.93)}
+  65%{opacity:1;transform:translateY(-31px) scale(.58)}
+  94%{opacity:.7;transform:translateY(-58px) scale(.24)}
+  100%{opacity:0;transform:translateY(-65px) scale(.14)}
+}
+@media(max-width:430px){
+  .dispatch-stage{transform:translate(-50%,-40%) scale(.82)}
+  .dispatch-label{bottom:8%}
+}
+@media(prefers-reduced-motion:reduce){
+  .robot-dispatch .dispatch-stage,
+  .robot-dispatch .dispatch-portal,
+  .robot-dispatch .dispatch-door,
+  .robot-dispatch .dispatch-bot{animation:none!important;will-change:auto!important}
+}
