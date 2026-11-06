@@ -421,7 +421,10 @@ export function advanceBotStep(state:GameState,random:Random=Math.random):{
       waitMs=Math.max(800,Math.min(3600,walked*230+650));
     }
   }else if(state.shopAccess){
-    if(bot.gold>=GATE_PRICE && bot.gateCards<2){
+    // Buy at most one ticket per shop visit; then visibly exit.
+    // This also prevents a bot looping through unlimited purchases in one turn.
+    const alreadyBoughtHere=state.botEvent?.playerId===bot.id && state.botEvent.kind==='BUY';
+    if(!alreadyBoughtHere && bot.gold>=GATE_PRICE && bot.gateCards<2){
       buyGate(state,bot);
       kind='BUY';
       waitMs=950;
