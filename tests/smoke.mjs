@@ -100,4 +100,33 @@ check('shop inventory supplies and use at base',()=>{
  assert.equal(s.players[0].repairKits,0);
  assert.equal(s.players[0].robot.energy,Math.min(50,before+35));
 });
+check('crossing two shops during one roll asks twice and resumes each segment',()=>{
+  const s=setup();start(s);s.players[0].position=10;
+  roll(s,'a',()=>.99);
+  assert.equal(s.players[0].position,12);
+  assert.equal(s.pendingSteps,10);
+  assert.equal(s.shopOffer,true);
+  applyAction(s,'a',{type:'SKIP_SHOP'});
+  assert.equal(s.players[0].position,21);
+  assert.equal(s.pendingSteps,1);
+  assert.equal(s.shopOffer,true);
+  applyAction(s,'a',{type:'SKIP_SHOP'});
+  assert.equal(s.players[0].position,22);
+  assert.equal(s.shopOffer,false);
+  assert.equal(s.pendingSteps,0);
+});
+check('treasures can be sold only after entering shop',()=>{
+  const s=setup();start(s);
+  s.players[0].inventory.push({id:'vase',name:'Old Vase',value:1500,category:'Relics'});
+  assert.throws(()=>applyAction(s,'a',{type:'SELL_TREASURE',treasureId:'vase'}),/Enter a shop/);
+  roll(s,'a',()=>.2);
+  assert.throws(()=>applyAction(s,'a',{type:'SELL_TREASURE',treasureId:'vase'}),/Enter a shop/);
+  applyAction(s,'a',{type:'ENTER_SHOP'});
+  applyAction(s,'a',{type:'SELL_TREASURE',treasureId:'vase'});
+  assert.equal(s.players[0].gold,3300);
+  assert.equal(s.players[0].inventory.length,0);
+  assert.throws(()=>applyAction(s,'a',{type:'SELL_TREASURE',treasureId:'vase'}),/not in your inventory/);
+  applyAction(s,'a',{type:'CLOSE_SHOP'});
+  assert.throws(()=>applyAction(s,'a',{type:'BUY_SUPPLY',supply:'REPAIR_KIT'}),/Enter a shop/);
+});
 console.log(`PASS ${passed} faithful-slice smoke checks`);
