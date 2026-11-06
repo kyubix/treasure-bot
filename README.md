@@ -1,5 +1,8 @@
 # Treasure Bots — Mobile Multiplayer Board Game (Rebuild v0.2 preview)
 
+> **AI/developer handoff:** Read [AGENTS.md](AGENTS.md), [Gallery System Spec](docs/GALLERY_SYSTEM_SPEC.md), [World Map Asset v1 Contract](docs/WORLD_MAP_ASSETS_V1.md), and [Gap Backlog](docs/GAP_BACKLOG.md) before new code or artwork. Older v0.2 summary below is historical and may not match latest implementation. **Important: Gallery No.N numbers are on board path cells, NOT Gallery building landmarks inside the island.**
+
+
 An **original-art prototype** inspired by the board, robot-exploration and gallery-economy design of the 1999 PlayStation game *Glint Glitters*. No Konami characters, audio, graphics, original code or trademarks are included.
 
 **Current status:** faithful gameplay vertical-slice rebuild (experimental), **not** a faithful/complete recreation yet. Contains original-source documented robot base stats and 20% gallery base fee. The board geometry, treasure tables, probabilistic exploration, shop rewards, prices, victory threshold and event effects are **provisional** until verified against primary gameplay evidence. The code intentionally keeps gameplay rules isolated for future revision.
