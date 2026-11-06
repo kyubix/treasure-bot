@@ -26,7 +26,10 @@ let lang:Lang=(localStorage.getItem('treasure-bots-lang') as Lang)||((navigator.
 if(!translations[lang])lang='en';
 const t=(key:keyof typeof translations.en)=>translations[lang][key];
 const escapeHtml=(s:string):string=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
-const threePreviewParam=new URLSearchParams(location.search).get('map3d')==='1'?'&map3d=1':'';
+// Preserve explicit 2D fallback through room navigation/reload. In normal
+// mode World Map Three.js is already the default, so no flag is necessary.
+const mapMode=new URLSearchParams(location.search).get('map3d');
+const threePreviewParam=mapMode==='0'?'&map3d=0':mapMode==='1'?'&map3d=1':'';
 const boardLegacyParam=new URLSearchParams(location.search).get('board2d')==='1'?'&board2d=1':'';
 let state:PublicState|null=null;let token='';let board:ReturnType<typeof mountBoard>|null=null;
 let socket:WebSocket|null=null;let poll:ReturnType<typeof setInterval>|null=null;

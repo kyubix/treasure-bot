@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {useThreeWorldMap,useThreeBoardView} from './render-mode.ts';
 import { TILES } from '../engine/types.ts';
 import {galleryNumberAt,GALLERY_COLORS,playerDisplay} from '../engine/gallery.ts';
 import { boardScenery, BOARD_BIOME_PALETTE, relativeParallax } from './board-environment.ts';
@@ -548,11 +549,11 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   launchRobot(playerId:string):void;
   destroy():void;
 }{
-  // HD Three.js Board View is enabled by default. ?board2d=1 forces the
-  // original Phaser Board View for safe rollback on low-end Android/WebGL.
+  // Both World Map and Board View use Three.js by default. Keep independent
+  // opt-outs for Android/WebGL troubleshooting and the full Phaser fallback.
   const params=new URLSearchParams(location.search);
-  const map3D=params.get('map3d')==='1';
-  const board3D=params.get('board2d')!=='1';
+  const map3D=useThreeWorldMap(params);
+  const board3D=useThreeBoardView(params);
   const scene=new BoardScene(onSelect,onTravelEnd);
   const game=new Phaser.Game({
     // Canvas-backed Phaser avoids a second competing WebGL renderer and
@@ -576,7 +577,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     }).catch(()=>{/* Phaser remains a fully working Board View fallback. */});
   }
   if(map3D){
-    // Loaded only on demand; ordinary Phaser map remains unchanged in output.
+    // Lazy-load 3D as the DEFAULT World Map; Phaser remains the fallback.
     void import('./world-map-three.ts').then(({createThreeWorldLayer})=>{
       if(destroyed)return;
       const layer=createThreeWorldLayer(element);
@@ -587,7 +588,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
       game.canvas.style.touchAction='none';
       scene.setThreeLayer(layer);
     }).catch(()=>{
-      // This is a preview, never block room entry or robot controls.
+      // An unavailable Three/WebGL renderer must not block game controls.
     });
   }
   return {

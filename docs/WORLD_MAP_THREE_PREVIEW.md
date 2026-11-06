@@ -1,3 +1,34 @@
+# World Map default renderer (November 6, 2026)
+
+Three.js is the default for BOTH the World Map and the HD Board View.
+
+- https://treasure.endeavor.lt/ — Three.js for both views, without flags
+- https://treasure.endeavor.lt/?map3d=0 — Phaser World Map fallback
+- https://treasure.endeavor.lt/?board2d=1 — Phaser Board View fallback
+- https://treasure.endeavor.lt/?map3d=0&board2d=1 — both views in Phaser
+- The older ?map3d=1 preview URLs remain valid; they are now redundant.
+
+This corrects a regression in discoverability after the Board View migration:
+the Board View had already switched to Three.js by default, but the World Map
+still required ?map3d=1. When the room URL was normalized without the flag,
+the World Map looked reverted even though its Three.js implementation was
+unchanged.
+
+The renderer change does NOT change game rules, Gallery logic, 360° drag,
+interactive target IDs, robot paths, GLTF assets or the server. The Three
+renderer remains lazy-loaded; if WebGL initialization fails, Phaser renders
+the complete legacy view. Explicit query-string fallback survives entering
+and leaving rooms.
+
+## Android validation
+- Create/join a room using the plain production URL and open World Map.
+- Confirm the terrain, waterfall, numbered board and 3D avatars render.
+- Rotate 360°, pinch, select a treasure, and return to Board View.
+- Verify ?map3d=0 draws the old Phaser world map and persists after joining.
+- If Cloudflare build succeeds, verify production deploy separately.
+
+---
+
 # World Map Three.js preview — V3 visual terrain upgrade
 
 Updated 2026-11-06. Direct-to-main visual-only improvement inspired by the

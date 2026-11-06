@@ -46,8 +46,12 @@ Use ONE coherent 3D/layered island master scene and derive all camera rotations 
 
 ## HD Three.js Board View renderer
 - Read `docs/BOARD_VIEW_THREE_HD.md` for implementation, rollback and Android QA.
-- Board View uses Three.js by default, `?board2d=1` forces the prior Phaser
-  renderer. World Map Three remains `?map3d=1`. No additional controls added.
+- Board View **and** World Map use Three.js by default, without query
+  parameters. `?board2d=1` forces legacy Phaser Board View; `?map3d=0`
+  forces legacy Phaser World Map. These opt-outs persist through room URLs.
+  Existing `?map3d=1` links also work, but are no longer required.
+  If WebGL fails, the corresponding view falls back to Phaser automatically.
+  No new buttons or controls were added.
 - Main Board is a close-up with raised white Gallery NUMBER plates, colored
   lower panels, chibi GLTF actors, Gallery/Shop facade, and biomes. Gallery
   facade is permitted in Board View only, never as a numbered World Map site.
