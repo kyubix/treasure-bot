@@ -1,4 +1,4 @@
-import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory } from './island.ts';
+import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory, terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from './island.ts';
 import { ROBOTS, TILES } from './types.ts';
 import type { GameAction, GameLog, GameState, Player, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
 
@@ -113,7 +113,8 @@ function sendRobot(state:GameState, player:Player, siteId:string):void {
   catch { throw new GameError('Select a valid map destination.'); }
   if(site.depleted) throw new GameError('This treasure has already been discovered.');
   player.gateCards--;
-  const steps=travelTurns(site,getRobotStats(player.robot).walk);
+  const grade=terrainGrade(player.robot.chassis,site.ground);
+  const steps=travelTurns(site,getRobotStats(player.robot).walk)+terrainTravelPenalty(grade);
   player.robot.mission={siteId,phase:'OUTBOUND',turnsRemaining:steps,transitTotal:steps};
   log(state,`${player.name} launched a robot toward ${site.label} (${steps} travel turns).`);
 }
@@ -215,12 +216,27 @@ function robotTick(state:GameState,player:Player,random:Random):void {
   const m=player.robot.mission;
   if(!m)return;
   const site=findSpot(state.islandSpots,m.siteId);
-  // PROVISIONAL terrain formula and energy consumption; see docs/FAITHFUL_REBUILD.md.
-  const energyCost=site.ground==='VOLCANO'||site.ground==='ICE'?10:6;
+  const grade=terrainGrade(player.robot.chassis,site.ground);
+  const energyCost=terrainEnergyCost(grade,site.ground);
   player.robot.energy=Math.max(0,player.robot.energy-energyCost);
   if(player.robot.energy===0){
     player.robot.mission=null;player.robot.cargo=[];
     log(state,`${player.name}'s robot lost power and was forcibly returned.`);
+    return;
+  }
+  // PROVISIONAL: terrain risks based on grade; original has specific trouble
+  // counter-items (airbag, rope, balloon, float, water, campfire).
+  // The current Repair Kit acts as a temporary generic rescue item.
+  const danger=terrainTroubleChance(grade);
+  if(random()>1-danger){
+    if((player.repairKits??0)>0){
+      player.repairKits!--;
+      log(state,`${player.name}'s robot had ${site.ground.toLowerCase()} terrain trouble (${grade}) but used a repair kit. Travel delayed.`);
+      return;
+    }
+    player.robot.mission=null;
+    player.robot.cargo=[];
+    log(state,`${player.name}'s robot was forcibly recalled after ${site.ground.toLowerCase()} terrain trouble (${grade}).`);
     return;
   }
   if(m.phase==='OUTBOUND'){
@@ -379,5 +395,5 @@ function autoPlayBots(state:GameState,random:Random):void {
 }
 export const PROVISIONAL_RULES = {
   startingGold:START_GOLD, winAssets:WIN_ASSETS, gatePrice:GATE_PRICE,
-  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, energyCellPrice:200, repairKitPrice:280, resaleRate:0.6, robotSearchFormula:'provisional'
+  shopFee:SHOP_FEE, galleryFeeRatio:0.2, partPrice:PART_PRICE, energyCellPrice:200, repairKitPrice:280, resaleRate:0.6, robotSearchFormula:'provisional', terrainAffinity:'provisional'
 } as const;
