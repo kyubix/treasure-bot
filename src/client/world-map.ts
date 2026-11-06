@@ -98,6 +98,10 @@ function robot(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,fill:num
 function mountain(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number):void{
   // Stylized stacked sandstone mesa: a single original Phaser model rendered
   // at each projected island anchor, with no orientation-specific bitmaps.
+  // Keep the rock's ground footprint on dry terrain even when a projected
+  // upper ledge crosses the water behind it at a different camera angle.
+  g.fillStyle(0x548454,.96);
+  g.fillEllipse(x,y+r*.20,r*2.24,r*.52);
   g.fillStyle(0x244c44,.27);
   g.fillEllipse(x,y+r*.32,r*2.32,r*.53);
   const tier=(cx:number,base:number,half:number,height:number,grass:number)=>{
@@ -340,18 +344,37 @@ export function drawWorldIsland(args:{
   g=scene.add.graphics();parent.add(g);
 
 
-  // Shallow lagoon and stream are decorative ground layers only. They share
-  // world-space coordinates with terrain anchors and rotate with the camera.
-  const lake=mapProjection(2.45,2.1,rotation,center,rx,ry);
-  g.fillStyle(0x2e806d,.48);g.fillEllipse(lake.x,lake.y+3,rx*.51,ry*.35);
-  g.fillStyle(0x299eb3);g.fillEllipse(lake.x,lake.y,rx*.46,ry*.30);
-  g.fillStyle(0x69d8d9,.64);g.fillEllipse(lake.x-rx*.065,lake.y-ry*.044,rx*.26,ry*.095);
-  const streamPoints=[[2.45,2.10],[2.8,2.47],[3.13,2.70],[3.38,2.90]]
+  // A compact pond is positioned in an unoccupied clearing of the master
+  // island (not painted over the mesa bases or nearby trees). The same world
+  // position is projected for all four camera turns.
+  const lakeAnchor={x:3.18,y:2.68} as const;
+  const lake=mapProjection(lakeAnchor.x,lakeAnchor.y,rotation,center,rx,ry);
+  g.fillStyle(0x326d57,.94);g.fillEllipse(lake.x,lake.y+2,rx*.43,ry*.265);
+  g.fillStyle(0x78ab76,.96);g.fillEllipse(lake.x,lake.y,rx*.39,ry*.224);
+  g.fillStyle(0x279db1);g.fillEllipse(lake.x,lake.y,rx*.345,ry*.18);
+  g.fillStyle(0x77d6d9,.72);
+  g.fillEllipse(lake.x-rx*.05,lake.y-ry*.028,rx*.16,ry*.05);
+  // Short run-off links the waterfall base to the pond without carving a
+  // broad river through forest or cliff geometry.
+  const streamPoints=[[3.01,2.43],[3.10,2.55],[3.18,2.68]]
     .map(([x,y])=>mapProjection(x,y,rotation,center,rx,ry));
-  g.lineStyle(Math.max(3,6*clamp(w/410,.73,1.4)),0x2897b2,.90);
+  g.lineStyle(Math.max(3,4*clamp(w/410,.73,1.4)),0x2d9eb6,.93);
   g.strokePoints(streamPoints.map(p=>point(p.x,p.y)),false);
-  g.lineStyle(1.8,0xc7f5df,.70);
-  g.strokePoints(streamPoints.map(p=>point(p.x-2,p.y-1)),false);
+  g.lineStyle(1.25,0xd4fcf5,.65);
+  g.strokePoints(streamPoints.map(p=>point(p.x-1,p.y-1)),false);
+
+  // Decoration may not be planted in the pond. Check ALL camera angles before
+  // accepting an individual tree, ensuring the same tree persists on rotation.
+  const treeTouchesWater=(worldX:number,worldY:number,treeRadius:number):boolean=>{
+    for(let turn=0;turn<4;turn++){
+      const p=mapProjection(worldX,worldY,turn,center,rx,ry);
+      const pond=mapProjection(lakeAnchor.x,lakeAnchor.y,turn,center,rx,ry);
+      const dx=(p.x-pond.x)/(rx*.205+treeRadius*.90);
+      const dy=(p.y-treeRadius*1.1-pond.y)/(ry*.14+treeRadius*.95);
+      if(dx*dx+dy*dy<1)return true;
+    }
+    return false;
+  };
 
   // Fixed model-space anchors; never create four unrelated image views.
   const landmarks=[
@@ -361,10 +384,10 @@ export function drawWorldIsland(args:{
     {x:.42,y:2.55,type:'forest',size:17},
     {x:1.10,y:3.95,type:'forest',size:14},
     {x:3.55,y:1.13,type:'forest',size:14},
-    {x:3.45,y:3.25,type:'forest',size:15},
+    {x:3.88,y:3.75,type:'forest',size:15},
     {x:4.00,y:.18,type:'ruins',size:18},
     {x:3.93,y:3.94,type:'lighthouse',size:20},
-    {x:2.57,y:1.70,type:'waterfall',size:18}
+    {x:3.01,y:2.43,type:'waterfall',size:18}
   ] as const;
   const scale=clamp(w/410,.73,1.4);
   const projected=landmarks.map(l=>({...l,p:mapProjection(l.x,l.y,rotation,center,rx,ry)}))
@@ -375,16 +398,32 @@ export function drawWorldIsland(args:{
     else if(l.type==='ruins')ruins(g,x,y,l.size*scale);
     else if(l.type==='lighthouse')lighthouse(g,x,y,l.size*scale);
     else if(l.type==='waterfall'){
-      g.fillStyle(0x2e8aa5,.73);g.fillEllipse(x,y+7*scale,27*scale,35*scale);
-      g.fillStyle(0xa9ecf5,.85);g.fillEllipse(x-2*scale,y+1*scale,11*scale,28*scale);
+      // Water meets the bank at its base, not a free-floating blue ellipse.
+      g.fillStyle(0x316d6d,.85);g.fillEllipse(x,y+12*scale,22*scale,12*scale);
+      g.fillStyle(0x2e8aa5,.76);g.fillEllipse(x,y+4*scale,20*scale,28*scale);
+      g.fillStyle(0xa9ecf5,.86);g.fillEllipse(x-2*scale,y+1*scale,10*scale,25*scale);
       g.lineStyle(2,0xffffff,.72);
       g.lineBetween(x-4*scale,y-9*scale,x-4*scale,y+14*scale);
+      g.fillStyle(0xe3ffed,.77);g.fillEllipse(x,y+15*scale,21*scale,5*scale);
     }else{
       const count=7;
       for(let i=0;i<count;i++){
         const dx=((i*3)%7-3)*6.5*scale;
         const dy=(Math.floor(i/3)-1)*8.8*scale;
-        tree(g,x+dx,y+dy,(l.size+(i%3-1)*2.2)*scale,i);
+        const treeRadius=(l.size+(i%3-1)*2.2)*scale;
+        // Decorative anchor offsets follow the model through every rotation.
+        // Invert the screen-projection offsets into world coords for this turn
+        // rather than accepting a tree that changes or disappears on rotation.
+        const px=x+dx,py=y+dy;
+        const screenUnitX=rx/5.5,screenUnitY=ry/5.5;
+        const a=dx/screenUnitX,b=dy/screenUnitY;
+        let wx=l.x+(a+b)*.5,wy=l.y+(b-a)*.5;
+        for(let j=0;j<((4-rotation%4)%4);j++){
+          const relX=wx-l.x,relY=wy-l.y;
+          wx=l.x+relY;wy=l.y-relX;
+        }
+        if(treeTouchesWater(wx,wy,treeRadius))continue;
+        tree(g,px,py,treeRadius,i);
       }
     }
   }
