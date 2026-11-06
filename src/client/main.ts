@@ -409,7 +409,10 @@ function render():void {
     board.setView(viewMode);
     board.update(s);
   }
-  if(board?.isMoving())el<HTMLButtonElement>('end').disabled=true;
+  if(board?.isMoving()||board?.isLaunching()){
+    el<HTMLButtonElement>('end').disabled=true;
+    el<HTMLButtonElement>('roll').disabled=true;
+  }
 }
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
@@ -454,6 +457,12 @@ function init():void {
     if(selectedSiteId)void sendAction({type:'SEND_ROBOT',siteId:selectedSiteId},()=>{
       viewMode='board';
       selectedSiteId='';
+      const owner=state?.yourId;
+      // First restore the board view and apply the authoritative robot mission,
+      // then show the gateway animation. The animation is presentation-only.
+      requestAnimationFrame(()=>{
+        if(owner&&board)board.launchRobot(owner);
+      });
     });
   };
   el<HTMLButtonElement>('returnRobot').onclick=()=>void sendAction({type:'RETURN_ROBOT'});
