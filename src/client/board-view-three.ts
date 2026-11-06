@@ -106,19 +106,19 @@ function createCell(root:THREE.Group,number:number,shared:{
   const o=new THREE.Mesh(g,m);o.position.set(x,y,z);
   o.receiveShadow=true;group.add(o);return o;
  };
- box(BOARD_CELL_WIDTH-.012,.15,2.24,shared.frame,0,.075,.20);
- box(BOARD_CELL_WIDTH-.065,.07,.88,shared.paper,0,.176,-.47);
- const top=box(BOARD_CELL_WIDTH-.069,.08,1.24,shared.paper,0,.18,.61);
- const highlight=box(BOARD_CELL_WIDTH-.085,.015,2.18,
+ box(BOARD_CELL_WIDTH-.012,.15,4.18,shared.frame,0,.075,-.08);
+ box(BOARD_CELL_WIDTH-.065,.07,1.47,shared.paper,0,.176,-1.38);
+ const top=box(BOARD_CELL_WIDTH-.069,.08,2.42,shared.paper,0,.18,.65);
+ const highlight=box(BOARD_CELL_WIDTH-.085,.015,4.11,
   new THREE.MeshBasicMaterial({color:0xf8e79a,transparent:true,opacity:0}),
-  0,.229,.20);
- const labelGeometry=new THREE.PlaneGeometry(BOARD_CELL_WIDTH*.73,.84);
+  0,.229,-.08);
+ const labelGeometry=new THREE.PlaneGeometry(BOARD_CELL_WIDTH*.75,1.24);
  shared.geos.push(labelGeometry);
  const label=new THREE.Mesh(labelGeometry,new THREE.MeshBasicMaterial({
   transparent:true,depthWrite:false,side:THREE.DoubleSide
  }));
  label.rotation.x=-Math.PI/2;
- label.position.set(0,.221,-.46);
+ label.position.set(0,.221,-1.38);
  group.add(label);
  return {root:group,top,number:label,colorPanel:top,highlight,tile:-1};
 }
@@ -156,8 +156,10 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  sun.shadow.bias=-.0003;
  scene.add(sun);
  const camera=new THREE.PerspectiveCamera(38,1,.1,130);
- camera.position.set(0,6.6,14.7);
- camera.lookAt(0,2.20,-2.25);
+ // Higher camera and deeper two-tier track give the numbered top panels and
+ // vivid lower tiles the strong perspective seen in the supplied references.
+ camera.position.set(0,9.2,12.7);
+ camera.lookAt(0,2.25,-2.8);
  const world=new THREE.Group();
  scene.add(world);
  const frame=new THREE.MeshStandardMaterial({color:0x425e70,roughness:.58,metalness:.20});
@@ -174,16 +176,16 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
   cells.push(cell);
  }
  // Slightly elevated stage lip and shadow under the board.
- const under=new THREE.Mesh(new THREE.BoxGeometry(35,.21,2.54),
+ const under=new THREE.Mesh(new THREE.BoxGeometry(35,.21,4.35),
   new THREE.MeshStandardMaterial({color:0x99734f,roughness:.84}));
- under.position.set(0,-.13,.19);
+ under.position.set(0,-.13,-.08);
  board.add(under);
  const backdropRoot=new THREE.Group();
  world.add(backdropRoot);
  let env:THREE.Group|null=null;
  let currentBiome:BoardBiome|null=null;
  const landmarkRoot=new THREE.Group();
- landmarkRoot.position.set(0,.1,-3.2);
+ landmarkRoot.position.set(0,.1,-4.25);
  world.add(landmarkRoot);
  let landmark:THREE.Group|null=null;
  let currentLandmark='';
@@ -324,9 +326,9 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    const crowd=state.players.filter(q=>q.position===p.position);
    const order=crowd.findIndex(q=>q.id===p.id);
    const x=offset*BOARD_CELL_WIDTH+(crowd.length>1?(order-(crowd.length-1)/2)*.27:0);
-   pair.player.root.position.set(x,.27,.58+(order%2)*.14);
+   pair.player.root.position.set(x,.27,.72+(order%2)*.14);
    pair.player.root.rotation.y=0;
-   pair.robot.root.position.set(x+.32,.27,.93);
+   pair.robot.root.position.set(x+.32,.27,1.24);
    pair.robot.root.rotation.y=0;
    pair.robot.root.visible=!p.robot.mission&&!(launch!==null&&launchOwner===p.id);
    pose(pair.player,p.id===traveler?'walk':'idle');
@@ -336,7 +338,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
   }
  };
  const portal=new THREE.Group();world.add(portal);
- portal.position.set(0,.26,-1.65);
+ portal.position.set(0,.26,-2.82);
  const portalMat=new THREE.MeshStandardMaterial({color:0x62c9d8,metalness:.25,
   roughness:.26,emissive:0x22738b,emissiveIntensity:.7});
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.76,.15,12,28),portalMat);
