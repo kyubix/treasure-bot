@@ -403,12 +403,13 @@ function render():void {
   syncShop();
   for(const btn of document.querySelectorAll<HTMLButtonElement>('[data-treasure]'))btn.disabled=!canAct;
   if(!board){
-    board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();});
+    board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();},()=>{if(state)render();});
     requestAnimationFrame(()=>{if(state){board?.setView(viewMode);board?.update(state);}});
   }else{
     board.setView(viewMode);
     board.update(s);
   }
+  if(board?.isMoving())el<HTMLButtonElement>('end').disabled=true;
 }
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
