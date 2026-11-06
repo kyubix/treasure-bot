@@ -38,15 +38,15 @@ export class BoardScene extends Phaser.Scene {
     const previous=this.match;
     const actor=value.players[value.currentPlayerIndex];
     const earlier=previous?.players.find(p=>p.id===actor?.id);
-    const freshRoll=Boolean(this.view==='board'&&previous&&earlier&&actor&&
-      previous.phase==='playing'&&!previous.rolled&&value.rolled&&value.dice&&
+    const movementSegment=Boolean(this.view==='board'&&previous&&earlier&&actor&&
+      previous.phase==='playing'&&value.phase==='playing'&&value.rolled&&value.dice&&
       previous.currentPlayerIndex===value.currentPlayerIndex &&
       earlier.position!==actor.position);
     this.match=value;
-    if(freshRoll&&earlier&&actor&&value.dice&&this.sys.isActive()&&
+    if(movementSegment&&earlier&&actor&&value.dice&&this.sys.isActive()&&
        !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
       this.movement?.stop();
-      const steps=value.dice[0]+value.dice[1];
+      const steps=(actor.position-earlier.position+TILES.length)%TILES.length;
       this.travelingPlayer=actor.id;
       this.visualPosition=earlier.position;
       this.movement=this.tweens.addCounter({
