@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from './world-map-terrain.ts';
 
 /**
  * One original, camera-orbitable island shared by WebGL scenery and Phaser's
@@ -138,8 +139,12 @@ function forest(root:THREE.Group,x:number,z:number,count:number,seed:number):voi
     if(Math.hypot(tx-.1,tz+1.18)<.75)continue;
     if(Math.hypot(tx+.61,tz-.82)<.79)continue;
     const size=.72+.43*seeded(seed+i*3.7);
-    if(i%5===3)pine(root,tx,tz,size,seed+i);
-    else broadTree(root,tx,tz,size,seed+i);
+    // Each tree stands on the actual heightfield, never floats above a hill.
+    const ground=new THREE.Group();
+    ground.position.y=terrainHeight(tx,tz)-.421;
+    root.add(ground);
+    if(i%5===3)pine(ground,tx,tz,size,seed+i);
+    else broadTree(ground,tx,tz,size,seed+i);
   }
 }
 function ruins(root:THREE.Group,x:number,z:number):void{
@@ -184,28 +189,24 @@ function island(scene:THREE.Scene):THREE.Group{
   const under=new THREE.Mesh(organicCylinder(3.50,3.62,.62),[rockShade,rockShade,rockShade]);
   under.castShadow=true;
   place(under,0,-.17,0);root.add(under);
-  const foamRing=new THREE.Mesh(new THREE.RingGeometry(3.51,3.73,72),foam);
-  foamRing.rotation.x=-Math.PI/2;place(foamRing,0,-.40,0);root.add(foamRing);
+  // Foam follows the same irregular coastline instead of a perfect circle.
+  root.add(createSurfBand());
   const beach=new THREE.Mesh(organicCylinder(3.49,3.52,.19),[sandy,rim,rock]);
   place(beach,0,.14,0);root.add(beach);
   const turf=new THREE.Mesh(organicCylinder(3.18,3.33,.24),[darkGrass,grass,rock]);
   turf.receiveShadow=true;
   place(turf,0,.29,0);root.add(turf);
 
-  // Organic green patches give relief without baking any gameplay information.
-  for(let i=0;i<27;i++){
-    const a=i*2.39996,r=1.17+1.55*Math.sqrt((i+.5)/27);
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    root.add(disk(.23+(i%3)*.07,i%2?grass:darkGrass,.415,x,z));
-  }
-  mesa(root,.1,-1.12,.82,1.74);
-  mesa(root,-.72,.90,1.02,1.88);
+  // One continuous original heightfield replaces the old cylinder mesas.
+  // The island remains a single physical object from every camera angle.
+  root.add(createTerrainMesh());
+  addTerrainDetail(root);
 
   // Single compact turquoise lagoon in a clearing with a real shoreline.
-  root.add(disk(.69,sandy,.416,.75,.61));
-  root.add(disk(.59,water,.423,.75,.61));
+  root.add(disk(.69,sandy,.446,.75,.61));
+  root.add(disk(.59,water,.459,.75,.61));
   const pondFoam=new THREE.Mesh(new THREE.RingGeometry(.54,.62,36),foam);
-  pondFoam.rotation.x=-Math.PI/2;place(pondFoam,.75,.427,.61);root.add(pondFoam);
+  pondFoam.rotation.x=-Math.PI/2;place(pondFoam,.75,.464,.61);root.add(pondFoam);
   const fall=new THREE.Mesh(new THREE.BoxGeometry(.17,.75,.12),water);
   place(fall,.53,.80,.42);root.add(fall);
   const fallBright=new THREE.Mesh(new THREE.BoxGeometry(.045,.73,.125),white);
@@ -217,8 +218,15 @@ function island(scene:THREE.Scene):THREE.Group{
   forest(root,1.92,1.23,12,45);
   forest(root,-.26,2.10,11,58);
 
-  ruins(root,2.10,-1.50);
-  lighthouse(root,1.86,2.28);
+  // Put scenic buildings on the new physical terrain, not on the old disk.
+  const ruinBase=new THREE.Group();
+  ruinBase.position.y=terrainHeight(2.10,-1.50)-.16;
+  root.add(ruinBase);
+  ruins(ruinBase,2.10,-1.50);
+  const lightBase=new THREE.Group();
+  lightBase.position.y=terrainHeight(1.86,2.28)-.05;
+  root.add(lightBase);
+  lighthouse(lightBase,1.86,2.28);
 
   // Sparse rocks and flowers stay decorative, independent from site IDs.
   const stone = new THREE.MeshStandardMaterial({color:0xb4a581,roughness:1,flatShading:true});
@@ -227,7 +235,7 @@ function island(scene:THREE.Scene):THREE.Group{
     const x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x-.75,z-.61)<.85)continue;
     const m=new THREE.Mesh(new THREE.DodecahedronGeometry(.085+.055*seeded(i*5+2),0),stone);
-    place(m,x,.48,z);root.add(m);
+    place(m,x,terrainHeight(x,z)+.09,z);root.add(m);
   }
   return root;
 }
@@ -240,10 +248,13 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       alpha:false,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:false
     });
   }catch{return null;} // WebGL unavailable: full procedural Phaser fallback.
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+  // PS1-inspired fixed visual language. No toggle or additional UI control:
+  // only the 3D background is rendered coarsely; Phaser/HUD remain sharp.
+  renderer.setPixelRatio(.85);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const canvas=renderer.domElement;
   canvas.className='world-map-three';
+  canvas.style.imageRendering='pixelated';
   canvas.setAttribute('aria-hidden','true');
   canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none';
   host.insertBefore(canvas,host.firstChild);
@@ -269,6 +280,20 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   sea.rotation.x=-Math.PI/2;
   sea.position.y=-.48;
   scene.add(sea);
+  // A single batched mesh of subtle stationary sea reflections; no animation
+  // loop or extra draw call per wave on low-end Android hardware.
+  const wavePositions:number[]=[];
+  for(let i=0;i<72;i++){
+    const a=i*2.399963,r=3.95+3.25*seeded(i*1.7+23);
+    const x=Math.cos(a)*r,z=Math.sin(a)*r;
+    const length=.11+.21*seeded(i*3.1+5);
+    wavePositions.push(x-length,-.469,z,x+length,-.469,z-.025);
+  }
+  const waveGeometry=new THREE.BufferGeometry();
+  waveGeometry.setAttribute('position',new THREE.Float32BufferAttribute(wavePositions,3));
+  scene.add(new THREE.LineSegments(waveGeometry,new THREE.LineBasicMaterial({
+    color:0xa8ecf4,transparent:true,opacity:.27
+  })));
   const land=island(scene);
   const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
   let yaw=Math.PI/4;
@@ -365,7 +390,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       canvas.removeEventListener('webglcontextrestored',contextRestored);
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
-        if(o instanceof THREE.Mesh){
+        if(o instanceof THREE.Mesh || o instanceof THREE.Line){
           geometries.add(o.geometry);
           const m=o.material;
           if(Array.isArray(m))for(const entry of m)materials.add(entry);

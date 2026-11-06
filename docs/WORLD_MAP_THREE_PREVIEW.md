@@ -1,58 +1,59 @@
-# World Map Three.js preview — V2 (opt-in)
+# World Map Three.js preview — V3 visual terrain upgrade
 
-Updated 2026-11-06. This is an original mobile-first 3D island diorama,
-inspired by the *composition* of a PS1 board-game map, with no copied assets.
+Updated 2026-11-06. Direct-to-main visual-only improvement inspired by the
+procedural terrain + PS1 renderer *techniques* in the user-supplied Claude HTML.
+The original PS1 screenshot is compositional reference only; no proprietary
+pixels, copyrighted textures, models, music, sprites or code were imported.
 
-## Test directly on Cloudflare / Android
-- Default Phaser: `https://treasure.endeavor.lt/`
-- Three.js 360° preview: `https://treasure.endeavor.lt/?map3d=1`
-- Existing room: `https://treasure.endeavor.lt/?room=ROOMCODE&map3d=1`
+## Mobile preview, with NO new buttons
+- Phaser fallback: `https://treasure.endeavor.lt/`
+- Opt-in Three.js: `https://treasure.endeavor.lt/?map3d=1`
+- Room code: `?room=CODE&map3d=1`
+- **Existing controls unchanged**: one-finger drag = free 360° orbit;
+  vertical drag = tilt; two fingers = pinch; existing left/right arrows =
+  45° camera rotation. No PS1 toggle or other new UI control.
+- PS1-inspired style is the built-in rendering preset for the opt-in 3D
+  scene, not a new setting: coarse pixel ratio 0.85, crisp pixel scaling,
+  flat-shaded polygon edges, limited color palettes and low-poly props.
+  Phaser board text and live indicators retain their sharp resolution.
 
-Open World Map, then **drag with one finger to orbit freely 360°**.
-Drag vertically to tilt (28–76°), pinch with two fingers to zoom
-(with a safe range that retains the whole island). The left/right HUD
-buttons rotate 45° at a time. Tap a destination briefly to select; a
-drag never dispatches a location selection. Board View and rules unchanged.
+## Updated procedural environment
+- `src/client/world-map-terrain.ts`: deterministic radial terrain heightmap,
+  layered plateau/ridge noise, cliff-colored slopes and grassy heights.
+  Board footprint stays outside the terrain's green rim; the lagoon stays
+  near the original water clearing.
+- Terrain vertices use physical elevation and slope for color decisions.
+  Surface resolution: 120 angular sectors × 45 rings (bounded for mobile).
+- Details are created as three `THREE.InstancedMesh` batches of grass,
+  shrubs and rocks. Trees and scenic structures use sampled heights.
+- Coastline foam follows the irregular rim. Ocean reflections are batched
+  into one lightweight line mesh. No water animation loop is added.
+- Scene meshes cast/receive existing mobile-sized shadows (768 px) without
+  expanding the GPU shadow-map allocation.
+- `src/client/world-map-three.ts` retains the existing camera, projection,
+  orbit/zoom/rotation functions and all screen-space 3D marker mapping.
 
-## Architecture
-- `src/client/world-map-three.ts`: one original 3D master island and
-  a single orthographic orbit camera. Meshes are reused across camera angles.
-  Deterministic island coastline, cliff tiers, forests, lagoon, sea, rocks,
-  environmental ruins and lighthouse. Low-power WebGL, pixel ratio capped 1.5,
-  bounded zoom and shadows, no continuous animation loop.
-- `src/client/world-map.ts`: Phaser overlays (authoritative tile colors,
-  Gallery ownership, players, robot missions, selectable target IDs).
-  In V2, uses `project3D` to project all 28 board tile corners and each
-  target/player/robot start/end through the very same Three camera. In
-  standard mode the old Phaser map projection remains unchanged.
-- `src/client/board.ts`: handles Phaser touch/click, 360° orbit gesture,
-  pinch zoom and redraw throttling; leaves the Three canvas pointer-inert.
-  Tap vs drag is explicitly distinguished so a gesture does not select a
-  site or send robot commands.
-- `src/client/world-map-geometry.ts` and all engine/server mechanics
-  are unchanged. Gameplay remains server-authoritative. The fixed robot
-  launch tile A remains the real mission source.
-- On a failed WebGL context / lazy import, fallback is the procedural
-  Phaser map (and its original 90° controls).
+## Zero gameplay changes
+- Dynamic board perimeter tiles and owners, robot routes/launch tile A,
+  clickable target IDs, player positions and HUD remain Phaser overlays
+  driven by the server state. No new Gallery number mapping is invented.
+- Board screen, multiplayer state, Durable Objects, rules, inventory,
+  dispatch, purchases and WebSocket behavior are unchanged.
+- `map3d=1` is still opt-in. Browser/WebGL failure falls back to Phaser.
 
-## Acceptance checks
-1. GitHub Actions: smoke, unit, typecheck and build, on commit in main.
-2. **Verify the Cloudflare production deployment separately.** The GitHub
-   workflow validates but does not deploy the Worker.
-3. On Android, confirm 360° drag, tilt/pinch, left/right buttons, and
-   no jumping on first open or after switching Board/World.
-4. Confirm markers, board path, player positions and mission launch A
-   follow the island at arbitrary camera angles, without drift.
-5. Verify each target tap selects the correct site ID, while dragging
-   NEVER selects sites. Confirm no dice or End Turn in World Map.
-6. Android portrait/landscape: no path clipping, stable FPS/memory.
-7. Roll back instantly by loading the site without `?map3d=1`.
+## QA gates
+1. GitHub Actions: smoke, unit, TypeScript build, and new heightfield tests.
+2. Verify Cloudflare deploy to the *actual* production host independently:
+   a green GitHub CI result does NOT prove a deployment.
+3. Android visual QA on real game: all board cells visible, 360° drag/zoom,
+   landmarks stable, no resize jitter, old control labels/buttons unchanged.
+4. Tap and selection work, drag never selects a site. Robot launch route
+   remains attached to current authoritative position.
+5. Inspect visual proximity to the PS1 reference. Adjust visual density,
+   pixelation and memory only after seeing an actual phone screenshot.
 
-## V2 limitations
-The colored board and live markers are still Phaser 2D drawings
-**projected from the real 3D camera**, not physical mesh tiles;
-interactions remain hit circles in the transparent Phaser overlay.
-Foreground objects will draw over some 3D scenery, not be occluded by
-geometries. More precise 3D mesh-level occlusion/raycasting and higher
-quality environmental materials remain future visual work, separate
-from game mechanics.
+## Limits
+3D terrain is now continuous, but the clickable board and markers remain
+2D Phaser overlays projected through the shared 3D camera, not 3D meshes.
+They can visually overlay the front face of hills. True depth occlusion,
+mesh raycasting and more realistic materials are future opt-in tasks.
