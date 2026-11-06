@@ -25,6 +25,7 @@ export type GameAction =
   | { type: 'ROLL' }
   | { type: 'END_TURN' }
   | { type: 'BUY_GATE_CARD' }
+  | { type: 'CLOSE_SHOP' }
   | { type: 'BUY_PART'; slot: PartSlot }
   | { type: 'RETURN_ROBOT' }
   | { type: 'DISPLAY_TREASURE'; treasureId: string }
