@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { applyAction, addGuest, createPlayer, GameError, newGame } from '../engine/game.ts';
+import { applyAction, addGuest, createPlayer, GameError, newGame, advanceBotStep, currentPlayer } from '../engine/game.ts';
 import type { GameAction, GameState, PublicState } from '../engine/types.ts';
 
 interface Env { GAME_ROOMS: DurableObjectNamespace<GameRoom>; ASSETS: Fetcher }
@@ -41,6 +41,35 @@ async function readJson(req:Request):Promise<Record<string,unknown>> {
 const bearer=(req:Request):string => (req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
 
 export class GameRoom extends DurableObject<Env> {
+  private async scheduleCpuIfNeeded(state:GameState,delayMs=750):Promise<void>{
+    if(state.phase==='playing'&&currentPlayer(state).isBot){
+      // Alarm is persistent across Worker restarts, and runs without a connected
+      // player. Do not overwrite an earlier scheduled step on reconnect.
+      const alarm=await this.ctx.storage.getAlarm();
+      if(alarm===null)await this.ctx.storage.setAlarm(Date.now()+delayMs);
+    }
+  }
+  async alarm():Promise<void>{
+    let changed:GameState|null=null;
+    let waitMs=750;
+    await this.ctx.storage.transaction(async txn=>{
+      const state=await txn.get<GameState>('game');
+      if(!state||state.phase!=='playing'||!currentPlayer(state).isBot)return;
+      ensureCurrentRoom(state);
+      const step=advanceBotStep(state,cryptoRandom);
+      if(!step)return;
+      waitMs=step.waitMs;
+      await txn.put('game',state);
+      changed=state;
+    });
+    if(!changed)return;
+    this.broadcast(changed);
+    // Schedule *after* the state has been persisted and broadcast so clients
+    // have time to animate each CPU stage before the next one begins.
+    const next=changed as GameState;
+    if(next.phase==='playing'&&currentPlayer(next).isBot)
+      await this.ctx.storage.setAlarm(Date.now()+waitMs);
+  }
   private async authenticated(token:string):Promise<{state:GameState, actorId:string}> {
     const auth=await this.ctx.storage.get<Sessions>('auth')||{};
     const actorId=Object.hasOwn(auth,token)?auth[token]:undefined;
@@ -92,6 +121,7 @@ export class GameRoom extends DurableObject<Env> {
       }
       if(path.endsWith('/state') && req.method==='GET') {
         const {state,actorId}=await this.authenticated(bearer(req));
+        await this.scheduleCpuIfNeeded(state);
         return json({state:snapshot(state,actorId)});
       }
       if(path.endsWith('/action') && req.method==='POST') {
@@ -112,6 +142,7 @@ export class GameRoom extends DurableObject<Env> {
           updated={state,actorId};
         });
         this.broadcast(updated.state);
+        await this.scheduleCpuIfNeeded(updated.state);
         return json({state:snapshot(updated.state,updated.actorId)});
       }
       if(path.endsWith('/socket') && req.headers.get('upgrade')?.toLowerCase()==='websocket') {
@@ -133,6 +164,7 @@ export class GameRoom extends DurableObject<Env> {
         const {state,actorId}=await this.authenticated(message.token);
         ws.serializeAttachment({actorId});
         ws.send(JSON.stringify({type:'snapshot',state:snapshot(state,actorId)}));
+        await this.scheduleCpuIfNeeded(state);
       }
     }catch{try{ws.send(JSON.stringify({type:'error',error:'Authentication failed.'}));ws.close(1008,'Access denied');}catch{}}
   }
