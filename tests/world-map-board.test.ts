@@ -50,7 +50,7 @@ describe('Depth-tested Three.js World Map board',()=>{
     const state={
       players:[{id:'a',color:'#ff0000'}],
       galleries:[{number:1,tile:1,displaysByPlayerId:{a:[]}}]
-    } as GameState;
+    } as unknown as GameState;
     board.sync(state);
     // Shared per-player galleries never change tile-number palette by owner.
     expect(palette.getX(4)).toBeCloseTo(expected.r);

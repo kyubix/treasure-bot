@@ -44,7 +44,7 @@ export function mountGalleryDialog(
   host.className='gallery-overlay';
   host.hidden=true;
   host.innerHTML='<section class="gallery-sheet" role="dialog" aria-modal="true" aria-labelledby="galleryTitle"><div class="gallery-sheet-head"><h2 id="galleryTitle"></h2><button type="button" class="drawer-close" data-gallery-close="1" aria-label="Close">×</button></div><div id="galleryContent"></div></section>';
-  root.append(host);
+  root.insertAdjacentElement('beforeend',host);
   const content=host.querySelector<HTMLElement>('#galleryContent')!;
   let selectedNo=1,selectedTreasure:string|null=null,latest:PublicState|null=null;
   const myself=()=>latest?.players.find(p=>p.id===latest?.yourId);
