@@ -33,6 +33,7 @@ export class BoardScene extends Phaser.Scene {
   private launchProgress:number|null=null;
   private launchPlayerId:string|null=null;
   private lastLaunchPaint=0;
+  private layoutFrame=0;
 
   constructor(private readonly onSelect:(id:string)=>void,private readonly onTravelEnd:()=>void) {super('Board');}
   isMoving():boolean{return Boolean(this.movement?.isPlaying());}
@@ -56,7 +57,33 @@ export class BoardScene extends Phaser.Scene {
       }
     });
   }
-  create():void {this.scale.on('resize',()=>this.paint());this.paint();}
+  create():void {
+    // Phaser.Scale.RESIZE may fire while the Board/World CSS layout changes.
+    // Batch resize + view rendering to one frame after the new layout settles.
+    this.scale.on('resize',()=>this.scheduleLayoutPaint());
+    this.events.once('shutdown',()=>{
+      if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);
+      this.layoutFrame=0;
+    });
+    this.paint();
+  }
+  private scheduleLayoutPaint():void {
+    if(this.layoutFrame||!this.sys.isActive())return;
+    this.layoutFrame=requestAnimationFrame(()=>{
+      if(!this.sys.isActive()){this.layoutFrame=0;return;}
+      const host=this.game.canvas.parentElement;
+      // Use the measured container, not the dimensions of the previous view.
+      // A forced read here follows the DOM switch and includes World HUD height.
+      const w=Math.round(host?.clientWidth??0),h=Math.round(host?.clientHeight??0);
+      if(w>=40&&h>=40&&
+         (Math.abs(this.scale.width-w)>1||Math.abs(this.scale.height-h)>1)){
+        // The resize event is intentionally coalesced by layoutFrame.
+        this.scale.resize(w,h);
+      }
+      this.layoutFrame=0;
+      this.paint();
+    });
+  }
   setMatch(value:GameState):void {
     const previous=this.match;
     const actor=value.players[value.currentPlayerIndex];
@@ -92,7 +119,7 @@ export class BoardScene extends Phaser.Scene {
           this.onTravelEnd();
         }
       });
-    }else if(this.sys.isActive())this.paint();
+    }else if(this.sys.isActive()&&!this.layoutFrame)this.paint();
   }
   setView(value:GameView):void {
     if(this.view===value)return;
@@ -101,13 +128,18 @@ export class BoardScene extends Phaser.Scene {
     this.movement=undefined;
     this.travelingPlayer=null;
     this.visualPosition=null;
-    if(this.sys.isActive()){this.paint();this.cameras.main.fadeIn(170,20,40,48);}
+    if(this.sys.isActive()){
+      // Do not reveal a wrong-sized frame of the previous view while the
+      // flex layout replaces the board header/commands with World HUD.
+      this.display?.setVisible(false);
+      this.scheduleLayoutPaint();
+    }
   }
   selectSpot(value:string):void {this.selected=value;if(this.sys.isActive())this.paint();}
   rotateMap(delta:number):void {
     if(!Number.isFinite(delta))return;
     this.worldRotation=((this.worldRotation+Math.sign(delta))%4+4)%4;
-    if(this.sys.isActive()&&this.view==='world')this.paint();
+    if(this.sys.isActive()&&this.view==='world'&&!this.layoutFrame)this.paint();
   }
   private text(parent:Phaser.GameObjects.Container,x:number,y:number,value:string,
     size:number,color='#ffffff',stroke=false):Phaser.GameObjects.Text {
