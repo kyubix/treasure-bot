@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {addGuest,applyAction,createPlayer,currentPlayer,newGame,PROVISIONAL_RULES} from '../src/engine/game.ts';
 import {ROBOTS,TILES} from '../src/engine/types.ts';
 import {initialIsland,travelTurns,searchSuccess,battleVictory} from '../src/engine/island.ts';
+import { terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from '../src/engine/island.ts';
+import { boardScenery, relativeParallax } from '../src/client/board-environment.ts';
 let passed=0;
 function check(name,run){run();console.log('✓',name);passed++;}
 const setup=()=>{const s=newGame('ABC123',createPlayer('a','Ada'));addGuest(s,createPlayer('b','Bima'));return s;};
@@ -128,5 +130,36 @@ check('treasures can be sold only after entering shop',()=>{
   assert.throws(()=>applyAction(s,'a',{type:'SELL_TREASURE',treasureId:'vase'}),/not in your inventory/);
   applyAction(s,'a',{type:'CLOSE_SHOP'});
   assert.throws(()=>applyAction(s,'a',{type:'BUY_SUPPLY',supply:'REPAIR_KIT'}),/Enter a shop/);
+});
+check('board scenery transitions smoothly and parallax wraps without negative artifacts',()=>{
+ assert.equal(boardScenery(1.25).biome,'meadow');
+ assert.equal(boardScenery(3.80).next,'forest');
+ assert.ok(boardScenery(3.80).transition>0);
+ assert.equal(boardScenery(4).biome,'forest');
+ assert.equal(boardScenery(12.25).biome,'coast');
+ assert.equal(boardScenery(27.8).next,'meadow');
+ assert.ok(relativeParallax(-4,23,180)>=0);
+});
+check('robot chassis have differing A-D terrain suitability and energy costs',()=>{
+ assert.equal(terrainGrade('DIVER','WATER'),'A');
+ assert.equal(terrainGrade('NORMAL','WATER'),'D');
+ assert.equal(terrainGrade('SEARCHER','GRASS'),'A');
+ assert.ok(terrainTroubleChance('D')>terrainTroubleChance('A'));
+ assert.ok(terrainEnergyCost('D','WATER')>terrainEnergyCost('A','WATER'));
+ assert.ok(terrainTravelPenalty('D')>terrainTravelPenalty('A'));
+});
+check('terrain trouble recalls unprotected robot, but a repair kit can absorb one trouble',()=>{
+ const failed=setup();start(failed);
+ failed.players[0].robot.mission={siteId:'gem',phase:'OUTBOUND',turnsRemaining:2,transitTotal:2};
+ roll(failed,'a',()=>.99);
+ assert.equal(failed.players[0].robot.mission,null);
+ assert.ok(failed.logs.some(x=>x.message.includes('terrain trouble')));
+ const saved=setup();start(saved);
+ saved.players[0].repairKits=1;
+ saved.players[0].robot.mission={siteId:'gem',phase:'OUTBOUND',turnsRemaining:2,transitTotal:2};
+ roll(saved,'a',()=>.99);
+ assert.equal(saved.players[0].repairKits,0);
+ assert.notEqual(saved.players[0].robot.mission,null);
+ assert.ok(saved.logs.some(x=>x.message.includes('repair kit')));
 });
 console.log(`PASS ${passed} faithful-slice smoke checks`);
