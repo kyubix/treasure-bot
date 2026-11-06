@@ -16,6 +16,8 @@ export interface Position { x:number; y:number }
 export type ExpeditionPhase = 'OUTBOUND' | 'SEARCH' | 'INBOUND';
 export interface Expedition {
   siteId:string;
+  /** Board tile where the robot was dispatched. Immutable for this mission. */
+  launchTile?:number;
   phase:ExpeditionPhase;
   turnsRemaining:number;
   transitTotal:number;
