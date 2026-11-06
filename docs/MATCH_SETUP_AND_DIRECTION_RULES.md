@@ -5,6 +5,35 @@ NOT IMPLEMENTED.** Updated 2026-11-06.
 Repo: `kyubix/treasure-bot`, development from Android, commit to `main`
 in small, tested releases. Read this BEFORE changing game rules.
 
+## CONFIRMED TURN ORDER AND ROUND UNIT — SUPERSEDES DICE-ORDER SPECULATION
+
+**User decision, 2026-11-06 (use this in implementation):**
+- During lobby setup players choose/occupy explicit slots **1P, 2P, 3P,
+  4P**, as seen in the uploaded original game's "4P settings" reference.
+  Active game order is **1P → 2P → 3P → 4P → 1P**, skipping any
+  empty slots. **NO dice roll to determine player order.** This is a
+  Treasure Bots rule confirmed by the user, irrespective of the unknown
+  historical original's dice ceremony.
+- **One "turn" = one FULL ROUND**, defined as from player **1P's turn
+  start to the next 1P turn start**, after all occupied slots have had
+  their turns. If players 1P/2P/3P/4P are present, all four act before
+  the round counter advances. The game's existing `state.turn` scheme
+  already increments after the last player (with join-order array), but
+  lobby-assigned slot order must now be authoritative.
+- **Reverse-direction event lasting "three turns" means three
+  rounds**, not three individual player actions. Normal board advances
+  right→left; reverse advances left→right for ALL players.
+- **STILL UNDECIDED:** if reverse activates mid-round, does the partial
+  current round count as round 1, or do three complete rounds begin at
+  the next 1P? This affects expiry and must be specified before coding.
+- The user already wants selectable **avatar and color** per player
+  before play. Slot (1P…4P), selected avatar, chosen unique player
+  color, gallery number and tile positions are separate concepts.
+  Color names in screenshot illustrate default slot palette but are
+  not a verified requirement to lock P1 blue permanently.
+- Do not implement randomized turn order as a default, nor re-open
+  this decision without new user instruction.
+
 ## Evidence and certainty (never mix these)
 
 ### A. User-confirmed requirements for Treasure Bots
@@ -16,8 +45,8 @@ in small, tested releases. Read this BEFORE changing game rules.
   user examples used P1 blue / P2 green / P3 magenta / P4 yellow. Those labels
   describe the palette, NOT a permanent link between player color,
   gallery number and the order in which players take turns.
-- The USER remembers initial play order may be settled by a dice roll;
-  historical confirmation has NOT yet been located.
+- Historical dice-based order is still unverified, but the user has now
+  **chosen slot-based 1P→2P→3P→4P order** for Treasure Bots, with no order roll.
 - Reverse-direction event exists in original gameplay and should eventually
   be reproduced. Normal Board View visual travel is RIGHT->LEFT, reversed
   travel LEFT->RIGHT. World Map path indexes must stay consistent.
@@ -78,7 +107,7 @@ interface MatchConfiguration {
   winningRule: WinningRule;
   mapId: string;
   galleryCount: 3 | 4 | 5; // bounds only: exact map choices TBD
-  initialOrderRule: 'LOBBY' | 'DICE_ROLL'; // no original-proof yet
+  initialOrderRule: 'SLOT_ORDER'; // CONFIRMED user choice: 1P -> 2P -> 3P -> 4P
 }
 interface PlayerSelection {
   avatarId: string;
@@ -105,18 +134,20 @@ Design rules:
   state and include in every snapshot/reconnect. Older saved rooms
   should migrate to the existing 20,000 G goal and join-order turns
   unless the user specifically changes them.
-- If dice-order is enabled: collect one dice result per participant,
-  resolve ties fairly and deterministically from server RNG, persist
-  an explicit turn-order permutation. **Do not claim this matches the
-  original until gameplay/manual proof exists.**
+- Players explicitly select/occupy slot 1P..4P; server persists each
+  occupied slot and determines play order by ascending slot (never dice).
+  Disallow duplicate slots and validate join/reconnect/CPU fill; skip
+  empty seats without changing the order. An optional dice-based
+  variant is out of scope unless separately approved.
 - Wealth goals: reuse the single authoritative `netWorth` method
   (gold + inventory + displayed Gallery treasures + robot cargo) and
   apply threshold at a documented action boundary. Never trust the UI.
-- Turn-limit mode: choose what counts as a **round** (prefer a complete
-  cycle with every player acting once), finalize all server actions at
-  the boundary, compare wealth across players, and record tie rules
-  before shipping. `state.turn` is currently incremented after the
-  last player only and should be tested for shuffled order.
+- Turn-limit mode: **one turn is one full 1P→next 1P round**, with
+  each occupied slot acting once; increment after the last occupied
+  slot. Finalize all server actions at the end boundary, compare
+  wealth across players, and define wealth tie rules before shipping.
+  `state.turn` currently increments after the final entry in the
+  players array and must follow assigned slot order.
 - Reverse event must change the **server** movement calculation and
   per-step stop/pass logic, not just animate the character backwards.
   For direction = +1: next=(old+steps)%N. For direction = -1:
@@ -145,11 +176,12 @@ Ties and allowed numeric presets should be agreed explicitly.
 Unit tests for four players, bot turns, empty inventories, cargo,
 Gallery value, boundary turn and reconnect.
 
-### M03 [P1] Pregame dice-order research and option
-Search authentic startup footage/manual first. If still unknown,
-implement an optional original-*inspired* fair lobby dice ceremony
-rather than calling it a confirmed original rule. Test ties, bots,
-disconnects, duplicate submissions and identical seed reproducibility.
+### M03 [P0] Explicit lobby slot order 1P→2P→3P→4P
+Players choose available 1P…4P positions; use ascending occupied
+slots for turns, with no dice-order roll. Validate collisions,
+CPU/empty slots, reconnection, host leaving, persistence and
+full-round increments. Original dice-order research is optional and
+cannot override the user's chosen game rule.
 
 ### M04 [P0] Server-authoritative global reverse effect
 Implement event dispatch/selection, direction state, turn/round timer,
@@ -171,10 +203,11 @@ be replay-safe; no new mandatory buttons in the World Map.
 
 ## Open items — don't silently assume
 
-- Original dice-based initial turn order: still unverified; what
-  happens on ties; whether players get dice before/after color selection.
-- Full-round versus single-player-turn meaning of reverse event's
-  '3 turns'. New event replacement and exact expiry timing.
+- Original dice-based order is historically unverified but NOT a
+  product blocker: the user chose deterministic slot order.
+- Reverse counts **three full rounds**; clarify only whether a
+  partially elapsed activation round counts as the first round.
+  Next-event replacement and exact expiry timing remain important.
 - Exact wealth goals / turn presets, whether host can type custom values,
   whether a fixed-limit game allows early finish on wealth.
 - Tie resolution at the turn limit, avatar/color uniqueness rules.

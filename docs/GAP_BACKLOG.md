@@ -8,11 +8,14 @@ Source and architecture: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.
 - M02: host picks (a) fixed rounds then wealth ranking, or (b) first
   player to reach goal wealth. Original versus game supports both
   categories; numeric presets/ties still pending decisions.
-- M03: user recalls dice shuffle of initial player order; not verified
-  from the original game. Research before claiming original parity.
-- M04: original event **逆回り** reverses movement of ALL players
+- M03: **user settled deterministic slot order 1P→2P→3P→4P**,
+  selected before match (skip unoccupied seats); do NOT randomize
+  or roll dice to determine order. Original historical rules not verified.
+- M04: original event **逆回り** reverses ALL players' movement
   R->L to L->R for **three turns OR until the next event** (Japanese
-  Wikipedia article); 'turns' expiry semantics unverified.
+  Wikipedia article). User **defined one turn as a full 1P→1P
+  round**, hence **three complete rounds**, not three player actions.
+  Only mid-round event activation/expiry boundary remains open.
 - M05: sync reversed path, actor direction/robot and both Three/Phaser
   renderers. Server tile order and rules are authoritative.
 - M06: tests, older-room migrations, bots and live Android/Cloudflare

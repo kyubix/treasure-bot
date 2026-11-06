@@ -23,6 +23,20 @@ Phaser fallback and production flow via direct main commits.
 
 
 
+## CONFIRMED 2026-11-06 TURN RULE (highest priority)
+
+- Before the match, assign available slots **1P, 2P, 3P, 4P**.
+  Turns occur in **1P→2P→3P→4P→1P** slot order (skip empty slots);
+  **NO randomized/dice order**. Choice of avatar and player color
+  happens before match and is independent of slot and Gallery No.
+- **1 turn = 1 entire round**, from the beginning of 1P's action
+  until 1P becomes active again; every occupied slot acts once.
+- Global reverse for **3 TURNS = 3 COMPLETE ROUNDS** of all players,
+  NOT 3 individual player actions. The start boundary for an event
+  triggered mid-round is still to be decided.
+- Source of truth: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`. These
+  are APPROVED rules, but gameplay changes are NOT YET IMPLEMENTED.
+
 ## Match Setup / victory / direction — verified research + NEW pending work
 
 - Read `docs/MATCH_SETUP_AND_DIRECTION_RULES.md` before altering lobby,
@@ -33,10 +47,11 @@ Phaser fallback and production flow via direct main commits.
   win rules by turn count or assets and a global `逆回り` (reverse)
   event lasting **three turns or until the next event**, moving
   left-to-right rather than normal right-to-left.
-- Original dice-rolled initial player order is user memory, NOT yet
-  verified. Reverse event's exact round/turn tick boundary is unknown.
-  Do not hardcode assumptions. Current implementation still uses
-  join-order turns and static WIN_ASSETS=20_000.
+- Original dice-rolled order is historically unverified and not needed:
+  user has **selected fixed slot order** (1P→2P→3P→4P).
+  Reverse effect lasts 3 full rounds; mid-round activation boundary
+  is still open. Current code uses join-order turns and static
+  WIN_ASSETS=20_000.
 - Keep player COLOR and AVATAR independent from seat/turn order and
   Gallery number; the 3-/4-/5-Gallery board mapping remains provisional.
 - **All match setup / reverse tasks M01–M06 are documentation/planning only,
