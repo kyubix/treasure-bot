@@ -1,5 +1,24 @@
 # Gap Backlog — Treasure Bots
 
+## New planned match mechanics (M01–M06) — 2026-11-06
+
+Source and architecture: `docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.
+- M01: players select colors and avatar before match; keep identity/color
+  independent of match turn order, Gallery No.N and board tile position.
+- M02: host picks (a) fixed rounds then wealth ranking, or (b) first
+  player to reach goal wealth. Original versus game supports both
+  categories; numeric presets/ties still pending decisions.
+- M03: user recalls dice shuffle of initial player order; not verified
+  from the original game. Research before claiming original parity.
+- M04: original event **逆回り** reverses movement of ALL players
+  R->L to L->R for **three turns OR until the next event** (Japanese
+  Wikipedia article); 'turns' expiry semantics unverified.
+- M05: sync reversed path, actor direction/robot and both Three/Phaser
+  renderers. Server tile order and rules are authoritative.
+- M06: tests, older-room migrations, bots and live Android/Cloudflare
+  verification. **STATUS: DESIGN ONLY, NOT IMPLEMENTED.**
+
+
 ## Approved Board View corrections / next planned tasks (2026-11-06)
 
 - **B01 [P0]** Player palette: P1 blue, P2 green, P3 magenta,

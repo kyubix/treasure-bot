@@ -6,6 +6,25 @@ Glint Glitters close-up Board View, mini-board, robot shop, recovery/ticket
 screens, event panels, character/robot movement, and gallery/shop entrances.
 These screenshots are **visual/mechanical references**, not reusable assets.
 
+## Match preparation and reverse event — additional approved scope
+
+New user requirements (2026-11-06): pregame avatar/color choice;
+user-selectable victory condition (turn limit + net worth ranking OR
+wealth threshold); possible initial dice-rolled player order (NOT
+historically verified); all-player reverse-direction event.
+Japanese-language Glint Glitters article describes global reverse for
+**three turns or until the next event**, original normal travel
+right-to-left, reverse left-to-right. Research is community-sourced,
+NOT the official instruction manual; exact 'turn' interpretation
+unverified. Details and M01–M06 server/UI/test tasks:
+`docs/MATCH_SETUP_AND_DIRECTION_RULES.md`.
+
+This scope extends B01 (player palette) and B02 (movement), but
+**must not be implemented as client-only visuals**. Store turn order,
+winning goal and reverse direction in server-authoritative GameState.
+Color selection means a fixed default color palette does NOT imply
+fixed P1-to-turn or Gallery No.N mapping.
+
 ## Non-negotiable user corrections
 
 1. **Base board tile colors represent PLAYERS, NOT tile types or Gallery numbers.**

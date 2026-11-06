@@ -23,6 +23,26 @@ Phaser fallback and production flow via direct main commits.
 
 
 
+## Match Setup / victory / direction — verified research + NEW pending work
+
+- Read `docs/MATCH_SETUP_AND_DIRECTION_RULES.md` before altering lobby,
+  turn order, player colors, win conditions or board movement.
+- User wants pregame avatar + color selection (4 base colors), and host
+  choice of fixed-round highest-wealth win or target-wealth first win.
+- Original Glint Glitters Japanese-language reference confirms versus
+  win rules by turn count or assets and a global `逆回り` (reverse)
+  event lasting **three turns or until the next event**, moving
+  left-to-right rather than normal right-to-left.
+- Original dice-rolled initial player order is user memory, NOT yet
+  verified. Reverse event's exact round/turn tick boundary is unknown.
+  Do not hardcode assumptions. Current implementation still uses
+  join-order turns and static WIN_ASSETS=20_000.
+- Keep player COLOR and AVATAR independent from seat/turn order and
+  Gallery number; the 3-/4-/5-Gallery board mapping remains provisional.
+- **All match setup / reverse tasks M01–M06 are documentation/planning only,
+  NOT implemented.** Preserve the current game until server, UI and
+  regression tests ship together.
+
 Read this FIRST before changing assets or gameplay. The older README describes v0.2 and is stale. This note summarizes user-confirmed decisions as of 2026-11-06.
 
 ## Mandatory reference order
