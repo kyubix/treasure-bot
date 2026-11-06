@@ -327,6 +327,7 @@ function render():void {
   if(!playing&&shopDecisionOpen)setShopDecisionOpen(false);
   if(!active)return;
   const s=state!;
+  if(!s.rolled){lastShopSteps=0;lastShopOffer='';}
   if(!playing){
     el('roomTitle').textContent=s.code;
     el('lobbyPlayers').innerHTML=s.players.map(p=>`<div class="person"><span class="dot" style="background:${p.color}"></span><strong>${escapeHtml(p.name)}</strong>${p.id===s.hostId?'<span class="muted">HOST</span>':''}</div>`).join('');
