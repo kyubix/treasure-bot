@@ -17,6 +17,9 @@ export interface ThreeBoardVisual {
 }
 export const BOARD_CELL_WIDTH=1.25;
 const NUM_SLOTS=17;
+/** A neutral, physically lit white number plate above a vivid colored plate. */
+export const BOARD_NUMBER_PLATE_DEPTH=1.47;
+export const BOARD_COLOR_PLATE_DEPTH=2.42;
 export function boardVisualTile(focus:number,offset:number):number{
  return ((Math.floor(focus)+offset)%TILES.length+TILES.length)%TILES.length;
 }
@@ -107,18 +110,22 @@ function createCell(root:THREE.Group,number:number,shared:{
   o.receiveShadow=true;group.add(o);return o;
  };
  box(BOARD_CELL_WIDTH-.012,.15,4.18,shared.frame,0,.075,-.08);
- box(BOARD_CELL_WIDTH-.065,.07,1.47,shared.paper,0,.176,-1.38);
- const top=box(BOARD_CELL_WIDTH-.069,.08,2.42,shared.paper,0,.18,.65);
- const highlight=box(BOARD_CELL_WIDTH-.085,.015,4.11,
+ // Raised enamel frame and inset ivory number plate are separate surfaces.
+ box(BOARD_CELL_WIDTH-.034,.075,1.53,shared.frame,0,.174,-1.38);
+ box(BOARD_CELL_WIDTH-.065,.07,BOARD_NUMBER_PLATE_DEPTH,shared.paper,0,.218,-1.38);
+ const top=box(BOARD_CELL_WIDTH-.069,.08,BOARD_COLOR_PLATE_DEPTH,shared.paper,0,.18,.65);
+ // Brass separator makes the two tiers legible at narrow Android widths.
+ box(BOARD_CELL_WIDTH-.015,.07,.07,shared.frame,0,.23,-.60);
+ const highlight=box(BOARD_CELL_WIDTH-.085,.015,2.30,
   new THREE.MeshBasicMaterial({color:0xf8e79a,transparent:true,opacity:0}),
-  0,.229,-.08);
+  0,.229,.65);
  const labelGeometry=new THREE.PlaneGeometry(BOARD_CELL_WIDTH*.75,1.24);
  shared.geos.push(labelGeometry);
  const label=new THREE.Mesh(labelGeometry,new THREE.MeshBasicMaterial({
   transparent:true,depthWrite:false,side:THREE.DoubleSide
  }));
  label.rotation.x=-Math.PI/2;
- label.position.set(0,.221,-1.38);
+ label.position.set(0,.262,-1.38);
  group.add(label);
  return {root:group,top,number:label,colorPanel:top,highlight,tile:-1};
 }
@@ -128,7 +135,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  catch{return null;}
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure=1.28;
+ renderer.toneMappingExposure=1.18;
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
@@ -146,7 +153,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  scene.background=new THREE.Color(0xa5d5df);
  scene.fog=new THREE.Fog(0xa5d5df,19,67);
  scene.add(new THREE.HemisphereLight(0xf8fbff,0x71877c,2.4));
- const sun=new THREE.DirectionalLight(0xfff1d1,3.25);
+ const sun=new THREE.DirectionalLight(0xfff1d1,2.9);
  sun.position.set(-7,16,10);
  sun.castShadow=true;
  sun.shadow.mapSize.set(768,768);
@@ -162,8 +169,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  camera.lookAt(0,2.25,-2.8);
  const world=new THREE.Group();
  scene.add(world);
- const frame=new THREE.MeshStandardMaterial({color:0x425e70,roughness:.58,metalness:.20});
- const paper=new THREE.MeshPhysicalMaterial({color:0xfafcff,roughness:.37,metalness:.04,clearcoat:.70});
+ const frame=new THREE.MeshStandardMaterial({color:0x354f67,roughness:.34,metalness:.45});
+ const paper=new THREE.MeshPhysicalMaterial({color:0xf8fbff,roughness:.24,metalness:.02,clearcoat:.9,clearcoatRoughness:.18});
  const shared={frame,paper,materials:new Map<string,THREE.Material>(),
   textures:new Map<string,THREE.Texture>(),geos:[] as THREE.BufferGeometry[]};
  const board=new THREE.Group();
@@ -201,8 +208,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  canvas.addEventListener('webglcontextrestored',handleRestored);
  const updateMaterial=(color:string)=>{
   let m=shared.materials.get(color);
-  if(!m){m=new THREE.MeshPhysicalMaterial({color,roughness:.40,clearcoat:.58,
-   clearcoatRoughness:.16,metalness:.055});shared.materials.set(color,m);}
+  if(!m){m=new THREE.MeshPhysicalMaterial({color,roughness:.24,clearcoat:.88,
+   clearcoatRoughness:.12,metalness:.025});shared.materials.set(color,m);}
   return m;
  };
  const numeral=(text:string)=>{
@@ -222,7 +229,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    prev.map=numeral(label);prev.needsUpdate=true;
   }
   const glow=cell.highlight.material as THREE.MeshBasicMaterial;
-  glow.opacity=focus?.25:0;
+  glow.opacity=focus?.19:0;
  };
  const refreshAssets=(kind:ActorKind,source:ActorModel)=>{
   loaded.set(kind,source);

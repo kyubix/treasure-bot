@@ -3,13 +3,18 @@ import {describe,it,expect} from 'vitest';
 import {TILES} from '../src/engine/types.ts';
 import {galleryNumberAt,GALLERY_COLORS} from '../src/engine/gallery.ts';
 import {
- BOARD_CELL_WIDTH,boardVisualColor,boardVisualTile
+ BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
+ boardVisualColor,boardVisualTile
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
  from '../src/client/board-view-environment.ts';
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('keeps number plate and colored lower panel physically separate',()=>{
+  expect(BOARD_NUMBER_PLATE_DEPTH).toBeGreaterThan(1);
+  expect(BOARD_COLOR_PLATE_DEPTH).toBeGreaterThan(BOARD_NUMBER_PLATE_DEPTH);
+ });
  it('projects all 28 game-engine tiles through the same wrapping traversal',()=>{
   expect(TILES).toHaveLength(28);
   expect(BOARD_CELL_WIDTH).toBeGreaterThan(1);
