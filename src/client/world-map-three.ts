@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
 import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from './world-map-terrain.ts';
 
 /**
@@ -274,26 +275,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   scene.add(sun);
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  const sea=new THREE.Mesh(new THREE.PlaneGeometry(70,70),new THREE.MeshStandardMaterial({
-    color:0x1786b6,roughness:.40,metalness:.03
-  }));
-  sea.rotation.x=-Math.PI/2;
-  sea.position.y=-.48;
-  scene.add(sea);
-  // A single batched mesh of subtle stationary sea reflections; no animation
-  // loop or extra draw call per wave on low-end Android hardware.
-  const wavePositions:number[]=[];
-  for(let i=0;i<72;i++){
-    const a=i*2.399963,r=3.95+3.25*seeded(i*1.7+23);
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    const length=.11+.21*seeded(i*3.1+5);
-    wavePositions.push(x-length,-.469,z,x+length,-.469,z-.025);
-  }
-  const waveGeometry=new THREE.BufferGeometry();
-  waveGeometry.setAttribute('position',new THREE.Float32BufferAttribute(wavePositions,3));
-  scene.add(new THREE.LineSegments(waveGeometry,new THREE.LineBasicMaterial({
-    color:0xa8ecf4,transparent:true,opacity:.27
-  })));
+  const ocean=createAnimatedOcean(scene);
   const land=island(scene);
   const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
   let yaw=Math.PI/4;
@@ -302,6 +284,37 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   const distance=15;
   const focus=new THREE.Vector3(0,.38,0);
   let lastW=0,lastH=0,dead=false,contextIsLost=false;
+  let waterFrame=0,waterRunning=false,lastWaterPaint=-Infinity;
+  let viewVisible=false;
+  const stopWater=()=>{
+    waterRunning=false;
+    if(waterFrame)cancelAnimationFrame(waterFrame);
+    waterFrame=0;
+  };
+  // The sea moves on the Three canvas only; Phaser hit targets do not need
+  // repainting or event re-binding every 24 fps.
+  const waterTick=(timeMs:number)=>{
+    waterFrame=0;
+    if(!waterRunning||dead||contextIsLost||document.hidden)return;
+    if(timeMs-lastWaterPaint>=WAVE_INTERVAL_MS){
+      lastWaterPaint=timeMs;
+      ocean.update(timeMs/1000);
+      try{renderer.render(scene,camera);}
+      catch{stopWater();canvas.style.display='none';return;}
+    }
+    waterFrame=requestAnimationFrame(waterTick);
+  };
+  const startWater=()=>{
+    if(waterRunning||dead||contextIsLost||document.hidden||!viewVisible)return;
+    waterRunning=true;
+    lastWaterPaint=-Infinity;
+    waterFrame=requestAnimationFrame(waterTick);
+  };
+  const visibilityChanged=()=>{
+    if(document.hidden)stopWater();
+    else if(viewVisible)startWater();
+  };
+  document.addEventListener('visibilitychange',visibilityChanged);
   const adjustCamera=()=>{
     // Board never crops: horizontal radius >= 4.7 world units even on
     // portrait phones. Zoom range is deliberately limited for tap safety.
@@ -335,9 +348,17 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     return new THREE.Vector3(Math.cos(a)*radius,elevation,Math.sin(a)*radius);
   };
   const contextLost=(e:Event)=>{
-    e.preventDefault();contextIsLost=true;canvas.style.display='none';
+    e.preventDefault();contextIsLost=true;stopWater();canvas.style.display='none';
   };
-  const contextRestored=()=>{contextIsLost=false;lastW=0;};
+  const contextRestored=()=>{
+    contextIsLost=false;
+    if(viewVisible&&lastW>0&&lastH>0){
+      ocean.update(performance.now()/1000);
+      renderer.render(scene,camera);
+      canvas.style.display='block';
+      startWater();
+    }
+  };
   canvas.addEventListener('webglcontextlost',contextLost);
   canvas.addEventListener('webglcontextrestored',contextRestored);
 
@@ -354,8 +375,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
         adjustCamera();
         renderer.render(scene,camera);
         canvas.style.display='block';
+        viewVisible=true;
+        startWater();
         return true;
       }catch{
+        viewVisible=false;
+        stopWater();
         canvas.style.display='none';return false;
       }
     },
@@ -382,10 +407,18 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     },
     zoom(amount){zoom=THREE.MathUtils.clamp(zoom*Math.exp(amount),.82,1.38);},
     rotateBy(radians){yaw+=radians;},
-    visible(value){if(!dead)canvas.style.display=value?'block':'none';},
+    visible(value){
+      if(dead)return;
+      viewVisible=value;
+      canvas.style.display=value&&!contextIsLost?'block':'none';
+      if(value)startWater();
+      else stopWater();
+    },
     dispose(){
       if(dead)return;
       dead=true;
+      stopWater();
+      document.removeEventListener('visibilitychange',visibilityChanged);
       canvas.removeEventListener('webglcontextlost',contextLost);
       canvas.removeEventListener('webglcontextrestored',contextRestored);
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();

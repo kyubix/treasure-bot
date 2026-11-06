@@ -41,6 +41,23 @@ pixels, copyrighted textures, models, music, sprites or code were imported.
   dispatch, purchases and WebSocket behavior are unchanged.
 - `map3d=1` is still opt-in. Browser/WebGL failure falls back to Phaser.
 
+## Water upgrade (November 6, 2026)
+The user-provided Claude HTML was used as a *technical comparison*, not
+imported: it animates a subdivided translucent Three.js water plane by changing
+vertex heights each frame. Treasure Bots now applies the same general idea with
+new original implementation `src/client/world-map-water.ts`.
+
+- Ocean vertex positions and near-shore water colors update with three gentle
+  intersecting wave components, capped at ~24 FPS while World Map is visible.
+- One batched group of drifting sea glints, with small concentric pond ripples.
+- Uses the existing coastline foam geometry; no new buttons or camera changes.
+- The water animation pauses automatically in Board View and in background
+  tabs, and stops/disposes when the room exits.
+- Renderer is still opt-in via `?map3d=1`; Phaser fallback, all board markers,
+  Android drag/orbit, target hit testing and game rules remain unchanged.
+- The animated plane uses a 56×56 segment grid to limit CPU/GPU load.
+- `tests/world-map-water.test.ts` verifies water movement and stable buffers.
+
 ## QA gates
 1. GitHub Actions: smoke, unit, TypeScript build, and new heightfield tests.
 2. Verify Cloudflare deploy to the *actual* production host independently:
