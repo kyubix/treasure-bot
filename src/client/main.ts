@@ -2,6 +2,7 @@ import './style.css';
 import './theme.css';
 import './mobile.css';
 import './roll-shop.css';
+import './dice-three.css';
 import './dispatch.css';
 import './cpu-turns.css';
 import './match-setup.css';
@@ -12,6 +13,7 @@ import './gallery-dialog.css';
 import './viewport-layout.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
 import {matchingRollPointer,accessibleRollClick} from './dice-intent.ts';
+import type {DicePhase,DiceThreeVisual} from './dice-three.ts';
 import {bindViewNavigation} from './view-navigation.ts';
 import {resetMatchViewportScroll} from './match-viewport.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
@@ -49,6 +51,13 @@ let lastSettingsTrigger:HTMLElement|null=null;
 let diceHeld=false;
 let dicePreview:ReturnType<typeof setInterval>|null=null;
 let diceHideTimer:ReturnType<typeof setTimeout>|null=null;
+// Lazy third WebGL context: only allocate the small die renderer on roll.
+let diceThree:DiceThreeVisual|null=null;
+let diceThreeLoading:Promise<void>|null=null;
+let diceThreeFailed=false;
+let diceThreeGeneration=0;
+let requestedDicePhase:DicePhase|null=null;
+let requestedDiceFaces:readonly [number,number]|undefined;
 let shopOfferTimer:ReturnType<typeof setTimeout>|null=null;
 let lastDiceEvent='';
 let lastShopOffer='';
@@ -162,7 +171,7 @@ root.innerHTML=`
       </div>
       <div class="dispatch-label" data-i18n="launching"></div>
     </div>
-    <div id="diceOverlay" class="dice-overlay" role="status" aria-live="polite" hidden><div id="diceFaces" class="dice-faces"><span id="dieOne" class="die-face">?</span><span id="dieTwo" class="die-face">?</span></div><span id="diceTotal" class="dice-total"></span></div><div id="shopCinematic" class="shop-cinematic" hidden aria-hidden="true">
+    <div id="diceOverlay" class="dice-overlay" role="status" aria-live="polite" hidden><div id="diceFaces" class="dice-faces"><div id="diceThreeHost" class="dice-three-host" aria-hidden="true"></div><span id="dieOne" class="die-face" aria-hidden="true">?</span><span id="dieTwo" class="die-face" aria-hidden="true">?</span></div><span id="diceTotal" class="dice-total"></span></div><div id="shopCinematic" class="shop-cinematic" hidden aria-hidden="true">
           <svg class="shop-cinematic-building" viewBox="0 0 360 320" preserveAspectRatio="xMidYMid meet">
             <ellipse cx="181" cy="303" rx="160" ry="14" fill="#2d6e60" opacity=".3"/>
             <rect x="59" y="122" width="240" height="160" rx="8" fill="#f4e0b2" stroke="#7d684d" stroke-width="7"/>
@@ -180,7 +189,7 @@ root.innerHTML=`
           </svg>
           <div class="shop-cinematic-avatar"><span class="cin-hair"></span><span class="cin-head"></span><span class="cin-body"></span><span class="cin-feet"></span></div>
         </div>
-        <div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside id="gameInfo" class="sidebar"><div class="drawer-head"><strong data-i18n="details"></strong><button id="closeInfo" class="drawer-close" type="button" aria-label="Close">×</button></div><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="openShop" class="secondary" data-i18n="shop"></button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label" hidden></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary roll-press" type="button" data-i18n="holdRoll" aria-describedby="rollHelp"></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p><span id="rollHelp" class="sr-only" data-i18n="holdRoll"></span></div></section>
+        <div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside id="gameInfo" class="sidebar"><div class="drawer-head"><strong data-i18n="details"></strong><button id="closeInfo" class="drawer-close" type="button" aria-label="Close">×</button></div><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="openShop" class="secondary" data-i18n="shop"></button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label" hidden></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary roll-press dice-roll-control" type="button" aria-describedby="rollHelp"><span class="dice-button-symbol" aria-hidden="true">🎲</span><span id="rollLabel" data-i18n="holdRoll"></span></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p><span id="rollHelp" class="sr-only" data-i18n="holdRoll"></span></div></section>
     <div id="infoBackdrop" class="info-backdrop" hidden></div>
     <div id="settingsOverlay" class="settings-backdrop" hidden>
       <section class="settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -261,6 +270,41 @@ function setInfoOpen(open:boolean,restoreFocus=true):void {
     el<HTMLButtonElement>('openInfo').focus({preventScroll:true});
 }
 
+/** Keep user input / server dice outcomes separate from the 3D animation.
+ * Lazy loading never blocks touch or keyboard roll controls. */
+function syncDiceThree(phase:DicePhase,faces?:readonly [number,number]):void{
+  requestedDicePhase=phase;
+  requestedDiceFaces=faces;
+  if(diceThree){diceThree.setPhase(phase,faces);return;}
+  if(diceThreeLoading||diceThreeFailed)return;
+  const generation=diceThreeGeneration;
+  diceThreeLoading=import('./dice-three.ts').then(({createDiceThreeVisual})=>{
+    if(generation!==diceThreeGeneration)return;
+    const visual=createDiceThreeVisual(el('diceThreeHost'));
+    if(!visual){diceThreeFailed=true;return;} // Keep number-face fallback.
+    diceThree=visual;
+    el('diceOverlay').classList.add('has-three-dice');
+    if(requestedDicePhase&&!el('diceOverlay').hidden)
+      visual.setPhase(requestedDicePhase,requestedDiceFaces);
+    else visual.pause();
+  }).catch(()=>{diceThreeFailed=true;}).finally(()=>{
+    if(generation===diceThreeGeneration)diceThreeLoading=null;
+  });
+}
+function pauseDiceThree():void{
+  requestedDicePhase=null;
+  diceThree?.pause();
+}
+function disposeDiceThree():void{
+  diceThreeGeneration++;
+  requestedDicePhase=null;
+  requestedDiceFaces=undefined;
+  diceThree?.dispose();
+  diceThree=null;
+  diceThreeLoading=null;
+  diceThreeFailed=false;
+  el('diceOverlay').classList.remove('has-three-dice');
+}
 function diceIdle():void {
   if(dicePreview){clearInterval(dicePreview);dicePreview=null;}
   diceHeld=false;
@@ -275,7 +319,10 @@ function revealDice(first:number,second:number):void {
   el('dieOne').textContent=String(first);
   el('dieTwo').textContent=String(second);
   el('diceTotal').textContent='= '+String(first+second);
-  diceHideTimer=setTimeout(()=>{if(box.dataset.phase==='result')box.hidden=true;},2100);
+  syncDiceThree('result',[first,second]);
+  diceHideTimer=setTimeout(()=>{
+    if(box.dataset.phase==='result'){box.hidden=true;pauseDiceThree();}
+  },2100);
 }
 function beginDiceHold():void {
   const s=state;
@@ -287,6 +334,8 @@ function beginDiceHold():void {
   box.dataset.phase='holding';
   el('diceTotal').textContent='🎲';
   el<HTMLButtonElement>('roll').classList.add('is-held');
+  if(diceHideTimer){clearTimeout(diceHideTimer);diceHideTimer=null;}
+  syncDiceThree('holding');
   const preview=()=>{
     el('dieOne').textContent=String(1+Math.floor(Math.random()*6));
     el('dieTwo').textContent=String(1+Math.floor(Math.random()*6));
@@ -298,6 +347,7 @@ function cancelDiceHold():void {
   if(!diceHeld)return;
   diceIdle();
   el('diceOverlay').hidden=true;
+  pauseDiceThree();
 }
 function releaseDiceHold():void {
   if(!diceHeld)return;
@@ -307,8 +357,13 @@ function releaseDiceHold():void {
   overlay.hidden=false;
   overlay.dataset.phase='waiting';
   el('diceTotal').textContent=t('rolling');
+  syncDiceThree('waiting');
   void sendAction({type:'ROLL'});
-  setTimeout(()=>{if(overlay.dataset.phase==='waiting')overlay.hidden=true;},3500);
+  setTimeout(()=>{
+    if(overlay.dataset.phase==='waiting'){
+      overlay.hidden=true;pauseDiceThree();
+    }
+  },3500);
 }
 function setShopDecisionOpen(open:boolean):void {
   shopDecisionOpen=open;
@@ -316,6 +371,7 @@ function setShopDecisionOpen(open:boolean):void {
   if(open){
     setInfoOpen(false);
     el('diceOverlay').hidden=true;
+    pauseDiceThree();
     el<HTMLButtonElement>('shopEnter').focus();
   }
 }
@@ -585,7 +641,7 @@ function render():void {
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
   el<HTMLButtonElement>('openWorld').disabled=s.phase!=='playing'||shopOpen||shopDecisionOpen||cinematicPlaying||dispatchAnimating;
   el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
-  el<HTMLButtonElement>('roll').textContent=s.rolled&&s.dice?`🎲 ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
+  el('rollLabel').textContent=s.rolled&&s.dice?`${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
   el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled||!!s.shopOffer||s.shopAccess||(s.pendingSteps??0)>0;
   el<HTMLButtonElement>('end').textContent=mine&&!s.rolled?t('rollFirst'):t('end');
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
@@ -774,7 +830,7 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',(threePreviewParam||boardLegacyParam)?'/?'+[threePreviewParam,boardLegacyParam].filter(Boolean).map(x=>x.slice(1)).join('&'):'/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();disposeDiceThree();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',(threePreviewParam||boardLegacyParam)?'/?'+[threePreviewParam,boardLegacyParam].filter(Boolean).map(x=>x.slice(1)).join('&'):'/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();if(state)galleryDialog.update(state);};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){

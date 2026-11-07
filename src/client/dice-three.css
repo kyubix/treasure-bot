@@ -1,0 +1,60 @@
+/* Small native Three.js dice overlay; no full-screen renderer.
+ * Number tiles remain as a readable fallback if WebGL is unsupported. */
+.dice-three-host{
+  display:none;
+  width:clamp(220px,65vw,320px);
+  height:clamp(112px,34vw,166px);
+  max-width:calc(100vw - 42px);
+  pointer-events:none;
+  contain:layout paint;
+}
+.dice-overlay.has-three-dice .dice-three-host{display:block}
+.dice-overlay.has-three-dice .die-face{display:none!important}
+.dice-overlay.has-three-dice .dice-faces{gap:0}
+.dice-three-canvas{
+  display:block;
+  width:100%;
+  height:100%;
+  border:0;
+  background:transparent;
+  pointer-events:none!important;
+  filter:drop-shadow(0 5px 6px #203e5673);
+}
+#roll.dice-roll-control{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:7px;
+  touch-action:none;
+  overflow:hidden;
+}
+#roll .dice-button-symbol{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(21px,5vw,31px);
+  flex-shrink:0;
+  line-height:1;
+  filter:drop-shadow(0 2px 2px #1b466259);
+}
+#roll #rollLabel{
+  min-width:0;
+  text-align:center;
+  line-height:1.12;
+  font-weight:900;
+}
+#roll.is-held .dice-button-symbol{
+  animation:dice-icon-wiggle .24s ease-in-out infinite alternate;
+}
+@keyframes dice-icon-wiggle{
+  from{transform:rotate(-12deg) translateY(-1px)}
+  to{transform:rotate(11deg) translateY(1px)}
+}
+@media(max-width:400px){
+  #roll.dice-roll-control{gap:4px}
+  #roll .dice-button-symbol{font-size:23px}
+  #roll #rollLabel{font-size:clamp(10px,2.9vw,13px)}
+}
+@media(prefers-reduced-motion:reduce){
+  #roll.is-held .dice-button-symbol{animation:none}
+}

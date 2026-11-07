@@ -1,3 +1,11 @@
+## 2026-11-07: Three.js rolling dice visual
+
+- User requested dice visualization as real Three.js instead of numeric tiles. Implemented a lightweight **two-die 3D overlay** with original cream/ivory rounded meshes, six dark pip textures each, key/fill lighting, roll-to-server-result quaternion settling.
+- `src/client/dice-three.ts` is lazy-loaded on first actual roll; 320×166 transparent canvas, capped DPR 1.5, animations only while held/waiting/settling, reduced-motion static frames, disposal on leaving room. Numeric faces still work as WebGL fallback.
+- `main.ts` controls visual phase `holding`, `waiting`, `result` separately from the `ROLL` API action, never generates authoritative results. The Roll button now uses persistent `#rollLabel` with `data-i18n`, while `#roll` itself remains the original keyboard/touch target.
+- Existing server-side dice logic, turn rules, die result `s.dice`, HUD sum, navigation and Board/World resizing are untouched.
+- See `docs/THREE_DICE_VISUAL.md`; CI tests verify physical face mapping, quaternion facing and UI wiring. Android WebGL performance/visual check still pending.
+
 ## 2026-11-07: Board motion and scenery polish; simplify World commands
 
 - **Visual direction:** premium Stylized Detailed 3D, not PS1. See `docs/BOARD_MOTION_BACKGROUND_POLISH.md`.
