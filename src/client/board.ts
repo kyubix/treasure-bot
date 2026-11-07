@@ -101,7 +101,8 @@ export class BoardScene extends Phaser.Scene {
       if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);
       this.layoutFrame=0;
     });
-    this.paint();
+    // First scene draw waits for stable mobile flex layout.
+    this.scheduleLayoutPaint();
   }
   private orbitDown(pointer:Phaser.Input.Pointer):void{
     if(this.view!=='world'||!this.threeLayer)return;
@@ -155,7 +156,10 @@ export class BoardScene extends Phaser.Scene {
       const host=this.game.canvas.parentElement;
       const width=Math.round(host?.clientWidth??0);
       const height=Math.round(host?.clientHeight??0);
-      if(width<40||height<40){this.layoutFrame=0;return;}
+      if(width<40||height<40){
+        if(++attempts<16){this.layoutFrame=requestAnimationFrame(sample);return;}
+        this.layoutFrame=0;return;
+      }
       if(width===lastWidth&&height===lastHeight)stableFrames++;
       else {stableFrames=1;lastWidth=width;lastHeight=height;}
       attempts++;
@@ -256,6 +260,14 @@ export class BoardScene extends Phaser.Scene {
     // Never show a stale-size frame during Board -> World layout settlement.
     if(this.layoutFrame>0)return;
     const {width:w,height:h}=this.scale;
+    // Do not expose a frame rendered for a stale canvas/host dimension.
+    const host=this.game.canvas.parentElement;
+    const hostW=Math.round(host?.clientWidth??0),hostH=Math.round(host?.clientHeight??0);
+    if(this.layoutFrame!==-1&&hostW>=40&&hostH>=40&&
+       (Math.abs(w-hostW)>1||Math.abs(h-hostH)>1)){
+      this.scheduleLayoutPaint();
+      return;
+    }
     if(w<40||h<40)return;
     this.display?.destroy(true);
     const container=this.add.container(0,0);
@@ -553,6 +565,17 @@ export class BoardScene extends Phaser.Scene {
   }
 }
 
+/** Initial dimensions before Phaser's first scale/resize dispatch. */
+export function boardViewportDimensions(
+ host:Pick<HTMLElement,'clientWidth'|'clientHeight'>
+):{width:number;height:number}{
+ const w=Math.round(host.clientWidth),h=Math.round(host.clientHeight);
+ return {
+  width:Number.isFinite(w)&&w>=40?w:640,
+  height:Number.isFinite(h)&&h>=40?h:480
+ };
+}
+
 export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTravelEnd:()=>void=()=>{}):{
   update(state:GameState):void;
   select(id:string):void;
@@ -572,13 +595,17 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   // scene paint is covered until the lazy-loaded Three renderer draws.
   if(board3D)element.classList.add('board-three-pending');
   const scene=new BoardScene(onSelect,onTravelEnd);
+  // Phaser's initial canvas must match the actual responsive container,
+  // not the old 640×480 desktop seed that visibly stretches on Android.
+  const initialSize=boardViewportDimensions(element);
   const game=new Phaser.Game({
     // Canvas-backed Phaser avoids a second competing WebGL renderer and
     // retains deterministic game interaction / fallback rendering.
     type:(map3D||board3D)?Phaser.CANVAS:Phaser.AUTO,
     transparent:map3D||board3D,
     parent:element,backgroundColor:(map3D||board3D)?'#000000':'#245879',
-    scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,width:640,height:480},
+    scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH,
+      width:initialSize.width,height:initialSize.height},
     render:{pixelArt:false,antialias:true},scene:[scene]
   });
   let destroyed=false;

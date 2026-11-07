@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {boardPathFrame} from '../engine/map-shapes.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
+import {RING_CAMP_CLEARING} from './world-map-landmark-layout.ts';
 import {terrainRadius,terrainHeight} from './world-map-terrain.ts';
 import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
@@ -203,13 +204,14 @@ export function createStageDecorations(shape:MapShapeId,
   // Warm expedition camp distinguishable from Lagoon's docks
   // and Clover's crystal circle.
   for(let i=0;i<6;i++){
-   const a=i*Math.PI/3,x=-1.45+Math.cos(a)*.36,z=1.53+Math.sin(a)*.36;
+   const a=i*Math.PI/3,x=RING_CAMP_CLEARING.x+Math.cos(a)*.36,
+    z=RING_CAMP_CLEARING.z+Math.sin(a)*.36;
    const pole=place(new THREE.CylinderGeometry(.034,.05,.38,5),stone,x,z,.19);
    pole.rotation.z=Math.sin(a)*.15;
   }
   place(new THREE.ConeGeometry(.40,.48,5),
    new THREE.MeshStandardMaterial({color:0xc99055,roughness:1,flatShading:true}),
-   -1.45,1.53,.36);
+   RING_CAMP_CLEARING.x,RING_CAMP_CLEARING.z,.36);
  }
  return root;
 }

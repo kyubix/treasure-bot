@@ -6,6 +6,8 @@ import {terrainHeight} from '../src/client/world-map-terrain.ts';
 import {WORLD_LANDMARKS,createDetailedStageLandmarks,LandmarkId}
  from '../src/client/world-map-landmarks.ts';
 import {MAP_SHAPES} from '../src/engine/map-shapes.ts';
+import {forestPlacements} from '../src/client/world-map-vegetation.ts';
+import {RING_CAMP_CLEARING} from '../src/client/world-map-landmark-layout.ts';
 
 describe('V7 original detailed GLB landmarks',()=>{
  it('ships valid compact binary GLB files with multiple PBR materials',async()=>{
@@ -33,6 +35,20 @@ describe('V7 original detailed GLB landmarks',()=>{
    }
   }
   expect(combined).toBeLessThan(900_000);
+ });
+ it('places Ring camp on flat ground, clear of mountain and forest',()=>{
+   const camp=WORLD_LANDMARKS.RING.find(x=>x.id==='camp')!;
+   expect(camp.x).toBe(RING_CAMP_CLEARING.x);
+   expect(camp.z).toBe(RING_CAMP_CLEARING.z);
+   const r=.44;
+   const heights=[terrainHeight(camp.x,camp.z,'RING'),
+    ...[-r,r].flatMap(dx=>[-r,r].map(dz=>
+      terrainHeight(camp.x+dx,camp.z+dz,'RING')))];
+   expect(Math.max(...heights)-Math.min(...heights)).toBeLessThan(.14);
+   expect(Math.hypot(camp.x+.72,camp.z-.90)).toBeGreaterThan(1.5);
+   for(const tree of forestPlacements('RING'))
+     expect(Math.hypot(tree.x-camp.x,tree.z-camp.z))
+      .toBeGreaterThanOrEqual(RING_CAMP_CLEARING.radius-1e-6);
  });
  it('grounds all models within their stage boundaries and avoids gallery tile centers',()=>{
   for(const shape of MAP_SHAPES){

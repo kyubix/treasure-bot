@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import type {MapShapeId} from '../engine/map-shapes.ts';
 import {terrainHeight,terrainRadius} from './world-map-terrain.ts';
+import {RING_CAMP_CLEARING} from './world-map-landmark-layout.ts';
 
 /**
  * Instanced sculpted tree assets. Three geometry draw calls replace dozens
@@ -44,6 +45,9 @@ export function forestPlacements(shape:MapShapeId='RING'):TreePlacement[]{
     if(Math.hypot(x-.75,z-.61)<.78)continue;
     if(Math.hypot(x-.10,z+1.12)<.74)continue;
     if(Math.hypot(x+.72,z-.90)<.78)continue;
+    // Reserve the tent footprint (including ropes and lantern) on Ring.
+    if(shape==='RING'&&Math.hypot(x-RING_CAMP_CLEARING.x,
+      z-RING_CAMP_CLEARING.z)<RING_CAMP_CLEARING.radius)continue;
     if(slope(x,z,shape)>.48)continue;
     const kind:TreeKind=(
       shape==='CLOVER'?i%3===0:shape==='LAGOON'?i%8===0:i%5===3

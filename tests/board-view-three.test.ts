@@ -6,13 +6,22 @@ import {galleryNumberAt} from '../src/engine/gallery.ts';
 import {PLAYER_COLORS,GALLERY_SLOT_ORDER,galleryPlayerSlotAt,galleryPlayerColorAt,boardTileBaseColor} from '../src/engine/player-palette.ts';
 import {
  BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
- boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile
+ boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile,
+ boardViewportDimensions
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
  from '../src/client/board-view-environment.ts';
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('starts mobile board at the actual measured portrait viewport',()=>{
+   expect(boardViewportDimensions({clientWidth:388,clientHeight:657}))
+    .toEqual({width:388,height:657});
+   expect(boardViewportDimensions({clientWidth:812,clientHeight:370}))
+    .toEqual({width:812,height:370});
+   expect(boardViewportDimensions({clientWidth:0,clientHeight:0}))
+    .toEqual({width:640,height:480});
+ });
  it('distributes each numbered Gallery equally between player colors',()=>{
    expect(PLAYER_COLORS).toEqual(['#2489ea','#44c767','#e254c5','#f5cf32']);
    expect(GALLERY_SLOT_ORDER).toEqual([1,2,4,3]);

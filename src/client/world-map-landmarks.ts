@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {terrainHeight} from './world-map-terrain.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
+import {RING_CAMP_CLEARING} from './world-map-landmark-layout.ts';
 import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
 /**
@@ -22,7 +23,8 @@ export const WORLD_LANDMARKS:Readonly<Record<MapShapeId,readonly LandmarkSpec[]>
  RING:[
   {id:'lighthouse',x:1.86,z:2.28,scale:1,rotation:0,groundOffset:-.04},
   {id:'ruins',x:2.10,z:-1.50,scale:.90,rotation:.20,groundOffset:-.055},
-  {id:'camp',x:-1.45,z:1.53,scale:.96,rotation:.40,groundOffset:-.035}
+  {id:'camp',x:RING_CAMP_CLEARING.x,z:RING_CAMP_CLEARING.z,
+   scale:.96,rotation:.40,groundOffset:-.025}
  ],
  LAGOON:[
   {id:'dock',x:1.54,z:.56,scale:1,rotation:.24,groundOffset:-.08}
