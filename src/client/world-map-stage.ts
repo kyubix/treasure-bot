@@ -18,6 +18,7 @@ export function stageBoundaryPoint(progress:number,shape:MapShapeId='RING',
 /** One continuous bottom and top; no disconnected radial cylinders or
  * ocean leaking through Gallery cell joins.
  */
+
 export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
  const top=.414;
@@ -26,7 +27,9 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  const cap=new THREE.Color(shape==='LAGOON'?0xb7ad77:
   shape==='CLOVER'?0x6b845b:0x75a05d);
  const tint=new THREE.Color();
- // The top disc is hidden beneath the walkable tiles and grass apron.
+ // Keep the TOP contour exact: it closes the sea seam at every Gallery tile.
+ // Only the rock below the trim can erode. The foot widens gently into the
+ // ocean rather than forming a uniform, unsupported brown cylinder.
  positions.push(0,top,0);colors.push(cap.r,cap.g,cap.b);
  for(let i=0;i<=SEGMENTS;i++){
   const pt=stageBoundaryPoint(i/SEGMENTS,shape);
@@ -35,33 +38,37 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  }
  for(let i=0;i<SEGMENTS;i++)indices.push(0,i+1,i+2);
  const sideIndex=positions.length/3;
- // Four sloped layers are more natural than the previous perfectly
- // vertical, dark-brown cylinder. Only the narrow top lip overhangs
- // the coloured board's outside trim, with rock tapering into the sea.
- const levels=[
-  {y:top,outset:STAGE_FOUNDATION_OUTSET,tone:1.07},
-  {y:.175,outset:.175,tone:.97},
-  {y:-.105,outset:.116,tone:.80},
-  {y:-.416,outset:.063,tone:.62}
+ const bands=[
+  {y:top,outset:STAGE_FOUNDATION_OUTSET,tone:1.08,rough:0},
+  {y:.337,outset:.223,tone:1.00,rough:.003},
+  {y:.192,outset:.187,tone:.93,rough:.007},
+  {y:.014,outset:.150,tone:.82,rough:.016},
+  {y:-.205,outset:.205,tone:.71,rough:.019},
+  {y:-.422,outset:.268,tone:.61,rough:.012}
  ];
- for(let level=0;level<levels.length;level++){
-  const band=levels[level];
+ for(let level=0;level<bands.length;level++){
+  const band=bands[level];
   for(let i=0;i<=SEGMENTS;i++){
-   const u=i/SEGMENTS;
-   const pt=stageBoundaryPoint(u,shape,band.outset);
-   const ripple=level===0||level===3?0:
-     Math.sin(u*Math.PI*2*11)*.014+
-     Math.cos(u*Math.PI*2*7)*.009-.009;
-   positions.push(pt.x,band.y+ripple,pt.y);
-   const grain=.96+.06*Math.sin(u*Math.PI*2*17);
+   const u=i/SEGMENTS,a=u*Math.PI*2;
+   // Periodic harmonics: identical at t=0 and t=1, with no per-frame
+   // randomness or independent island rings to drift across the board.
+   const erosion=band.rough*(.59*Math.sin(9*a+level*.71)
+    +.27*Math.sin(17*a+level*1.31)
+    +.14*Math.cos(29*a-level*.48));
+   const pt=stageBoundaryPoint(u,shape,band.outset+erosion);
+   const strata=band.rough*(.6*Math.sin(11*a+level*.83)
+    +.4*Math.cos(23*a-level*.43));
+   positions.push(pt.x,band.y+strata,pt.y);
+   const grain=.94+.045*Math.sin(7*a+level*.81)
+    +.015*Math.cos(31*a-level*.36);
    tint.copy(edge).multiplyScalar(band.tone*grain);
-   if(level===0)tint.lerp(cap,.17);
+   if(level===0)tint.lerp(cap,.18);
+   if(level===1)tint.lerp(cap,.08);
    colors.push(tint.r,tint.g,tint.b);
   }
  }
- for(let layer=0;layer<levels.length-1;layer++){
-  const first=sideIndex+layer*(SEGMENTS+1);
-  const second=first+SEGMENTS+1;
+ for(let layer=0;layer<bands.length-1;layer++){
+  const first=sideIndex+layer*(SEGMENTS+1),second=first+SEGMENTS+1;
   for(let i=0;i<SEGMENTS;i++){
    const a=first+i,b=second+i;
    indices.push(a,b,a+1,a+1,b,b+1);
@@ -83,22 +90,48 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  * This layer is immediately below the board, so it fills gaps without
  * covering any Gallery tile color or its embossed numeral.
  */
+
 export function createStageApron(shape:MapShapeId='RING'):THREE.Mesh{
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
- const inner=new THREE.Color(shape==='LAGOON'?0x8dbd80:
-  shape==='CLOVER'?0x638b55:0x78a75a);
- const outer=new THREE.Color(shape==='LAGOON'?0xc5c193:
-  shape==='CLOVER'?0x8a9a66:0xb4ab78);
+ const grass=new THREE.Color(shape==='LAGOON'?0x81af70:
+  shape==='CLOVER'?0x55844e:0x73a153);
+ const earth=new THREE.Color(shape==='LAGOON'?0x9b9c69:
+  shape==='CLOVER'?0x75865b:0x9c9865);
+ const rim=new THREE.Color(shape==='LAGOON'?0xc3b88a:
+  shape==='CLOVER'?0x97966c:0xbca773);
+ const tint=new THREE.Color();
+ const STRIPS=4;
  for(let i=0;i<=SEGMENTS;i++){
-  const t=i/SEGMENTS,a=t*Math.PI*2;
+  const t=i/SEGMENTS,frame=boardPathFrame(t,shape);
+  // Important: the coast and the board MUST share the same angle.
+  // Using t*TAU here twists the apron by BOARD_ANGLE_OFFSET, particularly
+  // visibly on the Lagoon ellipse and the Clover lobes.
+  const a=Math.atan2(frame.z,frame.x);
   const r=terrainRadius(a,shape)-.04;
   const landX=Math.cos(a)*r,landZ=Math.sin(a)*r;
+  const landY=terrainHeight(landX,landZ,shape)+.004;
   const border=stageBoundaryPoint(t,shape,STAGE_APRON_INSET);
-  positions.push(landX,.426,landZ,border.x,.426,border.y);
-  colors.push(inner.r,inner.g,inner.b,outer.r,outer.g,outer.b);
+  for(let lane=0;lane<STRIPS;lane++){
+   const fraction=lane/(STRIPS-1),ease=fraction*fraction*(3-2*fraction);
+   const x=THREE.MathUtils.lerp(landX,border.x,fraction);
+   const z=THREE.MathUtils.lerp(landZ,border.y,fraction);
+   // A shallow earth berm hides the flat road-to-terrain join but remains
+   // safely under the trim at y=.518 and coloured tiles at y=.54.
+   const lift=.008*Math.sin(Math.PI*fraction)*Math.sin(a*7+.4);
+   const y=THREE.MathUtils.lerp(landY,.429,ease)+lift;
+   positions.push(x,y,z);
+   if(fraction<.6)tint.copy(grass).lerp(earth,(fraction/.6)**2);
+   else tint.copy(earth).lerp(rim,((fraction-.6)/.4)**2);
+   tint.multiplyScalar(.97+.03*Math.sin(a*11+.6));
+   colors.push(tint.r,tint.g,tint.b);
+  }
  }
  for(let i=0;i<SEGMENTS;i++){
-  const n=i*2;indices.push(n,n+2,n+1,n+1,n+2,n+3);
+  const n=i*STRIPS;
+  for(let lane=0;lane<STRIPS-1;lane++){
+   const a=n+lane,b=a+STRIPS;
+   indices.push(a,b,a+1,a+1,b,b+1);
+  }
  }
  const geometry=new THREE.BufferGeometry();
  geometry.setIndex(indices);
