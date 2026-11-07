@@ -1,51 +1,48 @@
 /**
- * Android-first navigation: respond to the pointer that began on this
- * button, not a synthetic click that may be cancelled by UI reflow.
+ * Board / World navigation should accept the first tap on Android, even if
+ * the WebView delays/suppresses its synthetic "click".
  *
- * Change views on the NEXT animation frame: the click sequence finishes
- * against the original DOM before board/world command rows are swapped.
- * The click handler remains an accessible keyboard/programmatic fallback.
+ * Respond on touch pointerup (or native click for keyboard/mouse), without
+ * pointer capture, preventDefault, or cancellation by a later re-render.
+ * The DOM swap occurs in rAF, after the pointer sequence has completed.
  */
 export function bindViewNavigation(
  button:HTMLButtonElement,
  navigate:()=>void,
  schedule:(callback:FrameRequestCallback)=>number=requestAnimationFrame
 ):void{
- let activePointer:number|null=null;
- let scheduled=false;
- let suppressClickUntil=0;
- const commit=()=>{
-  if(scheduled||button.disabled)return;
-  scheduled=true;
+ let pressed:{id:number;x:number;y:number}|null=null;
+ let queued=false;
+ let lastTouchNavigation=-Infinity;
+ const run=()=>{
+  if(queued||button.disabled)return;
+  queued=true;
   schedule(()=>{
-   scheduled=false;
-   if(button.isConnected&&!button.disabled)navigate();
+   queued=false;
+   // This tap was accepted when the button was enabled. Do not revoke the
+   // transition just because a state render temporarily disabled the button.
+   navigate();
   });
  };
  button.addEventListener('pointerdown',event=>{
-  if(event.button!==0||button.disabled)return;
-  activePointer=event.pointerId;
-  try{button.setPointerCapture(event.pointerId);}catch{/* No capture support. */}
+  if(button.disabled||event.button!==0)return;
+  pressed={id:event.pointerId,x:event.clientX,y:event.clientY};
  });
  button.addEventListener('pointerup',event=>{
-  if(activePointer!==event.pointerId)return;
-  activePointer=null;
-  if(button.disabled)return;
-  const rect=button.getBoundingClientRect();
-  // Treat a swipe/drag off the control as a cancelled navigation.
-  if(event.clientX<rect.left-14||event.clientX>rect.right+14||
-     event.clientY<rect.top-14||event.clientY>rect.bottom+14)return;
-  suppressClickUntil=Date.now()+850;
-  event.preventDefault();
-  commit();
- });
- button.addEventListener('pointercancel',()=>{activePointer=null;});
- button.addEventListener('lostpointercapture',()=>{activePointer=null;});
- button.addEventListener('click',event=>{
-  if(Date.now()<suppressClickUntil){
-   event.preventDefault();
-   return;
+  if(!pressed||pressed.id!==event.pointerId)return;
+  const distance=Math.hypot(event.clientX-pressed.x,event.clientY-pressed.y);
+  pressed=null;
+  if(distance>24)return; // A drag is not an intentional navigation tap.
+  if(event.pointerType==='touch'||event.pointerType==='pen'){
+   lastTouchNavigation=Date.now();
+   run();
   }
-  commit();
+  // Mouse is handled by native click, retaining keyboard-like semantics.
+ });
+ button.addEventListener('pointercancel',()=>{pressed=null;});
+ button.addEventListener('click',()=>{
+  // Android may emit a click AFTER the successful pointerup/rAF.
+  if(Date.now()-lastTouchNavigation<750)return;
+  run();
  });
 }

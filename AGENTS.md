@@ -1,3 +1,12 @@
+## 2026-11-07: First-tap Map + no first-load camera shift (mobile)
+
+- Top-of-screen alignment fix remains in place.
+- `src/client/view-navigation.ts` removes fragile pointer capture, `preventDefault`, viewport-relative endpoint checks and execution-time button disabled/connected guards. It accepts the first 24px-max-movement touch pointerup, queues a single next-frame view change, and ignores subsequent Android synthetic clicks for 750ms. Native mouse/keyboard click is preserved; canceled/swipe touches cannot navigate. Regression tests cover loss of button enabled/connected state after intent acceptance.
+- Last-loaded `src/client/viewport-layout.css` now uses identical **absolute inset** (inside flex-controlled board shell) for both Board and World, eliminating the sizing feedback loop from Board's previous flex:1 / height:0 and canvas height:100%.
+- The Board scene applies a `viewport-settling` veil during first mount, view transitions, and async Three renderer initialization; the veil is removed only after a stable host measurement and complete paint. This avoids exposing intermediate Three camera projections for either map view. Existing `board-three-pending` and `world-three-pending` remain separate for WebGL lazy-load fallback.
+- Keep unchanged: four-player gameplay, robot send flow, Board 3D FOV, orbit, gallery numbers, world assets, lobby scroll reset and `#app` fixed viewport.
+- CI unit tests and static style checks required. Android real first-load/first-tap visual and FPS still require device acceptance.
+
 ## 2026-11-07: HOTFIX — Shared viewport top clipped in both Board/World
 
 - User reports that the TOP of both game views is invisible, as though the whole screen shifted UP. Do not keep changing each Three.js camera to compensate for a common viewport offset.

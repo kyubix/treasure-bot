@@ -90,3 +90,49 @@
   overflow:hidden;
  }
 }
+
+/* The Board and World are now exactly the same viewport geometry.
+ * Absolute fill decouples Phaser canvas intrinsic dimensions from flexbox,
+ * eliminating the first-load size-feedback that changed the 3D camera.
+ * Preserve the scroll/top-viewport fix in the rules above. */
+@media(max-width:900px){
+ body.in-game #match .match-grid,
+ body.in-game #match .board-shell{
+  flex:1 1 0!important;
+  min-height:0!important;
+  max-height:100%!important;
+ }
+ body.in-game #match .board-shell{
+  position:relative!important;
+  overflow:hidden;
+ }
+ body.in-game #match[data-view="board"] .board-shell #board,
+ body.in-game #match[data-view="world"] .board-shell #board{
+  display:block!important;
+  position:absolute!important;
+  inset:3px!important;
+  flex:none!important;
+  width:auto!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  touch-action:none;
+ }
+ body.in-game #match #openWorld,
+ body.in-game #match #backBoard{
+  touch-action:manipulation;
+ }
+}
+/* Do not reveal any interim Phaser/Three camera projection while the host's
+ * first flex layout is settling. Keeps old size visible only as a veil. */
+#match #board.viewport-settling::after{
+ content:"";
+ position:absolute;inset:0;z-index:7;pointer-events:none;
+ background:linear-gradient(165deg,#7caeb4,#87bbc2 52%,#568e9f);
+}
+#match[data-view="world"] #board.viewport-settling::after{
+ background:linear-gradient(155deg,#4c9abb,#2b6e91 53%,#1f5377);
+}

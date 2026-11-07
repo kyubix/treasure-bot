@@ -52,7 +52,10 @@ export class BoardScene extends Phaser.Scene {
   setThreeLayer(layer:WorldThreeLayer):void{
     this.threeLayer?.dispose();
     this.threeLayer=layer;
-    if(this.sys.isActive()&&this.view==='world')this.scheduleLayoutPaint();
+    if(this.sys.isActive()&&this.view==='world'){
+      this.game.canvas.parentElement?.classList.add('viewport-settling');
+      this.scheduleLayoutPaint();
+    }
   }
   disposeWorldPreview():void{
     this.threeLayer?.dispose();
@@ -61,7 +64,10 @@ export class BoardScene extends Phaser.Scene {
   setBoardThreeLayer(layer:ThreeBoardVisual):void{
     this.boardThree?.dispose();
     this.boardThree=layer;
-    if(this.sys.isActive()&&this.view==='board')this.scheduleLayoutPaint();
+    if(this.sys.isActive()&&this.view==='board'){
+      this.game.canvas.parentElement?.classList.add('viewport-settling');
+      this.scheduleLayoutPaint();
+    }
   }
   disposeBoardThreeLayer():void{
     this.boardThree?.dispose();
@@ -102,7 +108,9 @@ export class BoardScene extends Phaser.Scene {
       if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);
       this.layoutFrame=0;
     });
-    // First scene draw waits for stable mobile flex layout.
+    // The first camera view remains covered until the board host size
+    // finishes settling. No visible 640×480-to-portrait jump.
+    this.game.canvas.parentElement?.classList.add('viewport-settling');
     this.scheduleLayoutPaint();
   }
   private orbitDown(pointer:Phaser.Input.Pointer):void{
@@ -178,7 +186,8 @@ export class BoardScene extends Phaser.Scene {
         }
         this.paint(true);
       }finally{
-        // Rendering/resize errors must not permanently freeze navigation.
+        // A rendering error must not trap the whole interface behind a veil.
+        this.game.canvas.parentElement?.classList.remove('viewport-settling');
         this.layoutFrame=0;
       }
     };
@@ -241,6 +250,7 @@ export class BoardScene extends Phaser.Scene {
       // command rows appear, but the world itself must be painted now.
       this.display?.setVisible(false);
       const host=this.game.canvas.parentElement;
+      host?.classList.add('viewport-settling');
       if(host){
         const target=boardViewportDimensions(host);
         if(host.clientWidth>=40&&host.clientHeight>=40&&
@@ -612,6 +622,8 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   // scene paint is covered until the lazy-loaded Three renderer draws.
   if(board3D)element.classList.add('board-three-pending');
   if(map3D)element.classList.add('world-three-pending');
+  // Covers the initial Phaser canvas until its flex container has a stable size.
+  element.classList.add('viewport-settling');
   const scene=new BoardScene(onSelect,onTravelEnd);
   // Phaser's initial canvas must match the actual responsive container,
   // not the old 640×480 desktop seed that visibly stretches on Android.
@@ -675,6 +687,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
       destroyed=true;
       element.classList.remove('board-three-pending');
       element.classList.remove('world-three-pending');
+      element.classList.remove('viewport-settling');
       game.destroy(true);
       // The Three layer's lifecycle follows the Phaser scene and host.
       // The wrapper below also permits a late import to be cancelled.
