@@ -1,3 +1,12 @@
+## 2026-11-07: V6 stylized detailed 3D environment upgrade (Android QA pending)
+
+- **Not PS1**. Read `docs/VISUAL_STYLE_GUIDE.md` and `docs/WORLD_MAP_V6_DETAILED_ENVIRONMENT.md` before continuing.
+- Procedural mountain contours improved with smooth eroded profiles and gradient rock coloring; common heightfield remains the source of truth for ground/waterfall/sites.
+- Instanced detailed broadleaf/pine forest replaces hundreds of primitive tree draw calls; placement keeps clear of outer board and pond. Two instanced meshes and stage palettes. Trees are static to reduce mobile animation cost; original lighthouse animation remains.
+- Waterfall adds attached moving glints with no separate RAF loop and no per-frame allocations of scene meshes.
+- No gameplay, economy, Gallery, server, input, or map path changes.
+- Test and build through CI; real Android screenshots/360-degree orbit and FPS still unverified.
+
 ## APPROVED 2026-11-07 — NEW VISUAL DIRECTION: STYLIZED DETAILED 3D
 
 The user **explicitly rejected PS1/retro low-poly**. All future Treasure Bots

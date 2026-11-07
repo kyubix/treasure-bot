@@ -35,12 +35,17 @@ function smooth(a:number,b:number,x:number):number{
 }
 function mountain(x:number,z:number,cx:number,cz:number,r:number,h:number):number{
   const dx=x-cx,dz=z-cz,angle=Math.atan2(dz,dx);
-  const uneven=1+.085*Math.sin(angle*6+cx*2)+.045*Math.sin(angle*11+cz*3);
+  // Domain-warped contours produce rounded shelves, gullies and shoulders
+  // rather than the previous three concentric, horizontal mesa layers.
+  const warp=(fbm(x*1.7+cx,z*1.7+cz)-.5)*.085;
+  const uneven=1+.09*Math.sin(angle*6+cx*2)+.05*Math.sin(angle*11+cz*3)+warp;
   const d=Math.hypot(dx,dz)/(r*uneven);
-  const lower=1-smooth(.53,1.01,d);
-  const middle=1-smooth(.30,.57,d);
-  const summit=1-smooth(.12,.32,d);
-  return h*(.28*lower+.39*middle+.33*summit);
+  const foothill=1-smooth(.66,1.06,d);
+  const body=1-smooth(.20,.93,d);
+  const peak=1-smooth(.035,.48,d);
+  const erosion=(.035*Math.sin(angle*7+d*10+cx)
+    +.025*Math.cos(angle*11-d*8+cz))*Math.max(0,1-d);
+  return h*Math.max(0,.17*foothill+.42*body+.41*peak+erosion);
 }
 export function terrainHeight(x:number,z:number,shape:MapShapeId='RING'):number{
   const micro=(fbm(x*1.16,z*1.16)-.5)*.065;
@@ -89,10 +94,13 @@ export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
       normals.push(-dx*inv,inv,-dz*inv);
       const rocky=smooth(.43,.93,slope);
       const colourNoise=fbm(x*3.9,z*3.9);
-      tint.copy(baseGrass).lerp(sunGrass,.22+.62*colourNoise);
+      const broadNoise=fbm(x*1.7+11,z*1.7-7);
+      tint.copy(baseGrass).lerp(sunGrass,.18+.58*colourNoise+.08*broadNoise);
       tint.lerp(soil,Math.max(0,.18-.15*colourNoise));
       rockTint.copy(rock).lerp(rockLight,.20+.45*colourNoise);
-      tint.lerp(rockTint,rocky*(.80+.15*smooth(.7,1.4,h)));
+      const heightRock=smooth(.90,1.85,h)*.22;
+      tint.lerp(rockTint,THREE.MathUtils.clamp(
+        rocky*(.72+.20*smooth(.7,1.4,h))+heightRock,0,.94));
       // Each stage has a recognisable original colour treatment while
       // maintaining the same gallery/road color identities.
       if(shape==='LAGOON')tint.lerp(lagoonTint,.12);

@@ -20,9 +20,11 @@ export function waterfallPoint(t:number,side=0,shape:MapShapeId='RING'):THREE.Ve
   // the same central clearing without introducing floating water tiles.
   const source=shape==='LAGOON'?{x:-.72,z:.90}:
     shape==='CLOVER'?{x:-.83,z:1.01}:WATER_START;
-  const x=THREE.MathUtils.lerp(source.x,WATER_END.x,u);
-  const z=THREE.MathUtils.lerp(source.z,WATER_END.z,u)+Math.sin(u*Math.PI*1.6)*.037;
-  const width=.075+.050*Math.sin(u*Math.PI);
+  const x=THREE.MathUtils.lerp(source.x,WATER_END.x,u)
+    +Math.sin(u*Math.PI*1.9)*.045;
+  const z=THREE.MathUtils.lerp(source.z,WATER_END.z,u)
+    +Math.sin(u*Math.PI*1.6)*.061;
+  const width=.068+.061*Math.sin(u*Math.PI);
   const zz=z+side*width;
   // Always above the actual physical terrain or the near-flat lagoon.
   const ground=terrainHeight(x,zz,shape);
@@ -54,7 +56,7 @@ export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING
   geometry.computeVertexNormals();
   const material=new THREE.MeshStandardMaterial({
     vertexColors:true,transparent:true,opacity:.91,depthWrite:false,
-    roughness:.24,metalness:.03,side:THREE.DoubleSide
+    roughness:.18,metalness:.02,flatShading:false,side:THREE.DoubleSide
   });
   const mesh=new THREE.Mesh(geometry,material);
   mesh.name='waterfall-cascade';
@@ -81,6 +83,18 @@ export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING
   spray.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   spray.frustumCulled=false;
   land.add(spray);
+  // Compact glints travel downhill on the SAME heightfield ribbon. All
+  // buffers are allocated once, not rebuilt during the 24 FPS update.
+  const glints=new THREE.InstancedMesh(
+    new THREE.SphereGeometry(.018,6,4),
+    new THREE.MeshBasicMaterial({
+      color:0xc9ffff,transparent:true,opacity:.58,depthWrite:false
+    }),24
+  );
+  glints.name='waterfall-flow-glints';
+  glints.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  glints.frustumCulled=false;
+  land.add(glints);
   const matrix=new THREE.Matrix4();
   const colour=geometry.getAttribute('color') as THREE.BufferAttribute;
   const blend=new THREE.Color();
@@ -110,6 +124,19 @@ export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING
       spray.setMatrixAt(i,matrix);
     }
     spray.instanceMatrix.needsUpdate=true;
+    for(let i=0;i<glints.count;i++){
+      const flow=(time*.30+i*.079)%1;
+      const channel=Math.sin(i*2.31)*.75;
+      const p=waterfallPoint(flow,channel,shape);
+      // Elongated highlights follow the direction of the falling stream.
+      matrix.compose(
+        new THREE.Vector3(p.x,p.y+.018,p.z),
+        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),.72),
+        new THREE.Vector3(.65,1,.36+Math.sin(i*1.7+time*8)*.12)
+      );
+      glints.setMatrixAt(i,matrix);
+    }
+    glints.instanceMatrix.needsUpdate=true;
     const swell=.9+.22*Math.sin(time*3.6);
     base.scale.set(swell,swell,1);
   }
