@@ -10,7 +10,9 @@ import {createOriginalActor,disposeActorModel,styleAvatarModel} from './world-ma
 import type {ActorModel,ActorKind} from './world-map-models.ts';
 import {loadActorAsset} from './world-map-actor-assets.ts';
 
+export type BoardDiceGesture='holding'|'throwing'|null;
 export interface ThreeBoardVisual {
+ setDiceGesture(phase:BoardDiceGesture):void;
  draw(state:GameState|null,width:number,height:number,focus:number,
   travelingPlayer:string|null,launchProgress:number|null,launchPlayerId:string|null):boolean;
  visible(value:boolean):void;
@@ -228,6 +230,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  let destroyed=false,visible=false,contextLost=false;
  let sizeW=0,sizeH=0,raf=0,lastTime=0,lastRender=0;
  let mixerElapsed=0,lastExternalDraw=-Infinity,lastHudKey='';
+ let diceGesture:BoardDiceGesture=null,gestureStrength=0;
+ let currentAvatarId:string|null=null;
  let animate=true;
  const handleLost=(event:Event)=>{event.preventDefault();contextLost=true;stop();canvas.style.display='none';hud.style.display='none';};
  const handleRestored=()=>{contextLost=false;if(visible)start();};
@@ -296,7 +300,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
   lastTime=timestamp;
   mixerElapsed+=delta;
   const walking=[...actors.values()].some(pair=>pair.player.active==='walk');
-  const interval=1000/(walking?60:30);
+  const raised=diceGesture==='holding'||gestureStrength>.012;
+  const interval=1000/(walking||raised?60:30);
   if(timestamp-lastRender>=interval){
    lastRender=timestamp;
    // Accumulate elapsed time across skipped callback frames.
@@ -304,6 +309,19 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    for(const pair of actors.values()){
     pair.player.mixer.update(frameDelta);
     pair.robot.mixer.update(frameDelta);
+   }
+   // Lift the actor's real arm joints overhead on hold. When throwing,
+   // ease the arms back down over a few frames to complete the gesture.
+   const targetStrength=diceGesture==='holding'?1:0;
+   gestureStrength=THREE.MathUtils.damp(
+    gestureStrength,targetStrength,targetStrength?12:14,frameDelta);
+   if(currentAvatarId&&gestureStrength>.004){
+    const rig=actors.get(currentAvatarId)?.player;
+    for(const side of ['Left','Right'] as const){
+     const arm=rig?.model.scene.getObjectByName(side+'Arm');
+     if(arm)arm.rotation.x=THREE.MathUtils.lerp(
+      arm.rotation.x,-2.35,gestureStrength);
+    }
    }
    if(landmark&&currentLandmark==='event'){
     const obj=landmark.children[1];
@@ -349,6 +367,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  }
  const syncActors=(state:GameState,focus:number,traveler:string|null,
   launch:number|null,launchOwner:string|null)=>{
+  currentAvatarId=state.players[state.currentPlayerIndex]?.id??null;
   const present=new Set(state.players.map(p=>p.id));
   for(const [id,pair] of actors)if(!present.has(id)){
    disposeRig(pair.player);disposeRig(pair.robot);actors.delete(id);
@@ -381,7 +400,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    pair.robot.root.position.set(x+.32,.27,1.24);
    pair.robot.root.rotation.y=walking?(direction===1?-Math.PI/2:Math.PI/2):0;
    pair.robot.root.visible=!p.robot.mission&&!(launch!==null&&launchOwner===p.id);
-   pose(pair.player,walking?'walk':'idle');
+   pose(pair.player,diceGesture==='holding'&&
+     p.id===currentAvatarId?'search':walking?'walk':'idle');
    pose(pair.robot,walking?'walk':'idle');
    pair.player.root.visible=Math.abs(offset)<8.5;
    pair.robot.root.visible=pair.robot.root.visible&&Math.abs(offset)<8.5;
@@ -427,6 +447,11 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     'stroke="#fcdb99" stroke-width="2"/>'+circles+'</svg></div>';
  };
  return {
+  setDiceGesture(phase){
+   diceGesture=phase;
+   if(!phase)gestureStrength=0;
+   if(visible)start();
+  },
   draw(state,width,height,focus,traveler,launch,launchId){
    if(destroyed||contextLost)return false;
    const w=Math.round(width),h=Math.round(height);

@@ -10,7 +10,7 @@ import type { BoardBiome } from './board-environment.ts';
 import type { GameState, TileType } from '../engine/types.ts';
 import { drawWorldIsland } from './world-map.ts';
 import type { WorldThreeLayer } from './world-map-three.ts';
-import type { ThreeBoardVisual } from './board-view-three.ts';
+import type { ThreeBoardVisual,BoardDiceGesture } from './board-view-three.ts';
 
 export type GameView = 'board' | 'world';
 
@@ -43,6 +43,7 @@ export class BoardScene extends Phaser.Scene {
   private layoutFrame=0;
   private threeLayer:WorldThreeLayer|null=null;
   private boardThree:ThreeBoardVisual|null=null;
+  private diceGesture:BoardDiceGesture=null;
   private orbitTouches=new Map<number,{x:number;y:number}>();
   private orbitMoved=0;
   private lastPinchDistance=0;
@@ -65,6 +66,7 @@ export class BoardScene extends Phaser.Scene {
   setBoardThreeLayer(layer:ThreeBoardVisual):void{
     this.boardThree?.dispose();
     this.boardThree=layer;
+    layer.setDiceGesture(this.diceGesture);
     if(this.sys.isActive()&&this.view==='board'){
       this.game.canvas.parentElement?.classList.add('viewport-settling');
       this.scheduleLayoutPaint();
@@ -75,6 +77,12 @@ export class BoardScene extends Phaser.Scene {
     this.boardThree=null;
   }
   isLaunching():boolean{return this.launchProgress!==null;}
+  setDiceGesture(phase:BoardDiceGesture):void{
+    this.diceGesture=phase;
+    this.boardThree?.setDiceGesture(phase);
+    if(this.sys.isActive()&&this.view==='board'&&!this.layoutFrame)
+      this.paintMotionFrame();
+  }
   launchRobot(playerId:string):void {
     if(!this.sys.isActive())return;
     if(this.view!=='board')this.setView('board');
@@ -631,6 +639,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   isMoving():boolean;
   isLaunching():boolean;
   launchRobot(playerId:string):void;
+  setDiceGesture(phase:BoardDiceGesture):void;
   destroy():void;
 }{
   // Both World Map and Board View use Three.js by default. Keep independent
@@ -703,6 +712,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     isMoving(){return scene.isMoving();},
     isLaunching(){return scene.isLaunching();},
     launchRobot(id){scene.launchRobot(id);},
+    setDiceGesture(phase){scene.setDiceGesture(phase);},
     destroy(){
       destroyed=true;
       element.classList.remove('board-three-pending');

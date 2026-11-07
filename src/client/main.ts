@@ -14,6 +14,7 @@ import './viewport-layout.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
 import {matchingRollPointer,accessibleRollClick} from './dice-intent.ts';
 import type {DicePhase,DiceThreeVisual} from './dice-three.ts';
+import {diceResultRevealDelayMs} from './dice-timing.ts';
 import {bindViewNavigation} from './view-navigation.ts';
 import {resetMatchViewportScroll} from './match-viewport.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
@@ -58,6 +59,9 @@ let diceThreeFailed=false;
 let diceThreeGeneration=0;
 let requestedDicePhase:DicePhase|null=null;
 let requestedDiceFaces:readonly [number,number]|undefined;
+let diceThrowStartedAt=0;
+let diceResultPresentationTimer:ReturnType<typeof setTimeout>|null=null;
+let diceBoardMovementDeferred=false;
 let shopOfferTimer:ReturnType<typeof setTimeout>|null=null;
 let lastDiceEvent='';
 let lastShopOffer='';
@@ -189,7 +193,7 @@ root.innerHTML=`
           </svg>
           <div class="shop-cinematic-avatar"><span class="cin-hair"></span><span class="cin-head"></span><span class="cin-body"></span><span class="cin-feet"></span></div>
         </div>
-        <div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside id="gameInfo" class="sidebar"><div class="drawer-head"><strong data-i18n="details"></strong><button id="closeInfo" class="drawer-close" type="button" aria-label="Close">×</button></div><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="openShop" class="secondary" data-i18n="shop"></button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label" hidden></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary roll-press dice-roll-control" type="button" aria-describedby="rollHelp"><span class="dice-button-symbol" aria-hidden="true">🎲</span><span id="rollLabel" data-i18n="holdRoll"></span></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p><span id="rollHelp" class="sr-only" data-i18n="holdRoll"></span></div></section>
+        <div class="legend"><span><i class="leg gallery"></i> Gallery</span><span><i class="leg shop"></i> Shop</span><span><i class="leg event"></i> Event</span><span><i class="leg support"></i> Support</span></div></div><aside id="gameInfo" class="sidebar"><div class="drawer-head"><strong data-i18n="details"></strong><button id="closeInfo" class="drawer-close" type="button" aria-label="Close">×</button></div><div class="card"><div class="panel-heading"><h3 data-i18n="players"></h3><span id="dice" class="dice"></span></div><div id="players" class="roster"></div></div><div class="card robot-card"><div class="panel-heading"><h3 data-i18n="workshop"></h3><span>⚙</span></div><div id="robotWorkshop" class="robot-workshop"></div></div><div class="card"><h3 data-i18n="inventory"></h3><div id="inventory" class="inventory"></div></div><div class="card"><h3 data-i18n="feed"></h3><div id="feed" class="feed"></div></div></aside></div><div class="controls"><div class="action-row" id="boardCommands"><button id="openWorld" class="primary" data-i18n="openMap"></button><button id="returnRobot" class="secondary">Return robot</button><button id="openShop" class="secondary" data-i18n="shop"></button></div><div class="action-row" id="worldCommands" hidden><button id="backBoard" class="secondary" data-i18n="backToBoard"></button><span id="selectedSite" class="target-label" hidden></span><button id="sendRobot" class="primary" data-i18n="send"></button></div><div class="action-row" id="turnCommands"><button id="roll" class="primary roll-press dice-roll-control" type="button" aria-describedby="rollHelp"><span class="dice-button-symbol" aria-hidden="true">✦</span><span id="rollLabel" data-i18n="holdRoll"></span></button><button id="end" class="primary gold" data-i18n="end"></button></div><p class="hint" id="actionHint" data-i18n="help"></p><span id="rollHelp" class="sr-only" data-i18n="holdRoll"></span></div></section>
     <div id="infoBackdrop" class="info-backdrop" hidden></div>
     <div id="settingsOverlay" class="settings-backdrop" hidden>
       <section class="settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -275,19 +279,34 @@ function setInfoOpen(open:boolean,restoreFocus=true):void {
 function syncDiceThree(phase:DicePhase,faces?:readonly [number,number]):void{
   requestedDicePhase=phase;
   requestedDiceFaces=faces;
-  if(diceThree){diceThree.setPhase(phase,faces);return;}
+  const overlay=el('diceOverlay');
+  overlay.classList.add('dice-3d-intended');
+  overlay.classList.toggle('dice-render-fallback',diceThreeFailed);
+  if(diceThree){
+    diceThree.setPhase(phase,faces,diceThrowStartedAt||undefined);
+    return;
+  }
   if(diceThreeLoading||diceThreeFailed)return;
   const generation=diceThreeGeneration;
   diceThreeLoading=import('./dice-three.ts').then(({createDiceThreeVisual})=>{
     if(generation!==diceThreeGeneration)return;
     const visual=createDiceThreeVisual(el('diceThreeHost'));
-    if(!visual){diceThreeFailed=true;return;} // Keep number-face fallback.
+    if(!visual){
+      diceThreeFailed=true;
+      el('diceOverlay').classList.add('dice-render-fallback');
+      return;
+    } // Keep number-face fallback only if WebGL cannot load.
     diceThree=visual;
     el('diceOverlay').classList.add('has-three-dice');
-    if(requestedDicePhase&&!el('diceOverlay').hidden)
-      visual.setPhase(requestedDicePhase,requestedDiceFaces);
-    else visual.pause();
-  }).catch(()=>{diceThreeFailed=true;}).finally(()=>{
+    if(requestedDicePhase&&!el('diceOverlay').hidden){
+      if(requestedDicePhase==='result'&&diceThrowStartedAt)
+        visual.setPhase('throwing',undefined,diceThrowStartedAt);
+      visual.setPhase(requestedDicePhase,requestedDiceFaces,diceThrowStartedAt||undefined);
+    }else visual.pause();
+  }).catch(()=>{
+    diceThreeFailed=true;
+    el('diceOverlay').classList.add('dice-render-fallback');
+  }).finally(()=>{
     if(generation===diceThreeGeneration)diceThreeLoading=null;
   });
 }
@@ -303,7 +322,8 @@ function disposeDiceThree():void{
   diceThree=null;
   diceThreeLoading=null;
   diceThreeFailed=false;
-  el('diceOverlay').classList.remove('has-three-dice');
+  el('diceOverlay').classList.remove(
+    'has-three-dice','dice-3d-intended','dice-render-fallback');
 }
 function diceIdle():void {
   if(dicePreview){clearInterval(dicePreview);dicePreview=null;}
@@ -313,22 +333,46 @@ function diceIdle():void {
 function revealDice(first:number,second:number):void {
   diceIdle();
   if(diceHideTimer)clearTimeout(diceHideTimer);
+  if(diceResultPresentationTimer)clearTimeout(diceResultPresentationTimer);
   const box=el('diceOverlay');
   box.hidden=false;
-  box.dataset.phase='result';
   el('dieOne').textContent=String(first);
   el('dieTwo').textContent=String(second);
-  el('diceTotal').textContent='= '+String(first+second);
+  // Accept the server's real faces now, but hold the DISPLAYED result
+  // until both dice have traveled down onto the Board floor and settled.
   syncDiceThree('result',[first,second]);
-  diceHideTimer=setTimeout(()=>{
-    if(box.dataset.phase==='result'){box.hidden=true;pauseDiceThree();}
-  },2100);
+  const elapsed=diceThrowStartedAt?
+    performance.now()-diceThrowStartedAt:Infinity;
+  const delay=diceResultRevealDelayMs(elapsed);
+  const finish=()=>{
+    diceResultPresentationTimer=null;
+    box.dataset.phase='result';
+    el('diceTotal').textContent='= '+String(first+second);
+    diceBoardMovementDeferred=false;
+    diceThrowStartedAt=0;
+    board?.setDiceGesture(null);
+    // Authoritative movement only begins AFTER the 3D throw/landing.
+    if(state)render();
+    diceHideTimer=setTimeout(()=>{
+      if(box.dataset.phase==='result'){
+        box.hidden=true;pauseDiceThree();
+      }
+    },1650);
+  };
+  if(delay>0){
+    box.dataset.phase='throwing';
+    el('diceTotal').textContent=t('rolling');
+    diceResultPresentationTimer=setTimeout(finish,delay);
+  }else finish();
 }
 function beginDiceHold():void {
   const s=state;
   if(!s||s.phase!=='playing'||s.rolled||viewMode!=='board'||busy||settingsOpen||infoOpen||shopOpen||
     s.players[s.currentPlayerIndex]?.id!==s.yourId||diceHeld)return;
   diceHeld=true;
+  diceThrowStartedAt=0;
+  diceBoardMovementDeferred=false;
+  board?.setDiceGesture('holding');
   const box=el('diceOverlay');
   box.hidden=false;
   box.dataset.phase='holding';
@@ -348,20 +392,29 @@ function cancelDiceHold():void {
   diceIdle();
   el('diceOverlay').hidden=true;
   pauseDiceThree();
+  board?.setDiceGesture(null);
 }
 function releaseDiceHold():void {
   if(!diceHeld)return;
   diceIdle();
   lastRollRelease=Date.now();
+  diceThrowStartedAt=performance.now();
+  diceBoardMovementDeferred=true;
+  board?.setDiceGesture('throwing');
   const overlay=el('diceOverlay');
   overlay.hidden=false;
-  overlay.dataset.phase='waiting';
+  overlay.dataset.phase='throwing';
   el('diceTotal').textContent=t('rolling');
-  syncDiceThree('waiting');
+  syncDiceThree('throwing');
   void sendAction({type:'ROLL'});
   setTimeout(()=>{
-    if(overlay.dataset.phase==='waiting'){
+    if(overlay.dataset.phase==='throwing'&&!diceResultPresentationTimer){
+      // Server unavailable: stop a perpetual visual spin. UI error
+      // handling still belongs to sendAction().
       overlay.hidden=true;pauseDiceThree();
+      diceBoardMovementDeferred=false;
+      diceThrowStartedAt=0;
+      board?.setDiceGesture(null);
     }
   },3500);
 }
@@ -590,7 +643,8 @@ function render():void {
     (s.winnerId?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:'DRAW · tied wealth'):
     `${activePlayer.slot??(s.currentPlayerIndex+1)}P · ${activePlayer.name}${mine?` (${t('you')})`:''}`;
   el('turnBadge').textContent=s.phase==='finished'?'🏆':activePlayer.isBot?'CPU TURN':!mine?'WAITING':dispatchAnimating?t('launching'):!s.rolled&&selfLaunchMission(s)?'ROLL DICE':'YOUR TURN';
-  el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
+  el('dice').textContent=s.dice&&!diceBoardMovementDeferred?
+    `🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
   const cpuActive=s.phase==='playing'&&activePlayer.isBot;
   el('cpuStatus').hidden=!cpuActive;
   if(cpuActive)el('cpuStatus').textContent=cpuStatusText(s);
@@ -604,7 +658,7 @@ function render():void {
   if(s.rolled&&s.dice){
     const diceKey=s.code+':'+s.turn+':'+s.currentPlayerIndex+':'+s.dice.join(',');
     if(lastDiceEvent!==diceKey){lastDiceEvent=diceKey;revealDice(s.dice[0],s.dice[1]);}
-    offerShopAfterMovement(s);
+    if(!diceBoardMovementDeferred)offerShopAfterMovement(s);
   }
   if(!s.shopOffer&&shopDecisionOpen)setShopDecisionOpen(false);
   syncShop();
@@ -639,10 +693,12 @@ function render():void {
   el('worldCommands').hidden=!isWorld;
   el('turnCommands').hidden=isWorld;
   el('actionHint').textContent=isWorld?t('targetHint'):t('help');
-  el<HTMLButtonElement>('openWorld').disabled=s.phase!=='playing'||shopOpen||shopDecisionOpen||cinematicPlaying||dispatchAnimating;
+  el<HTMLButtonElement>('openWorld').disabled=s.phase!=='playing'||shopOpen||shopDecisionOpen||cinematicPlaying||dispatchAnimating||diceBoardMovementDeferred;
   el<HTMLButtonElement>('roll').disabled=!canAct||s.rolled;
-  el('rollLabel').textContent=s.rolled&&s.dice?`${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:t('holdRoll');
-  el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled||!!s.shopOffer||s.shopAccess||(s.pendingSteps??0)>0;
+  el('rollLabel').textContent=s.rolled&&s.dice&&!diceBoardMovementDeferred?
+    `${s.dice[0]} + ${s.dice[1]} = ${s.dice[0]+s.dice[1]}`:
+    diceBoardMovementDeferred?t('rolling'):t('holdRoll');
+  el<HTMLButtonElement>('end').disabled=!canAct||!s.rolled||diceBoardMovementDeferred||!!s.shopOffer||s.shopAccess||(s.pendingSteps??0)>0;
   el<HTMLButtonElement>('end').textContent=mine&&!s.rolled?t('rollFirst'):t('end');
   const site=s.islandSpots.find(spot=>spot.id===selectedSiteId);
   const terrainRank=site&&self?terrainGrade(self.robot.chassis,site.ground):null;
@@ -664,10 +720,15 @@ function render():void {
     galleryDialog.open(s,ownPending);
   if(!board){
     board=mountBoard(el('board'),id=>{selectedSiteId=id;if(state)render();},()=>{if(state)render();});
-    requestAnimationFrame(()=>{if(state){board?.setView(viewMode);board?.update(state);}});
+    requestAnimationFrame(()=>{
+      if(state){
+        board?.setView(viewMode);
+        if(!diceBoardMovementDeferred)board?.update(state);
+      }
+    });
   }else{
     board.setView(viewMode);
-    board.update(s);
+    if(!diceBoardMovementDeferred)board.update(s);
   }
   if(dispatchAnimating||board?.isMoving()){
     el<HTMLButtonElement>('end').disabled=true;
@@ -830,7 +891,13 @@ function init():void {
     else if(infoOpen)setInfoOpen(false);
   });
   el<HTMLButtonElement>('share').onclick=async()=>{if(!state)return;const invite=gameUrl(state.code);try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{toast(invite);}};
-  el<HTMLButtonElement>('leave').onclick=()=>{resetDispatch();diceIdle();disposeDiceThree();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',(threePreviewParam||boardLegacyParam)?'/?'+[threePreviewParam,boardLegacyParam].filter(Boolean).map(x=>x.slice(1)).join('&'):'/');status(false);render();};
+  el<HTMLButtonElement>('leave').onclick=()=>{
+    resetDispatch();diceIdle();
+    if(diceResultPresentationTimer)clearTimeout(diceResultPresentationTimer);
+    diceResultPresentationTimer=null;diceBoardMovementDeferred=false;
+    diceThrowStartedAt=0;
+    board?.setDiceGesture(null);
+    disposeDiceThree();if(shopOfferTimer)clearTimeout(shopOfferTimer);if(diceHideTimer)clearTimeout(diceHideTimer);shopOpen=false;el('shopOverlay').hidden=true;setShopDecisionOpen(false);cinematicPlaying=false;if(shopEntranceTimer)clearTimeout(shopEntranceTimer);el('shopCinematic').hidden=true;lastShopSteps=0;lastShopOffer='';lastCpuVisualStep=0;setSettingsOpen(false);setInfoOpen(false);galleryDialog.close();if(state)localStorage.removeItem(`treasure-bots-${state.code}`);socket?.close();if(poll)clearInterval(poll);board?.destroy();state=null;token='';board=null;selectedSiteId='';viewMode='board';history.replaceState(null,'',(threePreviewParam||boardLegacyParam)?'/?'+[threePreviewParam,boardLegacyParam].filter(Boolean).map(x=>x.slice(1)).join('&'):'/');status(false);render();};
   el<HTMLSelectElement>('langSelect').onchange=e=>{lang=(e.target as HTMLSelectElement).value as Lang;localStorage.setItem('treasure-bots-lang',lang);translate();if(state)galleryDialog.update(state);};
   const code=new URLSearchParams(location.search).get('room')?.toUpperCase()||'';
   if(/^[A-Z0-9]{6}$/.test(code)){

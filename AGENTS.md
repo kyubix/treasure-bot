@@ -1,3 +1,13 @@
+## 2026-11-07: Glint-inspired Board 3D dice throw sequence (v2)
+
+- User reported legacy numeric dice flashing on first held roll, requested original Glint Glitters-style colorful d6s, avatar raises hands, dice spin, then are physically thrown toward floor before numbers and walking appear.
+- `src/client/dice-three.ts`: original saturated cobalt/cyan 3D dice with white pips, rounded corners, 760ms curved throwing trajectory and 520ms damped floor bounce/settle. It queues server-authoritative face quaternions if response arrives mid-air. No RNG used to determine results.
+- `src/client/dice-timing.ts`: pure display pacing helpers, shared by main and dice renderer. Server ROLL action remains immediate and unchanged.
+- `src/client/main.ts`: keep `dice-3d-intended` active from **first hold**; hide numeric fallbacks during async import; reveal them only after WebGL failure. Avatar Board gesture gets holding/throwing phases. Numeric result, Phaser board state update and shop offer presentation wait until floor settling. Backend turn logic unaffected. Restore idle gesture on cancel/end/leave. Loading late still replays throw with original release time.
+- `src/client/board.ts` + `src/client/board-view-three.ts`: 3D avatar LeftArm and RightArm raise smoothly with mixer search pose, then lower on throw. Works on both procedural actors and GLTF. Does not affect world map or walking except deliberately deferring visual walk until dice settle.
+- `src/client/dice-three.css`: original die face boxes hidden pre-load, phase-specific positioning toward Board floor. Current blue/cyan palette is original artwork informed by Glint Glitters' bright tone, *not* a verified exact face color match.
+- Tests: `tests/dice-throw-cinematic.test.ts`. Docs: `docs/DICE_THROW_CINEMATIC_V2.md`. Manual Android video still needed for visual placement and exact animation fidelity; do not claim device visual proof from CI.
+
 ## 2026-11-07: Three.js rolling dice visual
 
 - User requested dice visualization as real Three.js instead of numeric tiles. Implemented a lightweight **two-die 3D overlay** with original cream/ivory rounded meshes, six dark pip textures each, key/fill lighting, roll-to-server-result quaternion settling.

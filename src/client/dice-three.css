@@ -58,3 +58,43 @@
 @media(prefers-reduced-motion:reduce){
   #roll.is-held .dice-button-symbol{animation:none}
 }
+
+/* V2: one continuous on-board throw. Never show the old numeric dice
+ * before Three.js has loaded. Numeric fallback is WebGL-failure ONLY. */
+.dice-overlay{
+  top:19%;
+  transition:top .34s cubic-bezier(.3,.01,.7,1);
+}
+.dice-overlay[data-phase="throwing"],
+.dice-overlay[data-phase="waiting"],
+.dice-overlay[data-phase="result"]{
+  top:45%;
+}
+.dice-overlay.dice-3d-intended:not(.dice-render-fallback) .die-face{
+  display:none!important;
+}
+.dice-overlay.dice-3d-intended:not(.has-three-dice):not(.dice-render-fallback) .dice-three-host{
+  display:block!important;
+  background:radial-gradient(ellipse at center,#85d9ed24,transparent 68%);
+}
+.dice-overlay.has-three-dice .dice-three-host{
+  width:clamp(235px,72vw,340px);
+  height:clamp(146px,44vw,205px);
+}
+.dice-overlay[data-phase="throwing"] .dice-total,
+.dice-overlay[data-phase="waiting"] .dice-total{
+  background:#184c77dc;
+  border-color:#7cd5ef;
+}
+.dice-overlay[data-phase="result"] .dice-total{
+  background:#16476b;
+  border-color:#f6d45a;
+}
+#roll .dice-button-symbol{
+  color:#f7e29b;
+  font-size:clamp(22px,5vw,30px);
+  text-shadow:0 1px 3px #1e527b;
+}
+@media(prefers-reduced-motion:reduce){
+ .dice-overlay{transition:none!important}
+}
