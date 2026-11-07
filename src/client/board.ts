@@ -171,12 +171,16 @@ export class BoardScene extends Phaser.Scene {
       // Mark in-flight to suppress the synchronous Phaser Scale.resize event.
       // The final paint is produced only after the new canvas size is applied.
       this.layoutFrame=-1;
-      if(Math.abs(this.scale.width-width)>1||
-         Math.abs(this.scale.height-height)>1){
-        this.scale.resize(width,height);
+      try{
+        if(Math.abs(this.scale.width-width)>1||
+           Math.abs(this.scale.height-height)>1){
+          this.scale.resize(width,height);
+        }
+        this.paint(true);
+      }finally{
+        // Rendering/resize errors must not permanently freeze navigation.
+        this.layoutFrame=0;
       }
-      this.paint();
-      this.layoutFrame=0;
     };
     this.layoutFrame=requestAnimationFrame(sample);
   }
@@ -232,9 +236,26 @@ export class BoardScene extends Phaser.Scene {
     this.travelingPlayer=null;
     this.visualPosition=null;
     if(this.sys.isActive()){
-      // Do not reveal a wrong-sized frame of the previous view while the
-      // flex layout replaces the board header/commands with World HUD.
+      // Navigation must NEVER wait for a mobile flexbox/visual-viewport
+      // stability loop. The layout may still change after world HUD and
+      // command rows appear, but the world itself must be painted now.
       this.display?.setVisible(false);
+      const host=this.game.canvas.parentElement;
+      if(host){
+        const target=boardViewportDimensions(host);
+        if(host.clientWidth>=40&&host.clientHeight>=40&&
+           (Math.abs(this.scale.width-target.width)>1||
+            Math.abs(this.scale.height-target.height)>1)){
+          // Suppress synchronous Phaser Scale.resize callback reentrancy.
+          const pending=this.layoutFrame;
+          this.layoutFrame=-1;
+          try{this.scale.resize(target.width,target.height);}
+          finally{this.layoutFrame=pending;}
+        }
+      }
+      this.paint(true);
+      // An additional repaint only corrects dimensions after Android
+      // browser chrome / HUD reflow; it must not block navigation.
       this.scheduleLayoutPaint();
     }
   }
@@ -257,14 +278,16 @@ export class BoardScene extends Phaser.Scene {
     }).setOrigin(.5);
     parent.add(object);return object;
   }
-  private paint():void {
-    // Never show a stale-size frame during Board -> World layout settlement.
-    if(this.layoutFrame>0)return;
+  private paint(forceTransition=false):void {
+    // An explicit Board/World navigation is painted immediately, while
+    // regular resize-driven frames still wait until the host settles.
+    if(this.layoutFrame>0&&!forceTransition)return;
     const {width:w,height:h}=this.scale;
     // Do not expose a frame rendered for a stale canvas/host dimension.
     const host=this.game.canvas.parentElement;
     const hostW=Math.round(host?.clientWidth??0),hostH=Math.round(host?.clientHeight??0);
-    if(this.layoutFrame!==-1&&hostW>=40&&hostH>=40&&
+    if(!forceTransition&&this.layoutFrame!==-1&&
+       hostW>=40&&hostH>=40&&
        (Math.abs(w-hostW)>1||Math.abs(h-hostH)>1)){
       this.scheduleLayoutPaint();
       return;

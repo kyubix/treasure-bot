@@ -14,6 +14,15 @@ import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('uses settled host dimensions across Board to World size changes',()=>{
+   // The navigated view gets its real CSS dimensions immediately; a
+   // deferred stable-layout pass may adjust the view again afterwards.
+   const before=boardViewportDimensions({clientWidth:384,clientHeight:608});
+   const world=boardViewportDimensions({clientWidth:384,clientHeight:522});
+   expect(before).toEqual({width:384,height:608});
+   expect(world).toEqual({width:384,height:522});
+   expect(world).not.toEqual(before);
+ });
  it('starts mobile board at the actual measured portrait viewport',()=>{
    expect(boardViewportDimensions({clientWidth:388,clientHeight:657}))
     .toEqual({width:388,height:657});

@@ -1,3 +1,10 @@
+## 2026-11-07: HOTFIX — Send Robot / Map navigation must not stall behind resize
+
+- User reported tapping Send Robot / Map only slightly resized Board and World never appeared after prior first-frame fix.
+- Root cause addressed: `BoardScene.setView` hid its old display then **deferred the entire view render** while waiting for up to 10 frame samples of mobile flexbox layout stability. Now view transitions immediately resize to the current measured host dimensions and call `paint(true)` (bypassing stale-size gating). A follow-up stable-layout paint still adjusts final size.
+- `scheduleLayoutPaint` now resets its in-flight sentinel in `finally`, avoiding permanent freezes if canvas resize or render throws. Regular resize-driven paints still use batching.
+- No dice, robot dispatch, turn rules, Gallery, camera orbit, scene assets or API changes. Test on Android: Board → Send Robot/Map → World visible; tap a site; Back Board works; rotate map; repeat multiple times with/without a mission. CI checks compile + logic; browser-device validation remains open.
+
 ## 2026-11-07: Board viewport regression test import correction
 
 - The cold-board viewport dimension helper is a standalone pure module `src/client/board-viewport.ts`, imported by Phaser's board.ts and by the node test. Previously the test imported it from board-view-three.ts, causing a CI TypeError; no gameplay changes.
