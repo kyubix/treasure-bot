@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 
 /** Scene-owned resources, animated by the existing 24 FPS visibility-aware loop. */
-export function createWorldAmbience(land:THREE.Group,beaconPosition:THREE.Vector3):{update(t:number):void}{
+export function createWorldAmbience(land:THREE.Group,beaconPosition:THREE.Vector3,
+ showBeacon=true):{update(t:number):void}{
   const foliage:THREE.Object3D[]=[];
   land.traverse(node=>{if(typeof node.userData.swayPhase==='number')foliage.push(node);});
   // Waterfall ribbon and impact spray are now co-located and owned by
   // world-map-waterfall.ts, avoiding V5's free-floating particle coordinates.
-  const beacon=new THREE.Group();beacon.name='lighthouse-beacon';beacon.position.copy(beaconPosition);land.add(beacon);
+  const beacon=new THREE.Group();beacon.name='lighthouse-beacon';
+  beacon.position.copy(beaconPosition);beacon.visible=showBeacon;land.add(beacon);
   const lens=new THREE.Mesh(new THREE.SphereGeometry(.075,6,4),
     new THREE.MeshBasicMaterial({color:0xffdf8d}));beacon.add(lens);
   // A short translucent beam, no expensive dynamic point light or shadow map.

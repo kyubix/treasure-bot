@@ -1,5 +1,21 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 Mobile screenshot review — board / island geometry
+
+- User observed blue ocean slivers between outer island wall and board,
+  as well as minimal scenery differences between the selected map shapes.
+- Replaced old island concentric-cliff stack by a solid continuous
+  *board-following* stage platform, plus a terrain-to-board apron.
+  Foam now sits outside the actual board-aligned wall.
+- Distinct recognizable props: Ring camp/lighthouse, Lagoon coastal
+  docks/reeds, Clover stone circle/crystals and stage pine mix.
+- Need manual Android checks: rotate full 360° on 3/4/5 Galleries
+  Ring/Lagoon/Clover, confirm no ocean between land and board and
+  no overlap of island geometry over tile colors. Verify FPS and
+  visual scale of props; scene still intentionally PS1-style.
+- Important: open items still include original game shape parity,
+  more handcrafted decorative props and waterfall smoothing.
+
 ## 2026-11-07 Stage-aware World Map V2 visual upgrade
 
 - Ring/Lagoon/Clover now reshape **actual island terrain and coast**;

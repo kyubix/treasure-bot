@@ -1,5 +1,30 @@
 # AI Agent Handoff — Treasure Bots
 
+## 2026-11-07 screenshot-driven World Map edge/decor fix
+
+- User Android screenshots showed **blue sea peeking between the perimeter
+  board and island**, particularly when camera yaw changes. User also
+  noted every map looks almost identical inside despite shape options.
+- `src/client/world-map-stage.ts` is the new world-aligned stage
+  foundation: continuous solid top/side wall follows `boardPathFrame`
+  around the entire board, with a matching grass/sand apron connecting
+  irregular terrain to the INSIDE tile trim. Do not restore the separate
+  `organicCylinder` cliff/beach/turf stack, which reintroduces seams.
+- The offshore foam band now uses board normal offsets, so shoreline
+  foam never disappears underneath the platform or cuts across
+  Gallery tiles. Existing server Gallery numbering and colors unchanged.
+- Islands now have genuinely DIFFERENT readable landmarks:
+  Ring = expedition tents/camp, ruins + lighthouse;
+  Lagoon = coastal dock, sand/lily details and reed stands;
+  Clover = violet crystal ring and standing stones; no common
+  lighthouse/ruins on the latter two. Pine/broadleaf blend differs.
+- Lighthouse ambience is hidden without the Ring lighthouse.
+- Existing game state / backcompat unaffected; Three-only environment,
+  no new dependencies, no per-frame mesh rebuild.
+- New regression tests: `tests/world-map-stage-alignment.test.ts`.
+  **Manual screenshot QA on Android required; do not claim screenshot
+  parity based on CI alone.**
+
 ## IMPLEMENTED 2026-11-07 — stage-aware world scenery V2
 
 - The selection RING / LAGOON / CLOVER now changes the **terrain,

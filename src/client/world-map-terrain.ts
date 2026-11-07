@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {stageRadialScale} from '../engine/map-shapes.ts';
+import {stageRadialScale,boardPathFrame} from '../engine/map-shapes.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
 
 /**
@@ -177,9 +177,12 @@ export function createSurfBand(shape:MapShapeId='RING'):THREE.Mesh{
   const positions:number[]=[],faces:number[]=[];
   const count=120;
   for(let i=0;i<=count;i++){
-    const a=i/count*TAU,shore=terrainRadius(a,shape)/3.17;
-    for(const r of [3.52*shore,3.72*shore]){
-      positions.push(Math.cos(a)*r,-.393,Math.sin(a)*r);
+    // The foam hugs the *true* board-facing stone foundation, not
+    // a scaled circular beach. It never disappears underneath the ring.
+    const frame=boardPathFrame(i/count,shape);
+    for(const width of [.24,.355]){
+      positions.push(frame.x+frame.nx*width,-.393,
+        frame.z+frame.nz*width);
     }
   }
   for(let i=0;i<count;i++){

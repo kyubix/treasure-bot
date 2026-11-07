@@ -8,7 +8,8 @@ import {createCascadingWaterfall} from './world-map-waterfall.ts';
 import {createWorldAmbience} from './world-map-environment.ts';
 import {createWorldActors} from './world-map-actors.ts';
 import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
-import {createTerrainMesh, addTerrainDetail, terrainHeight, terrainRadius, createSurfBand} from './world-map-terrain.ts';
+import {createTerrainMesh, addTerrainDetail, terrainHeight, terrainRadius} from './world-map-terrain.ts';
+import {createStageFoundation,createStageApron,createStageDecorations} from './world-map-stage.ts';
 
 /**
  * One original, camera-orbitable island shared by WebGL scenery and Phaser's
@@ -161,7 +162,8 @@ function forest(root:THREE.Group,x:number,z:number,count:number,seed:number,shap
     const ground=new THREE.Group();
     ground.position.y=terrainHeight(tx,tz,shape)-.421;
     root.add(ground);
-    if(i%5===3)pine(ground,tx,tz,size,seed+i);
+    if(shape==='CLOVER'?i%3===0:shape==='LAGOON'?i%8===0:i%5===3)
+      pine(ground,tx,tz,size,seed+i);
     else broadTree(ground,tx,tz,size,seed+i);
   }
 }
@@ -183,40 +185,16 @@ function lighthouse(root:THREE.Group,x:number,z:number):void{
   const top=new THREE.Mesh(new THREE.ConeGeometry(.20,.18,9),red);
   place(top,x,.80,z);root.add(top);
 }
-function organicCylinder(top:number,bottom:number,height:number,shape:MapShapeId='RING'):THREE.CylinderGeometry{
-  const geometry=new THREE.CylinderGeometry(top,bottom,height,72,1,false);
-  const positions=geometry.getAttribute('position') as THREE.BufferAttribute;
-  for(let i=0;i<positions.count;i++){
-    const x=positions.getX(i),z=positions.getZ(i);
-    const angle=Math.atan2(z,x);
-    // Same deterministic irregular shore for caps, walls and every viewpoint.
-    const scale=terrainRadius(angle,shape)/3.17;
-    positions.setX(i,x*scale);
-    positions.setZ(i,z*scale);
-  }
-  positions.needsUpdate=true;
-  geometry.computeVertexNormals();
-  return geometry;
-}
 function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
   const root=new THREE.Group();
   root.name='stage-island-'+shape.toLowerCase();
   scene.add(root);
 
-  // The same coastline mesh is rotated, never four independently generated views.
-  const under=new THREE.Mesh(organicCylinder(3.50,3.62,.62,shape),[rockShade,rockShade,rockShade]);
-  under.castShadow=true;
-  place(under,0,-.17,0);root.add(under);
-  // Foam follows the same irregular coastline instead of a perfect circle.
-  root.add(createSurfBand(shape));
-  const beach=new THREE.Mesh(organicCylinder(3.49,3.52,.19,shape),[sandy,rim,rock]);
-  place(beach,0,.14,0);root.add(beach);
-  const turf=new THREE.Mesh(organicCylinder(3.18,3.33,.24,shape),[darkGrass,grass,rock]);
-  turf.receiveShadow=true;
-  place(turf,0,.29,0);root.add(turf);
-
-  // One continuous original heightfield replaces the old cylinder mesas.
-  // The island remains a single physical object from every camera angle.
+  // A solid platform follows the EXACT board path, including its four
+  // lobes/ellipse. The foundation closes the previously exposed ocean seam.
+  // One apron joins the organic terrain edge to the inner board trim.
+  root.add(createStageFoundation(shape));
+  root.add(createStageApron(shape));
   root.add(createTerrainMesh(shape));
   addTerrainDetail(root,shape);
 
@@ -261,15 +239,19 @@ function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
     props.frustumCulled=false;root.add(props);
   }
 
-  // Put scenic buildings on the new physical terrain, not on the old disk.
-  const ruinBase=new THREE.Group();
-  ruinBase.position.y=terrainHeight(2.10,-1.50,shape)-.16;
-  root.add(ruinBase);
-  ruins(ruinBase,2.10,-1.50);
-  const lightBase=new THREE.Group();
-  lightBase.position.y=terrainHeight(1.86,2.28,shape)-.05;
-  root.add(lightBase);
-  lighthouse(lightBase,1.86,2.28);
+  // Unique stage landmarks rather than reusing the same two structures
+  // in Ring/Lagoon/Clover. Shapes can be recognized even on small phones.
+  if(shape==='RING'){
+    const ruinBase=new THREE.Group();
+    ruinBase.position.y=terrainHeight(2.10,-1.50,shape)-.16;
+    root.add(ruinBase);
+    ruins(ruinBase,2.10,-1.50);
+    const lightBase=new THREE.Group();
+    lightBase.position.y=terrainHeight(1.86,2.28,shape)-.05;
+    root.add(lightBase);
+    lighthouse(lightBase,1.86,2.28);
+  }
+  root.add(createStageDecorations(shape));
 
   // Sparse rocks and flowers stay decorative, independent from site IDs.
   const stone = new THREE.MeshStandardMaterial({color:0xb4a581,roughness:1,flatShading:true});
@@ -324,7 +306,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   let tileCount=28,shapeId:MapShapeId='RING';
   const makeAmbience=(root:THREE.Group,stage:MapShapeId)=>
     createWorldAmbience(root,new THREE.Vector3(
-      1.86,terrainHeight(1.86,2.28,stage)+.63,2.28));
+      1.86,terrainHeight(1.86,2.28,stage)+.63,2.28),stage==='RING');
   let ambience=makeAmbience(land,shapeId);
   /** Rebuild terrain once when the stage changes, NEVER per draw/update. */
   const syncEnvironment=(nextShape:MapShapeId)=>{

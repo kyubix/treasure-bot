@@ -1,5 +1,29 @@
 # Selectable Map Shapes V1 — Treasure Bots
 
+## Screenshot-driven board/coast repair
+
+Earlier shaped islands used radial coastline cylinders that did not
+exactly match the tile board's offset normal geometry. The resulting
+mismatch exposed sea between the perimeter and the island in some
+angles. The V3 repair adds a continuous `createStageFoundation`
+covering the entire map board footprint, with its outer contour
+sampled from `boardPathFrame(t,shape)` + outward normal × 0.238.
+This extends slightly beyond the outer trim width (+0.20).
+A lower `createStageApron` closes the space between irregular terrain
+and inner board trim (-0.198). The ocean foam is sampled along the
+same board contour outside the foundation wall.
+
+Ring, Lagoon and Clover now differ in landmarks and trees as well as
+terrain and water: expedition camp and lighthouse, coastal dock and
+reeds, and violet crystals with standing stones, respectively.
+They are original game-inspired stage themes, NOT copies of exact
+original Glint Glitters stages.
+
+Regression test `tests/world-map-stage-alignment.test.ts` verifies
+footprint clearance, closed stage foundation, foam alignment,
+and stage-specific geometry. Final acceptance still requires
+actual mobile screenshots and rotations.
+
 ## 2026-11-07 World Map visual update — board shape matches the island
 
 Previous V1 changed only the perimeter road. This update reshapes
