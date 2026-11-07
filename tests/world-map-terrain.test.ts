@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import * as THREE from 'three';
 import {terrainHeight,terrainRadius,createTerrainMesh,addTerrainDetail,createSurfBand} from '../src/client/world-map-terrain.ts';
 
-describe('V3 procedural PS1-style island terrain',()=>{
+describe('Stylized detailed 3D procedural island terrain',()=>{
   it('builds distinct highland plateaux but keeps lagoon and coastline low',()=>{
     expect(terrainHeight(.10,-1.12)).toBeGreaterThan(1.55);
     expect(terrainHeight(-.72,.90)).toBeGreaterThan(1.55);
@@ -26,9 +26,19 @@ describe('V3 procedural PS1-style island terrain',()=>{
     expect(pos.count).toBe((120+1)*(45+1));
     expect(colors.count).toBe(pos.count);
     expect(geometry.getIndex()?.count).toBe(120*45*6);
+    expect((mesh.material as THREE.MeshStandardMaterial).flatShading).toBe(false);
     // Edge ring is nearly flat, so its normal should face the sky.
     const normals=geometry.getAttribute('normal');
     expect(normals.getY(38*(121)+12)).toBeGreaterThan(.25);
+    // First and last radial sectors occupy the same world position.
+    // Their shading must match after removing intentional PS1 faceting.
+    for(const ring of [1,12,28,45]){
+      const a=ring*121,b=a+120;
+      expect(pos.getX(a)).toBeCloseTo(pos.getX(b),5);
+      expect(pos.getZ(a)).toBeCloseTo(pos.getZ(b),5);
+      for(const axis of ['X','Y','Z'] as const)
+        expect(normals[`get${axis}`](a)).toBeCloseTo(normals[`get${axis}`](b),4);
+    }
     expect(mesh.castShadow).toBe(true);
     expect(mesh.receiveShadow).toBe(true);
     geometry.dispose();
