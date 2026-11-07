@@ -1,5 +1,39 @@
 # AI Agent Handoff — Treasure Bots
 
+## In progress: 4-player match setup & selectable victory (2026-11-07)
+
+New configured matches (START with galleryCount/winningRule) MUST fill
+exactly **four 1P–4P seats**, with humans or CPU; empty slots auto-fill
+using CPU count in the lobby request. Seat order is saved and sorted on
+START, never randomized. Each human has server-validated pre-match
+`SET_PROFILE` for distinct slot, color from P1 blue/P2 green/P3
+magenta/P4 yellow, and H01–H04 chibi avatar variants. No other user
+can change your profile or claim a seat/color already taken.
+Existing saved players default to their stored color; they are not
+recolored. Legacy unconfigured START messages remain supported for
+old-room/test compatibility (these older rooms may contain two players).
+
+Host selects **WEALTH_TARGET** (first reaching threshold) or
+**TURN_LIMIT** (after N complete 1P→1P rounds, richest wins).
+Equal top wealth ends in a draw (provisional, not an original rule).
+Win selection is persisted and all validation/scoring happens on server.
+Four avatar variants are original procedural headwear on the same
+base chibi model (not four bespoke character models).
+Selected winning-rule bounds: 1–500 rounds, or 1,000–10,000,000 G.
+
+**Map shape / stage designs remain unimplemented**. The existing
+3/4/5-gallery choice changes only gallery count and circular/ring
+size, not the island topology or a different stage shape. The original
+has multiple stage shapes; plan immutable `mapShapeId` separately
+from `galleryCount`, define actual visual tile paths/3D anchors,
+and synchronize World Map and Board View before presenting shape choices.
+Do not imply multiple map shapes exist yet. Keep mobile/android QA.
+
+**Global reverse event M04 is still NOT implemented.** Its timing is
+trigger-player anchored. Continue separately after lobby/goal release.
+
+
+
 ## IMPLEMENTED — configurable 3/4/5 numbered Gallery maps (2026-11-06)
 
 - Host selects **Small / Medium / Large** in Lobby before START. A new

@@ -3,14 +3,14 @@ import type {GameState,Player} from '../engine/types.ts';
 import type {IslandSpot} from '../engine/island.ts';
 import {expeditionProgress} from '../engine/island.ts';
 import {terrainHeight} from './world-map-terrain.ts';
-import {createOriginalActor,disposeActorModel} from './world-map-models.ts';
+import {createOriginalActor,disposeActorModel,styleAvatarModel} from './world-map-models.ts';
 import type {ActorAnimation,ActorKind,ActorModel} from './world-map-models.ts';
 import {loadActorAsset} from './world-map-actor-assets.ts';
 import type {ActorAssetLoader} from './world-map-actor-assets.ts';
 
 type Anchors={tile:(index:number)=>THREE.Vector3;site:(x:number,y:number)=>THREE.Vector3};
 type Rig={root:THREE.Group;model:ActorModel;mixer:THREE.AnimationMixer;
-  actions:Map<string,THREE.AnimationAction>;active:ActorAnimation;colour:string};
+  actions:Map<string,THREE.AnimationAction>;active:ActorAnimation;colour:string;kind:ActorKind;avatarId?:string};
 type Pair={player:Rig;robot:Rig;robotTarget:THREE.Vector3;path:THREE.Vector3[];
   tile:number;phase:Player['robot']['mission'];fast:boolean;returning:boolean};
 export interface AnimatedWorldActors{
@@ -20,11 +20,12 @@ export interface AnimatedWorldActors{
   dispose():void;
 }
 
-function rig(model:ActorModel,colour:string):Rig{
+function rig(model:ActorModel,colour:string,kind:ActorKind,avatarId?:string):Rig{
+  if(kind==='avatar')styleAvatarModel(model,avatarId);
   const root=new THREE.Group();root.add(model.scene);
   const mixer=new THREE.AnimationMixer(model.scene);
   const actions=new Map(model.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
-  const result={root,model,mixer,actions,active:'idle' as const,colour};
+  const result={root,model,mixer,actions,active:'idle' as const,colour,kind,avatarId};
   model.scene.traverse(o=>{if(o instanceof THREE.Mesh){
     const materials=Array.isArray(o.material)?o.material:[o.material];
     for(const m of materials)if(m.name==='PlayerPaint'&&m instanceof THREE.MeshStandardMaterial)m.color.set(colour);
@@ -57,7 +58,7 @@ function cloneModel(source:ActorModel):ActorModel{
   return {scene,animations:source.animations};
 }
 function upgrade(r:Rig,source:ActorModel):void{
-  const replacement=rig(cloneModel(source),r.colour);
+  const replacement=rig(cloneModel(source),r.colour,r.kind,r.avatarId);
   r.mixer.stopAllAction();r.mixer.uncacheRoot(r.model.scene);
   r.root.remove(r.model.scene);disposeActorModel(r.model);
   r.model=replacement.model;r.mixer=replacement.mixer;r.actions=replacement.actions;
@@ -101,9 +102,9 @@ export function createWorldActors(scene:THREE.Scene,anchors:Anchors,
       for(const entry of rigs.values())upgrade(kind==='avatar'?entry.player:entry.robot,model);
     }).catch(()=>{/* Immediate procedural fallback remains animated and usable. */});
   }
-  const make=(kind:ActorKind,colour:string)=>{
+  const make=(kind:ActorKind,colour:string,avatarId?:string)=>{
     const asset=assets.get(kind);
-    const result=rig(asset?cloneModel(asset):createOriginalActor(kind),colour);
+    const result=rig(asset?cloneModel(asset):createOriginalActor(kind),colour,kind,avatarId);
     result.root.userData.asset=asset?'gltf':'procedural';return result;
   };
   const clear=(id:string,entry:Pair)=>{recycle(entry.player);recycle(entry.robot);rigs.delete(id);};
@@ -130,7 +131,7 @@ export function createWorldActors(scene:THREE.Scene,anchors:Anchors,
         const target=tile.clone().add(new THREE.Vector3(Math.cos(angle)*radius,0,Math.sin(angle)*radius));
         let entry=rigs.get(p.id);
         if(!entry){
-          const character=make('avatar',p.color),robot=make('robot',p.color);
+          const character=make('avatar',p.color,p.avatarId),robot=make('robot',p.color);
           character.root.position.copy(target);character.root.rotation.y=Math.atan2(-tile.x,-tile.z);
           const robotTarget=missionRobotAnchor(p,state.islandSpots,anchors);
           robot.root.position.copy(robotTarget);group.add(character.root,robot.root);

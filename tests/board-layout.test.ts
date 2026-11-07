@@ -13,7 +13,7 @@ import {boardTileWorldPosition} from '../src/client/world-map-three.ts';
 function createMatch(count:3|4|5):GameState{
  const state=newGame('M12345',createPlayer('p1','Player 1'));
  addGuest(state,createPlayer('p2','Player 2'));
- applyAction(state,'p1',{type:'START',bots:0,galleryCount:count});
+ applyAction(state,'p1',{type:'START',bots:2,galleryCount:count});
  return state;
 }
 describe('Dynamic 3/4/5-gallery map without legacy room regression',()=>{
@@ -22,7 +22,7 @@ describe('Dynamic 3/4/5-gallery map without legacy room regression',()=>{
   expect([0,2,6,-1,'3',3.5,Number.NaN].some(isGalleryCount)).toBe(false);
   const state=newGame('BAD001',createPlayer('host','Host'));
   addGuest(state,createPlayer('guest','Guest'));
-  expect(()=>applyAction(state,'host',{type:'START',bots:0,galleryCount:6} as unknown as GameAction))
+  expect(()=>applyAction(state,'host',{type:'START',bots:2,galleryCount:6} as unknown as GameAction))
    .toThrow('Gallery count');
  });
  for(const count of [3,4,5] as const){

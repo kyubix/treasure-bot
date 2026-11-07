@@ -8,8 +8,13 @@ export type PartSlot = 'HEAD' | 'BODY' | 'ARM' | 'LEG';
 export interface RobotParts { HEAD:boolean; BODY:boolean; ARM:boolean; LEG:boolean }
 export interface Robot { chassis: RobotType; energy: number; mission: RobotMission | null; cargo: Treasure[]; parts?: RobotParts }
 export interface Treasure { id: string; name: string; value: number; category: string }
+export type PlayerSlot=1|2|3|4;
+export type AvatarId='H01'|'H02'|'H03'|'H04';
+export type WinRule={kind:'WEALTH_TARGET';amount:number}|{kind:'TURN_LIMIT';rounds:number};
 export interface Player {
   id: string; name: string; color: string; isBot: boolean; position: number;
+  /** Lobby slot order is independent from player color and Gallery number. */
+  slot?:PlayerSlot; avatarId?:AvatarId;
   gold: number; gateCards: number; repairKits?: number; robot: Robot; inventory: Treasure[];
   /** Treasure just delivered by robot; awaiting an explicit Gallery or sale choice. */
   pendingGalleryTreasureIds?:string[];
@@ -33,6 +38,8 @@ export interface GameState {
   players: Player[]; galleries: Gallery[]; currentPlayerIndex: number;
   /** Missing only for legacy 28-tile rooms and pre-start lobbies. */
   board?:BoardLayout;
+  /** Absent only on older saved rooms. */
+  winningRule?:WinRule;
   turn: number; version: number; rolled: boolean; dice: [number, number] | null;
   winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
   /** The route is paused at a shop until its owner chooses to enter or pass. */
@@ -41,7 +48,8 @@ export interface GameState {
   botEvent?: {playerId:string; kind:'SEND'|'ROLL'|'ENTER_SHOP'|'BUY'|'SKIP_SHOP'|'LEAVE_SHOP'|'END'; step:number};
 }
 export type GameAction =
-  | { type: 'START'; bots: number; galleryCount?:3|4|5 }
+  | { type: 'START'; bots: number; galleryCount?:3|4|5; winningRule?:WinRule }
+  | { type: 'SET_PROFILE'; slot:PlayerSlot; color:string; avatarId:AvatarId }
   | { type: 'ROLL' }
   | { type: 'END_TURN' }
   | { type: 'BUY_GATE_CARD' }

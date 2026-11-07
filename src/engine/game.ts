@@ -6,12 +6,68 @@ import {
   GALLERY_CAPACITY, galleryNumberAt, galleryForNumber, galleryForTile,
   newGalleries, ensureGallerySchema, playerDisplay
 } from './gallery.ts';
-import type { GameAction, GameLog, GameState, Player, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
+import type { GameAction, GameLog, GameState, Player, PlayerSlot, WinRule, Robot, PartSlot, RobotStats, Treasure } from './types.ts';
 
 export type Random = () => number;
 const COLORS = PLAYER_COLORS;
 const START_GOLD = 2400;
 const WIN_ASSETS = 20_000;
+const AVATAR_IDS=['H01','H02','H03','H04'] as const;
+/** User-approved win categories. Numeric bounds and draw result are provisional. */
+export function validateWinRule(value:unknown):WinRule{
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new GameError('Choose a winning rule.');
+ const rule=value as Record<string,unknown>;
+ if(rule.kind==='TURN_LIMIT'&&typeof rule.rounds==='number'&&Number.isInteger(rule.rounds)&&rule.rounds>=1&&rule.rounds<=500)
+  return {kind:'TURN_LIMIT',rounds:rule.rounds};
+ if(rule.kind==='WEALTH_TARGET'&&typeof rule.amount==='number'&&Number.isInteger(rule.amount)&&rule.amount>=1000&&rule.amount<=10000000)
+  return {kind:'WEALTH_TARGET',amount:rule.amount};
+ throw new GameError('Invalid winning target: 1–500 rounds or 1,000–10,000,000 G.');
+}
+function firstAvailableSlot(players:readonly Player[]):PlayerSlot{
+ for(const slot of [1,2,3,4] as const)if(!players.some(p=>p.slot===slot))return slot;
+ throw new GameError('All four player slots are occupied.');
+}
+function firstAvailableColor(players:readonly Player[]):string{
+ return COLORS.find(c=>!players.some(p=>p.color.toLowerCase()===c))??COLORS[0];
+}
+export function updateLobbyProfile(state:GameState,actorId:string,selection:{slot:PlayerSlot;color:string;avatarId:string}):void{
+ if(state.phase!=='lobby')throw new GameError('Player setup is closed.');
+ const player=state.players.find(p=>p.id===actorId);
+ if(!player||player.isBot)throw new GameError('Only human participants can edit their profile.');
+ if(![1,2,3,4].includes(selection.slot))throw new GameError('Invalid player slot.');
+ if(!COLORS.some(c=>c===selection.color))throw new GameError('Choose one of the four player colors.');
+ if(!AVATAR_IDS.some(a=>a===selection.avatarId))throw new GameError('Unknown avatar.');
+ if(state.players.some(p=>p.id!==actorId&&p.slot===selection.slot))throw new GameError('That player slot is occupied.');
+ if(state.players.some(p=>p.id!==actorId&&p.color===selection.color))throw new GameError('That player color is already taken.');
+ player.slot=selection.slot;player.color=selection.color;player.avatarId=selection.avatarId as Player['avatarId'];
+ state.version++;
+}
+export function winningRuleFor(state:GameState):WinRule{
+ return state.winningRule??{kind:'WEALTH_TARGET',amount:WIN_ASSETS};
+}
+function checkWealthWinner(state:GameState,player:Player):void{
+ if(state.phase!=='playing')return;
+ const rule=winningRuleFor(state);
+ if(rule.kind!=='WEALTH_TARGET')return;
+ const wealth=netWorth(state,player);
+ if(wealth>=rule.amount){
+  state.winnerId=player.id;state.phase='finished';
+  log(state,`${player.name} reached ${wealth} G and wins!`);
+ }
+}
+function finishByRounds(state:GameState):void{
+ const rule=winningRuleFor(state);
+ if(rule.kind!=='TURN_LIMIT'||state.turn<=rule.rounds)return;
+ const scores=state.players.map(p=>({player:p,wealth:netWorth(state,p)}));
+ const maximum=Math.max(...scores.map(s=>s.wealth));
+ const winners=scores.filter(s=>s.wealth===maximum);
+ state.winnerId=winners.length===1?winners[0].player.id:null;
+ state.phase='finished';
+ log(state,winners.length===1?
+  `${winners[0].player.name} wins after ${rule.rounds} rounds with ${maximum} G!`:
+  `Draw after ${rule.rounds} rounds: ${winners.map(s=>s.player.name).join(', ')} share ${maximum} G.`);
+}
+
 const GATE_PRICE = 300; // PROVISIONAL price
 const PART_PRICE = 450; // PROVISIONAL price
 const PART_SLOTS:PartSlot[]=['HEAD','BODY','ARM','LEG'];
@@ -34,6 +90,7 @@ export class GameError extends Error { constructor(message: string) { super(mess
 export function createPlayer(id: string, name: string, isBot = false, colorIndex = 0): Player {
   return {
     id, name: name.trim().slice(0, 22) || 'Explorer', color: COLORS[colorIndex % COLORS.length], isBot,
+    slot:((colorIndex%4)+1) as PlayerSlot, avatarId:AVATAR_IDS[colorIndex%AVATAR_IDS.length],
     position: 0, gold: START_GOLD, gateCards: 0, repairKits: 0,
     robot: { chassis: 'NORMAL', energy: ROBOTS.NORMAL.energy, mission: null, cargo: [], parts:{HEAD:false,BODY:false,ARM:false,LEG:false} }, inventory: [],pendingGalleryTreasureIds:[]
   };
@@ -66,23 +123,41 @@ export function addGuest(state: GameState, player: Player): void {
   if (state.phase!=='lobby') throw new GameError('The match has already started.');
   if (state.players.length >= 4) throw new GameError('Room is full.');
   if (state.players.some(p=>p.id===player.id)) throw new GameError('Player already joined.');
-  player.color = COLORS[state.players.length];
+  player.slot=firstAvailableSlot(state.players);
+  player.color=firstAvailableColor(state.players);
+  player.avatarId??='H01';
   state.players.push(player);
   log(state, `${player.name} joined the room.`);
   state.version++;
 }
 export function applyAction(state: GameState, actorId: string, action: GameAction, random:Random=Math.random): GameState {
   ensureGallerySchema(state);
+  if(action.type==='SET_PROFILE'){
+    updateLobbyProfile(state,actorId,action);return state;
+  }
   if (action.type==='START') {
     if (state.phase!=='lobby') throw new GameError('Game has already started.');
     if (actorId!==state.hostId) throw new GameError('Only the host can start.');
     if (!Number.isInteger(action.bots) || action.bots < 0 || action.bots > 3) throw new GameError('Invalid number of bots.');
-    if (state.players.length+action.bots>4) throw new GameError('Maximum four players.');
-    for(let i=0;i<action.bots;i++) {
-      const idx=state.players.length;
-      state.players.push(createPlayer(`bot-${idx}-${state.code}`, `CPU ${idx+1}`, true, idx));
+    if(state.players.length+action.bots>4) throw new GameError('Maximum four players.');
+    // Fresh configured matches require four occupied slots. Legacy START
+    // messages without configuration retain pre-upgrade room compatibility.
+    const configured=action.galleryCount!==undefined||action.winningRule!==undefined;
+    if(configured&&state.players.length+action.bots!==4)
+      throw new GameError('Exactly four players are required. Add CPUs to fill empty seats.');
+    if(action.winningRule!==undefined)state.winningRule=validateWinRule(action.winningRule);
+    if(action.galleryCount!==undefined&&!isGalleryCount(action.galleryCount))
+      throw new GameError('Gallery count must be 3, 4, or 5.');
+    for(let i=0;i<action.bots;i++){
+      const index=state.players.length;
+      const bot=createPlayer(`bot-${index}-${state.code}`,`CPU ${i+1}`,true,index);
+      bot.slot=firstAvailableSlot(state.players);
+      bot.color=firstAvailableColor(state.players);
+      state.players.push(bot);
     }
-    if(state.players.length<2) throw new GameError('At least two participants are required. Add a bot.');
+    if(state.players.length<2)throw new GameError('At least two participants are required.');
+    state.players.sort((a,b)=>(a.slot??1)-(b.slot??1));
+    state.currentPlayerIndex=0;
     // Explicit map selection is available to new matches only.
     // Existing rooms and legacy START calls stay on the original 28-tile map.
     if(action.galleryCount!==undefined){
@@ -123,6 +198,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
       rearrangeGallery(state,player,action.galleryNumber,action.fromIndex,action.toIndex);break;
     default: throw new GameError('Unknown action.');
   }
+  checkWealthWinner(state,player);
   state.version++;
   return state;
 }
@@ -428,11 +504,7 @@ function advanceMovement(state:GameState,player:Player,random:Random):void {
   state.shopTile=null;
   log(state,`${player.name} completed movement on tile ${player.position+1}.`);
   resolveTile(state,player,random);
-  if(netWorth(state,player)>=WIN_ASSETS){
-    state.winnerId=player.id;
-    state.phase='finished';
-    log(state,`${player.name} wins with ${netWorth(state,player)} G in total assets!`);
-  }
+  checkWealthWinner(state,player);
 }
 function endTurn(state:GameState):void {
   if(state.shopOffer || state.shopAccess || (state.pendingSteps??0)>0)
@@ -444,7 +516,10 @@ function endTurn(state:GameState):void {
   state.shopOffer=false;
   state.shopTile=null;
   state.pendingSteps=0;
-  if(state.currentPlayerIndex===0)state.turn++;
+  if(state.currentPlayerIndex===0){
+    state.turn++;
+    finishByRounds(state);
+  }
 }
 function resolveTile(state:GameState,player:Player,random:Random):void {
   const tile=boardTiles(state)[player.position];
@@ -545,6 +620,7 @@ export function advanceBotStep(state:GameState,random:Random=Math.random):{
     const walked=beforePending-(state.pendingSteps??0);
     waitMs=Math.max(900,Math.min(3600,walked*230+650));
   }
+  checkWealthWinner(state,bot);
   state.botEvent={playerId:bot.id,kind,step:(state.botEvent?.step??0)+1};
   state.version++;
   return {kind,waitMs};

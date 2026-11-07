@@ -1,5 +1,23 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 New confirmed scope and delivery status
+- **Four seats mandatory** for configured new matches; fill 1P–4P
+  with humans and/or CPU. Old 28-tile/unconfigured room compatibility
+  retained. Lobby selection of slot/color/avatar + server unique
+  validation implemented (code release requires CI/Android QA).
+- **Victory setup implemented:** Wealth target or fixed N full rounds,
+  highest net worth after last 4P turn; ties are drawn.
+- **AVATAR H01–H04:** original model variants via low-cost procedural
+  chibi accessories; full character catalog is a later task.
+- **MAP SHAPES OUTSTANDING:** 3/4/5 Galleries currently all ring layouts.
+  User explicitly confirms original game has multiple map shapes;
+  must implement selectable map topology and different tile positions
+  separately from Gallery count. Do NOT claim multiple stage shapes.
+- **REVERSE M04 OUTSTANDING:** global reversal for three cycles anchored
+  to triggering player's turn; not yet playable.
+
+
+
 ## Dynamic map selection — implemented phase 2 (2026-11-06)
 
 - Host selects 3, 4 or 5 numbered Galleries in the lobby; each

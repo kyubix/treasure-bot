@@ -1,5 +1,40 @@
 # Match Setup, Winning Goals and Reverse-Direction Events
 
+## 2026-11-07 Implementation progress and updated requirements
+
+**Confirmed by user:** Every NEW match requires four player slots
+(1P→2P→3P→4P), filled with humans and/or CPU players. No 2-player
+match mode in the new lobby. Original game also has multiple MAP
+SHAPES, not merely Gallery counts. Current choice of 3/4/5 Galleries
+still uses one circular/ring-shaped map. Actual alternate geometries
+and verified stage layouts are a SEPARATE outstanding workstream.
+
+**Implemented in new match-setup code:**
+- `SET_PROFILE`: each human can choose a unique 1P–4P slot, a unique
+  blue/green/magenta/yellow player color and chibi avatar H01–H04
+  during lobby. This is saved atomically to GameState with versioning;
+  colors and slot ownership are server-validated.
+- Host starts a configured match with exactly four occupants,
+  automatically filling remaining seats with CPU, sorting by slot,
+  and persisting the winning condition. Old/unconfigured START payloads
+  retain two-player compatibility solely for previously saved rooms.
+- WinningRule: `{kind:'WEALTH_TARGET',amount}` or
+  `{kind:'TURN_LIMIT',rounds}`. Wealth target winner is checked after
+  authoritative actions; fixed-round mode checks at the END of the
+  final complete 1P→1P round. Equal top wealth = DRAW (provisional).
+  Numeric input bounds: 1000..10000000 G or 1..500 rounds.
+- H01..H04 currently share the original chibi model with distinctive
+  original 3D accessories. Bespoke full 3D asset catalog remains future.
+- Current 3/4/5 Gallery map choices are ring-layout variants ONLY.
+- Reverse direction is NOT implemented by this release.
+
+**Remaining important work:** Alternate map shape IDs + actual geometry,
+navigation/rendering/animation collision QA; real Android visual QA;
+server-authoritative global reverse effect with trigger-player anchored
+3-cycle timer; tie-break rules if a non-draw result is later wanted.
+
+
+
 Status: **NEWLY AGREED PRODUCT REQUIREMENTS + HISTORICAL RESEARCH. DESIGN ONLY;
 NOT IMPLEMENTED.** Updated 2026-11-06.
 Repo: `kyubix/treasure-bot`, development from Android, commit to `main`

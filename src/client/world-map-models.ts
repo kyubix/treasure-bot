@@ -106,6 +106,27 @@ function animationClips(robot:boolean):THREE.AnimationClip[]{
   });
 }
 
+/** Real lightweight accessories for four selectable 3D avatar silhouettes. */
+export function styleAvatarModel(model:ActorModel,avatarId:string|undefined):void{
+ if(!avatarId||avatarId==='H01')return;
+ const head=model.scene.getObjectByName('Head');
+ if(!head||head.getObjectByName('AvatarAccessory'))return;
+ const accessory=new THREE.Group();accessory.name='AvatarAccessory';head.add(accessory);
+ const mesh=(geometry:THREE.BufferGeometry,color:number,x:number,y:number,z:number)=>{
+  const part=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.72,flatShading:true}));
+  part.position.set(x,y,z);part.castShadow=true;accessory.add(part);
+ };
+ if(avatarId==='H02'){
+  mesh(new THREE.CylinderGeometry(.205,.215,.085,8),0x3c8257,0,.18,0);
+  mesh(new THREE.BoxGeometry(.27,.032,.19),0xe1c475,0,.155,.14);
+ }else if(avatarId==='H03'){
+  mesh(new THREE.SphereGeometry(.205,8,5,0,Math.PI*2,0,Math.PI*.54),0xd9e7f1,0,.055,0);
+  mesh(new THREE.BoxGeometry(.07,.23,.095),0xe45d66,0,.27,-.015);
+ }else if(avatarId==='H04'){
+  mesh(new THREE.CylinderGeometry(0,.20,.36,8),0x5945b3,0,.34,0);
+  mesh(new THREE.CylinderGeometry(.23,.23,.045,8),0xe6bf63,0,.16,0);
+ }
+}
 export function disposeActorModel(model:ActorModel):void{
   const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
   model.scene.traverse(o=>{if(o instanceof THREE.Mesh){

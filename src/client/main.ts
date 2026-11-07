@@ -4,6 +4,7 @@ import './mobile.css';
 import './roll-shop.css';
 import './dispatch.css';
 import './cpu-turns.css';
+import './match-setup.css';
 import './shop-encounter.css';
 import './world-hud.css';
 import './board-view-three.css';
@@ -80,7 +81,35 @@ root.innerHTML=`
   <header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>TREASURE BOTS</strong><small>SHOP VISIT · v0.9</small></div></div><div class="header-actions"><span id="status" class="status"></span><button id="settingsTrigger" class="gear-button" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙</button></div></header>
   <main>
     <section id="home" class="home-panel"><div class="hero"><div class="hero-gem">✦</div><div class="eyebrow">BOARD × ROBOTS × TREASURE</div><h1>Your robot.<br>Your island.<br><em>Your treasure.</em></h1><p data-i18n="tagline"></p></div><div class="card form-card"><label for="playerName" data-i18n="name"></label><input id="playerName" autocomplete="nickname" maxlength="22" placeholder="Explorer" value="Explorer"/><button id="create" class="primary" data-i18n="create"></button><div class="or">— OR —</div><label for="roomInput" data-i18n="room"></label><div class="inline"><input id="roomInput" maxlength="6" placeholder="ABCD23" autocapitalize="characters"/><button id="join" class="secondary" data-i18n="join"></button></div><p class="muted" data-i18n="solo"></p></div></section>
-    <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">PRIVATE LOBBY</span><h2 id="roomTitle">ROOM</h2><p data-i18n="waiting"></p><div id="lobbyPlayers" class="roster"></div><button id="share" class="secondary" data-i18n="invite"></button><div id="hostControls" class="host-controls"><label data-i18n="bots"></label><select id="botCount"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select><label for="galleryCount">Map / Galleries</label><select id="galleryCount" aria-label="Map size"><option value="3" selected>Small · 3 Galleries</option><option value="4">Medium · 4 Galleries</option><option value="5">Large · 5 Galleries</option></select><button id="start" class="primary" data-i18n="start"></button></div></div></section>
+    <section id="lobby" hidden><div class="card lobby-card"><span class="eyebrow">4-PLAYER MATCH SETUP</span><h2 id="roomTitle">ROOM</h2><p class="muted">Four slots required. Invite friends or fill empty slots with CPU players.</p>
+      <div id="lobbyPlayers" class="roster"></div>
+      <div class="lobby-profile">
+        <h3>My Player</h3>
+        <div class="lobby-field-row"><label for="profileSlot">Play order / slot</label><select id="profileSlot" aria-label="Player slot">
+          <option value="1">1P</option><option value="2">2P</option><option value="3">3P</option><option value="4">4P</option>
+        </select></div>
+        <div class="lobby-field-row"><label for="profileAvatar">Avatar</label><select id="profileAvatar" aria-label="Avatar choice">
+          <option value="H01">H01 · Explorer</option><option value="H02">H02 · Scout</option><option value="H03">H03 · Knight</option><option value="H04">H04 · Mage</option>
+        </select></div>
+        <div class="lobby-field-row"><label for="profileColor">Player color</label><select id="profileColor" aria-label="Player color">
+          <option value="#2489ea">🔵 Blue</option><option value="#44c767">🟢 Green</option><option value="#e254c5">🟣 Magenta</option><option value="#f5cf32">🟡 Yellow</option>
+        </select></div>
+        <button id="saveProfile" class="secondary" type="button">Save my selection</button>
+      </div>
+      <button id="share" class="secondary" data-i18n="invite"></button>
+      <div id="hostControls" class="host-controls">
+        <h3>Match rules</h3><p id="cpuFill" class="muted">CPU players fill the remaining slots</p>
+        <label for="galleryCount">Map size (ring layout)</label>
+        <select id="galleryCount" aria-label="Map size"><option value="3" selected>Small · 3 Galleries</option><option value="4">Medium · 4 Galleries</option><option value="5">Large · 5 Galleries</option></select>
+        <label for="winMode">Victory condition</label><select id="winMode" aria-label="Victory condition">
+          <option value="WEALTH_TARGET">First to reach total wealth</option>
+          <option value="TURN_LIMIT">Highest wealth after fixed rounds</option>
+        </select>
+        <label for="winAmount" id="winAmountLabel">Target wealth (G)</label>
+        <input id="winAmount" type="number" min="1000" max="10000000" step="1000" value="20000" inputmode="numeric"/>
+        <button id="start" class="primary" data-i18n="start"></button>
+      </div>
+    </div></section>
     <section id="match" hidden>
       <div class="world-hud" id="worldHud" hidden>
         <div class="world-energy-panel">
@@ -431,15 +460,29 @@ function render():void {
   if(!s.rolled){lastShopSteps=0;lastShopOffer='';}
   if(!playing){
     el('roomTitle').textContent=s.code;
-    el('lobbyPlayers').innerHTML=s.players.map(p=>`<div class="person"><span class="dot" style="background:${p.color}"></span><strong>${escapeHtml(p.name)}</strong>${p.id===s.hostId?'<span class="muted">HOST</span>':''}</div>`).join('');
+    const roster=[...s.players].sort((a,b)=>(a.slot??1)-(b.slot??1));
+    el('lobbyPlayers').innerHTML=roster.map(p=>`<div class="person"><span class="dot" style="background:${p.color}"></span><strong>${p.slot??1}P · ${escapeHtml(p.name)}</strong><small class="muted">${escapeHtml(p.avatarId??'H01')}</small>${p.id===s.hostId?'<span class="muted">HOST</span>':''}</div>`).join('');
+    const self=s.players.find(p=>p.id===s.yourId);
+    if(self){
+      const slot=el<HTMLSelectElement>('profileSlot');
+      const color=el<HTMLSelectElement>('profileColor');
+      const avatar=el<HTMLSelectElement>('profileAvatar');
+      slot.value=String(self.slot??1);
+      color.value=self.color;
+      avatar.value=self.avatarId??'H01';
+      for(const option of [...slot.options])
+        option.disabled=s.players.some(p=>p.id!==self.id&&String(p.slot)===option.value);
+      for(const option of [...color.options])
+        option.disabled=s.players.some(p=>p.id!==self.id&&p.color===option.value);
+    }
     const host=s.yourId===s.hostId;
     el('hostControls').hidden=!host;
-    const botSelect=el<HTMLSelectElement>('botCount');
-    for(const opt of [...botSelect.options])opt.disabled=Number(opt.value)>4-s.players.length;
-    if(Number(botSelect.value)>4-s.players.length)botSelect.value=String(4-s.players.length);
+    el('cpuFill').textContent=`${s.players.length}/4 human seats · ${4-s.players.length} CPU slot(s) will be added`;
     return;
   }
-  el('matchCode').textContent=`ROOM ${s.code} · ${t('turn')} ${s.turn}`;
+  const winning=s.winningRule;
+  el('matchCode').textContent=`ROOM ${s.code} · ${t('turn')} ${s.turn}`+
+    (winning?(winning.kind==='TURN_LIMIT'?` / ${winning.rounds}`:` · ${winning.amount.toLocaleString()} G goal`):'');
   const activePlayer=s.players[s.currentPlayerIndex];const mine=activePlayer.id===s.yourId;
   if(viewMode==='world'&&s.phase!=='playing')viewMode='board';
   const isWorld=viewMode==='world';
@@ -449,7 +492,9 @@ function render():void {
   el('viewHeading').textContent=isWorld?t('worldMap'):t('boardView');
   el('viewKicker').textContent=isWorld?'EXPEDITION · 02':'GAME BOARD · 01';
   el('viewDescription').textContent=isWorld?t('survey'):t('robot');
-  el('turnTitle').textContent=s.phase==='finished'?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:`${activePlayer.name}${mine?` (${t('you')})`:''}`;
+  el('turnTitle').textContent=s.phase==='finished'?
+    (s.winnerId?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:'DRAW · tied wealth'):
+    `${activePlayer.slot??(s.currentPlayerIndex+1)}P · ${activePlayer.name}${mine?` (${t('you')})`:''}`;
   el('turnBadge').textContent=s.phase==='finished'?'🏆':activePlayer.isBot?'CPU TURN':!mine?'WAITING':dispatchAnimating?t('launching'):!s.rolled&&selfLaunchMission(s)?'ROLL DICE':'YOUR TURN';
   el('dice').textContent=s.dice?`🎲 ${s.dice.join(' + ')} = ${s.dice[0]+s.dice[1]}`:'🎲 —';
   const cpuActive=s.phase==='playing'&&activePlayer.isBot;
@@ -538,7 +583,31 @@ function render():void {
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
   el<HTMLButtonElement>('join').onclick=()=>void joinRoom();
-  el<HTMLButtonElement>('start').onclick=()=>void sendAction({type:'START',bots:Number(el<HTMLSelectElement>('botCount').value),galleryCount:Number(el<HTMLSelectElement>('galleryCount').value) as 3|4|5});
+  el<HTMLButtonElement>('saveProfile').onclick=()=>{
+    if(!state)return;
+    const slot=Number(el<HTMLSelectElement>('profileSlot').value) as 1|2|3|4;
+    const avatarId=el<HTMLSelectElement>('profileAvatar').value as 'H01'|'H02'|'H03'|'H04';
+    const color=el<HTMLSelectElement>('profileColor').value;
+    void sendAction({type:'SET_PROFILE',slot,color,avatarId});
+  };
+  const syncWinMode=()=>{
+    const byRound=el<HTMLSelectElement>('winMode').value==='TURN_LIMIT';
+    const input=el<HTMLInputElement>('winAmount');
+    el('winAmountLabel').textContent=byRound?'Number of full rounds':'Target total wealth (G)';
+    input.min=byRound?'1':'1000';input.max=byRound?'500':'10000000';
+    input.step=byRound?'1':'1000';input.value=byRound?'20':'20000';
+  };
+  el<HTMLSelectElement>('winMode').onchange=syncWinMode;
+  el<HTMLButtonElement>('start').onclick=()=>{
+    if(!state)return;
+    const mode=el<HTMLSelectElement>('winMode').value;
+    const number=Number(el<HTMLInputElement>('winAmount').value);
+    if(!Number.isInteger(number)){toast('Enter a whole number for the winning goal.');return;}
+    const winningRule=mode==='TURN_LIMIT'?{kind:'TURN_LIMIT' as const,rounds:number}:
+      {kind:'WEALTH_TARGET' as const,amount:number};
+    void sendAction({type:'START',bots:4-state.players.length,
+      galleryCount:Number(el<HTMLSelectElement>('galleryCount').value) as 3|4|5,winningRule});
+  };
   const rollButton=el<HTMLButtonElement>('roll');
   rollButton.addEventListener('pointerdown',event=>{
     if(event.button!==0||rollButton.disabled)return;

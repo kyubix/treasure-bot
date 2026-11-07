@@ -1,0 +1,14 @@
+/* Compact mobile-first match setup for four player seats. */
+.lobby-profile{display:grid;gap:11px;padding:16px;border:1px solid #456486;border-radius:15px;background:#172d47}
+.lobby-profile h3,.host-controls h3{font-size:1rem;color:#f6dca5;margin:0}
+.lobby-field-row{display:flex;flex-direction:column;gap:6px}
+.lobby-field-row label,.host-controls label{font-size:.79rem;color:#cfe3f6;font-weight:700}
+.lobby-profile select,.host-controls select,.host-controls input{width:100%;max-width:100%;min-height:44px}
+.lobby-profile button{width:100%}
+.lobby-card .host-controls{display:flex;flex-direction:column;align-items:stretch;gap:9px;width:100%;border-top:1px solid #456486;padding-top:16px}
+.lobby-card .host-controls button{flex:auto;width:100%}
+.lobby-card .host-controls .muted{line-height:1.5}
+.lobby-card .roster{margin:0}
+.lobby-card .person{gap:10px;min-height:43px;flex-wrap:wrap}
+.lobby-card .person small{margin-left:auto;font-size:.72rem}
+@media(max-width:520px){.lobby-card{margin:12px auto;padding:16px;gap:12px}.lobby-profile{padding:12px}.lobby-card h2{font-size:1.8rem}}

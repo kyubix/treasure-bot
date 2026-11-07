@@ -6,7 +6,7 @@ import {boardTileBaseColor} from '../engine/player-palette.ts';
 import {boardScenery,BOARD_BIOME_PALETTE} from './board-environment.ts';
 import type {BoardBiome} from './board-environment.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment} from './board-view-environment.ts';
-import {createOriginalActor,disposeActorModel} from './world-map-models.ts';
+import {createOriginalActor,disposeActorModel,styleAvatarModel} from './world-map-models.ts';
 import type {ActorModel,ActorKind} from './world-map-models.ts';
 import {loadActorAsset} from './world-map-actor-assets.ts';
 
@@ -61,7 +61,7 @@ function safeText(s:string):string{
 type Rig={
  root:THREE.Group;model:ActorModel;mixer:THREE.AnimationMixer;
  actions:Map<string,THREE.AnimationAction>;active:string;
- kind:ActorKind;color:string
+ kind:ActorKind;color:string;avatarId?:string
 };
 type Actors={player:Rig;robot:Rig};
 type Cell={root:THREE.Group;top:THREE.Mesh;number:THREE.Mesh;
@@ -84,8 +84,9 @@ function textureLabel(text:string,dark=true,small=false):THREE.CanvasTexture{
  tex.anisotropy=4;
  return tex;
 }
-function createActor(kind:ActorKind,colour:string,asset?:ActorModel):Rig{
+function createActor(kind:ActorKind,colour:string,asset?:ActorModel,avatarId?:string):Rig{
  const model=asset?cloneAsset(asset):createOriginalActor(kind);
+ if(kind==='avatar')styleAvatarModel(model,avatarId);
  const root=new THREE.Group();root.add(model.scene);
  root.scale.setScalar(kind==='avatar'?1.30:1.20);
  model.scene.traverse(o=>{
@@ -98,7 +99,7 @@ function createActor(kind:ActorKind,colour:string,asset?:ActorModel):Rig{
  const mixer=new THREE.AnimationMixer(model.scene);
  const actions=new Map(model.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
  actions.get('idle')?.play();
- return {root,model,mixer,actions,active:'idle',kind,color:colour};
+ return {root,model,mixer,actions,active:'idle',kind,color:colour,avatarId};
 }
 function cloneAsset(source:ActorModel):ActorModel{
  const scene=source.scene.clone(true);
@@ -257,7 +258,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
   loaded.set(kind,source);
   for(const pair of actors.values()){
    const old=kind==='avatar'?pair.player:pair.robot;
-   const rig=createActor(kind,old.color,source);
+   const rig=createActor(kind,old.color,source,old.avatarId);
    rig.root.position.copy(old.root.position);
    rig.root.rotation.copy(old.root.rotation);
    actorsRoot.add(rig.root);
@@ -343,7 +344,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    const p=state.players[i];
    let pair=actors.get(p.id);
    if(!pair){
-    const player=createActor('avatar',p.color,loaded.get('avatar'));
+    const player=createActor('avatar',p.color,loaded.get('avatar'),p.avatarId);
     const robot=createActor('robot',p.color,loaded.get('robot'));
     actorsRoot.add(player.root,robot.root);
     pair={player,robot};actors.set(p.id,pair);
