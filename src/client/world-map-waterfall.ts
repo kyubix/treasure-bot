@@ -96,6 +96,11 @@ export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING
   glints.frustumCulled=false;
   land.add(glints);
   const matrix=new THREE.Matrix4();
+  const glintPosition=new THREE.Vector3();
+  const glintScale=new THREE.Vector3();
+  const glintRotation=new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0,1,0),.72
+  );
   const colour=geometry.getAttribute('color') as THREE.BufferAttribute;
   const blend=new THREE.Color();
 
@@ -129,11 +134,9 @@ export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING
       const channel=Math.sin(i*2.31)*.75;
       const p=waterfallPoint(flow,channel,shape);
       // Elongated highlights follow the direction of the falling stream.
-      matrix.compose(
-        new THREE.Vector3(p.x,p.y+.018,p.z),
-        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),.72),
-        new THREE.Vector3(.65,1,.36+Math.sin(i*1.7+time*8)*.12)
-      );
+      glintPosition.set(p.x,p.y+.018,p.z);
+      glintScale.set(.65,1,.36+Math.sin(i*1.7+time*8)*.12);
+      matrix.compose(glintPosition,glintRotation,glintScale);
       glints.setMatrixAt(i,matrix);
     }
     glints.instanceMatrix.needsUpdate=true;
