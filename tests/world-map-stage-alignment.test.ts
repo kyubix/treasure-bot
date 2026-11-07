@@ -37,11 +37,12 @@ describe('World Map V3 connected stage foundation and themed islands',()=>{
    const f=foundation.geometry.getAttribute('position') as THREE.BufferAttribute;
    const p=apron.geometry.getAttribute('position') as THREE.BufferAttribute;
    const sea=foam.geometry.getAttribute('position') as THREE.BufferAttribute;
-   expect(f.count).toBe(1+145+4*145);
-   expect(p.count).toBe(290);
+   expect(f.count).toBe(1+145+6*145);
+   expect(p.count).toBe(4*145);
    expect(sea.count).toBe(242);
    expect(f.getY(0)).toBeCloseTo(.414);
-   expect(p.getY(0)).toBeCloseTo(.426);
+   expect(p.getY(0)).toBeCloseTo(terrainHeight(p.getX(0),p.getZ(0),shape)+.004,5);
+   expect(p.getY(3)).toBeCloseTo(.429,5);
    expect(sea.getY(0)).toBeCloseTo(-.393);
    // At the map-seam the foundation and apron return to their own start.
    expect(new THREE.Vector3(f.getX(1),f.getY(1),f.getZ(1)).distanceTo(
@@ -50,6 +51,47 @@ describe('World Map V3 connected stage foundation and themed islands',()=>{
     mesh.geometry.dispose();
     const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];
     materials.forEach(m=>m.dispose());
+   }
+  }
+ });
+
+ it('aligns every apron lane with its board-angle coast and preserves the tile face',()=>{
+  for(const shape of MAP_SHAPES){
+   const apron=createStageApron(shape),foundation=createStageFoundation(shape);
+   const foam=createSurfBand(shape);
+   const p=apron.geometry.getAttribute('position') as THREE.BufferAttribute;
+   const rock=foundation.geometry.getAttribute('position') as THREE.BufferAttribute;
+   const surf=foam.geometry.getAttribute('position') as THREE.BufferAttribute;
+   for(let i=0;i<=144;i++){
+    const u=i/144,frame=boardPathFrame(u,shape);
+    const a=Math.atan2(frame.z,frame.x),r=terrainRadius(a,shape)-.04;
+    const land=new THREE.Vector2(Math.cos(a)*r,Math.sin(a)*r);
+    const board=stageBoundaryPoint(u,shape,-.198);
+    const first=i*4;
+    expect(new THREE.Vector2(p.getX(first),p.getZ(first)).distanceTo(land)).toBeLessThan(.00001);
+    expect(new THREE.Vector2(p.getX(first+3),p.getZ(first+3)).distanceTo(board)).toBeLessThan(.00001);
+    for(let lane=1;lane<3;lane++){
+     const f=lane/3,expected=land.clone().lerp(board,f);
+     expect(new THREE.Vector2(p.getX(first+lane),p.getZ(first+lane))
+      .distanceTo(expected)).toBeLessThan(.00001);
+     expect(p.getY(first+lane)).toBeLessThan(.518);
+    }
+    // Erosion may vary the rock underneath, but never the board-closing cap.
+    const cap=new THREE.Vector2(rock.getX(i+1),rock.getZ(i+1));
+    expect(cap.distanceTo(stageBoundaryPoint(u,shape))).toBeLessThan(.00001);
+    const footIndex=1+145+5*145+i;
+    const foot=new THREE.Vector2(rock.getX(footIndex),rock.getZ(footIndex));
+    expect(foot.distanceTo(stageBoundaryPoint(u,shape,.268))).toBeLessThan(.013);
+   }
+   // Foam stays beyond the widest rock-foot erosion at the waterline.
+   for(let i=0;i<=120;i++){
+    const u=i/120,first=i*2;
+    const inFoam=new THREE.Vector2(surf.getX(first),surf.getZ(first));
+    expect(inFoam.distanceTo(stageBoundaryPoint(u,shape,.294))).toBeLessThan(.00001);
+   }
+   for(const mesh of [apron,foundation,foam]){
+    mesh.geometry.dispose();
+    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])material.dispose();
    }
   }
  });
