@@ -1,5 +1,35 @@
 # AI Agent Handoff — Treasure Bots
 
+## 2026-11-07 Reverse Direction M04 — IMPLEMENTED (Android QA needed)
+
+- Server event resolver now has a **provisional fourth event outcome**
+  that activates global REVERSE (dice/event probability is provisional).
+- Normal forward movement (logical +1) appears right→left. While
+  REVERSE active, server moves -1 per step, visually left→right.
+  Shop pass-through, START crossing, Gallery arrival and replay-safe
+  END_TURN state transitions retain the same authoritative logic.
+- On event trigger, set `state.reverseEffect = {triggerPlayerId,
+  remainingCycles:3,durationBasis:'TRIGGER_PLAYER_CYCLE'}`; **immediate
+  activation** and all players affected.
+- On next turn start for THAT trigger player, decrement once. Expires
+  before acting on their third return (2P→next 2P→next 2P→next 2P).
+  Do not decrement on each individual player action or 1P turn.
+- Any subsequent EVENT cancels/replaces previous reverse and may
+  start a new instance. The exact event table and occurrence rates
+  are still provisional, not proven from original Glint Glitters.
+- `state.movementDirection` records the direction for the roll
+  *before* landing-event resolution. Board View Three/Phaser and World
+  Map Three actors use this captured direction for correct travel
+  animation even if the final EVENT reverses the NEXT player's route.
+- Event timer, source and direction survive Durable Object snapshots,
+  reconnect and CPU players. See `tests/reverse-direction.test.ts`.
+- Manual Android check required: reverse travel & robot facing in both
+  views, wraparound, shop interruption, CPU turns, and expiry.
+- Other existing effect types do NOT automatically use trigger-based
+  duration; each effect must declare its basis.
+
+
+
 ## In progress: 4-player match setup & selectable victory (2026-11-07)
 
 New configured matches (START with galleryCount/winningRule) MUST fill

@@ -188,7 +188,10 @@ export class BoardScene extends Phaser.Scene {
        !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
       this.movement?.stop();
       const tileCount=boardTiles(value).length;
-      const steps=(actor.position-earlier.position+tileCount)%tileCount;
+      const direction=value.movementDirection===-1?-1:1;
+      const steps=direction===1?
+        (actor.position-earlier.position+tileCount)%tileCount:
+        (earlier.position-actor.position+tileCount)%tileCount;
       this.travelingPlayer=actor.id;
       this.visualPosition=earlier.position;
       this.movement=this.tweens.addCounter({
@@ -196,7 +199,7 @@ export class BoardScene extends Phaser.Scene {
         onUpdate:tween=>{
           const progress=tween.getValue();
           if(progress===null)return;
-          this.visualPosition=earlier.position+progress;
+          this.visualPosition=earlier.position+progress*direction;
           // Limit scene recreation: inexpensive motion without 60 FPS object churn.
           if(this.time.now-this.lastMotionPaint>38){
             this.lastMotionPaint=this.time.now;

@@ -1,5 +1,21 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 Reverse Direction — implemented, manual QA pending
+
+- M04: global reverse event, server-owned 3-cycle trigger-player timer,
+  immediate activation, next-event cancellation/replacement and
+  backward tile traversal implemented. No dice-order shuffle.
+- M05: Board View travel tween and character/robot facing adapt to
+  captured server direction; World Map Three actor route handles
+  backward traversal. HUD shows reverse source/remaining cycles.
+- Tests for trigger 2P, 3 completed 2P cycles, next-event cancellation
+  and backward wrap. Original event frequency **provisional**.
+- Map shape variations still outstanding; ring is the only actual
+  topology for current 3/4/5-gallery choices.
+- CI and Android visual QA required before declaring full parity.
+
+
+
 ## 2026-11-07 New confirmed scope and delivery status
 - **Four seats mandatory** for configured new matches; fill 1P–4P
   with humans and/or CPU. Old 28-tile/unconfigured room compatibility

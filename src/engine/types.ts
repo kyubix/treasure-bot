@@ -40,6 +40,10 @@ export interface GameState {
   board?:BoardLayout;
   /** Absent only on older saved rooms. */
   winningRule?:WinRule;
+  /** Direction of most recent move, captured BEFORE its landing event. */
+  movementDirection?:1|-1;
+  /** Global reverse uses trigger-player cycles, not the 1P round counter. */
+  reverseEffect?:{triggerPlayerId:string;remainingCycles:number;durationBasis:'TRIGGER_PLAYER_CYCLE'};
   turn: number; version: number; rolled: boolean; dice: [number, number] | null;
   winnerId: string | null; logs: GameLog[]; islandSpots: IslandSpot[]; shopAccess: boolean;
   /** The route is paused at a shop until its owner chooses to enter or pass. */

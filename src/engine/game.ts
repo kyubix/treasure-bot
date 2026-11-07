@@ -55,6 +55,18 @@ function checkWealthWinner(state:GameState,player:Player):void{
   log(state,`${player.name} reached ${wealth} G and wins!`);
  }
 }
+/** Called when the next player becomes active. Count only returns to the
+ * player who triggered this effect; expiry is BEFORE their next action. */
+export function tickReverseEffect(state:GameState):void{
+ const effect=state.reverseEffect;
+ if(!effect||state.phase!=='playing')return;
+ if(currentPlayer(state).id!==effect.triggerPlayerId)return;
+ effect.remainingCycles--;
+ if(effect.remainingCycles<=0){
+  delete state.reverseEffect;
+  log(state,'Reverse Direction has ended. Normal right-to-left travel resumes.');
+ }
+}
 function finishByRounds(state:GameState):void{
  const rule=winningRuleFor(state);
  if(rule.kind!=='TURN_LIMIT'||state.turn<=rule.rounds)return;
@@ -478,6 +490,9 @@ function rollAndResolve(state:GameState,random:Random):void {
   state.shopOffer=false;
   state.shopTile=null;
   state.pendingSteps=dice[0]+dice[1];
+  // Freeze the movement direction for this roll: the landing event can
+  // reverse future steps, but not this already-resolved path.
+  state.movementDirection=state.reverseEffect?-1:1;
   log(state,`${player.name} rolled ${dice[0]} + ${dice[1]}.`);
   advanceMovement(state,player,random);
 }
@@ -486,7 +501,8 @@ function advanceMovement(state:GameState,player:Player,random:Random):void {
   // including shops passed through before the destination.
   while((state.pendingSteps??0)>0) {
     const tiles=boardTiles(state);
-    player.position=(player.position+1)%tiles.length;
+    const dir=state.movementDirection===-1?-1:1;
+    player.position=(player.position+dir+tiles.length)%tiles.length;
     state.pendingSteps!--;
     if(tiles[player.position]==='START') {
       player.gold+=START_GOLD;
@@ -520,6 +536,7 @@ function endTurn(state:GameState):void {
     state.turn++;
     finishByRounds(state);
   }
+  tickReverseEffect(state);
 }
 function resolveTile(state:GameState,player:Player,random:Random):void {
   const tile=boardTiles(state)[player.position];
@@ -543,10 +560,21 @@ function resolveTile(state:GameState,player:Player,random:Random):void {
   }else if(tile==='SHOP') {
     log(state,`${player.name} stopped at the robot shop.`);
   }else if(tile==='EVENT') {
-    const event=Math.floor(random()*3);
+    // New event cancels/replaces the previous Reverse, regardless of
+    // whether the new event is a reward or another reverse. This is
+    // a provisional selection table; event economics are unchanged.
+    if(state.reverseEffect){
+      delete state.reverseEffect;
+      log(state,'Another event cancelled the previous Reverse Direction.');
+    }
+    const event=Math.floor(random()*4);
     if(event===0){player.gold+=350;log(state,`Lucky find! ${player.name} gained 350 G.`);}
     else if(event===1){const loss=Math.min(player.gold,150);player.gold-=loss;log(state,`Bad weather! ${player.name} lost ${loss} G.`);}
-    else {player.robot.energy=Math.min(getRobotStats(player.robot).energy,player.robot.energy+15);log(state,`Maintenance bonus! ${player.name}'s robot regained energy.`);}
+    else if(event===2){player.robot.energy=Math.min(getRobotStats(player.robot).energy,player.robot.energy+15);log(state,`Maintenance bonus! ${player.name}'s robot regained energy.`);}
+    else {
+      state.reverseEffect={triggerPlayerId:player.id,remainingCycles:3,durationBasis:'TRIGGER_PLAYER_CYCLE'};
+      log(state,`↩ Reverse Direction! ${player.name} triggered 3 player-anchored cycles of left-to-right travel.`);
+    }
   }else if(tile==='START') {
     player.gold+=START_GOLD;log(state,`${player.name} stopped at the Robot Center (+${START_GOLD*2} G total for passing and stopping).`);
   }

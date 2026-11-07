@@ -1,5 +1,31 @@
 # Match Setup, Winning Goals and Reverse-Direction Events
 
+## 2026-11-07 Reverse Direction implementation (M04/M05)
+
+Code shipped in `src/engine/game.ts`, `src/engine/types.ts`,
+`src/client/board.ts`, `src/client/board-view-three.ts`,
+`src/client/world-map-actors.ts`, `src/client/main.ts` and
+`tests/reverse-direction.test.ts`.
+
+**Authoritative state:** `reverseEffect` persists source player ID,
+three remaining trigger-player cycles and explicit duration basis.
+`movementDirection` records the direction of the just-resolved
+roll (+1 normal, -1 reversed). The next player-turn start for the
+triggering player decrements the effect; the third such start expires
+before the player can act. A new EVENT cancels/replaces the modifier.
+
+**Trigger:** Provisional fourth random EVENT outcome (25% of Event
+outcomes) activates Reverse immediately; the previous reward/loss/
+maintenance outcomes remain present with revised probabilities.
+Event trigger rates are NOT verified from the original game; they
+must remain labeled provisional and can be rebalanced later.
+
+The legacy board follows the same rules; alternate map shapes remain
+unimplemented. Unit tests cover 2P-anchored timer, reverse movement,
+backward wrap, next-event cancellation, and automatic restoration.
+
+
+
 ## 2026-11-07 Implementation progress and updated requirements
 
 **Confirmed by user:** Every NEW match requires four player slots

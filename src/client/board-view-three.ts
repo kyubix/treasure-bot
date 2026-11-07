@@ -357,15 +357,16 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
    const crowd=state.players.filter(q=>q.position===p.position);
    const order=crowd.findIndex(q=>q.id===p.id);
    const walking=p.id===traveler;
-   // Local leftward stride + rightward-moving tiles make the camera-follow
-   // animation visibly walk LEFT instead of sliding in place.
-   const stride=walking?-.24*Math.sin(Math.PI*(focus-Math.floor(focus)))*BOARD_CELL_WIDTH:0;
+   const direction=state.movementDirection===-1?-1:1;
+   // Facing and local stride follow the move captured at roll time,
+   // not a reverse event that may activate on its landing space.
+   const stride=walking?-direction*.24*Math.sin(Math.PI*(focus-Math.floor(focus)))*BOARD_CELL_WIDTH:0;
    const x=-offset*BOARD_CELL_WIDTH+stride+
      (crowd.length>1?(order-(crowd.length-1)/2)*.27:0);
    pair.player.root.position.set(x,.27,.72+(order%2)*.14);
-   pair.player.root.rotation.y=walking?-Math.PI/2:0;
+   pair.player.root.rotation.y=walking?(direction===1?-Math.PI/2:Math.PI/2):0;
    pair.robot.root.position.set(x+.32,.27,1.24);
-   pair.robot.root.rotation.y=walking?-Math.PI/2:0;
+   pair.robot.root.rotation.y=walking?(direction===1?-Math.PI/2:Math.PI/2):0;
    pair.robot.root.visible=!p.robot.mission&&!(launch!==null&&launchOwner===p.id);
    pose(pair.player,walking?'walk':'idle');
    pose(pair.robot,walking?'walk':'idle');

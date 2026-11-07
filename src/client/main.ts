@@ -491,7 +491,11 @@ function render():void {
   el('worldTurn').textContent=`${t('turn')} ${s.turn}`;
   el('viewHeading').textContent=isWorld?t('worldMap'):t('boardView');
   el('viewKicker').textContent=isWorld?'EXPEDITION · 02':'GAME BOARD · 01';
-  el('viewDescription').textContent=isWorld?t('survey'):t('robot');
+  const reverse=s.reverseEffect;
+  const reverseOwner=reverse?s.players.find(p=>p.id===reverse.triggerPlayerId):null;
+  el('viewDescription').textContent=reverse?
+    `↩ REVERSE · ${reverseOwner?.slot??'?'}P · ${reverse.remainingCycles} cycles left`:
+    isWorld?t('survey'):t('robot');
   el('turnTitle').textContent=s.phase==='finished'?
     (s.winnerId?`${t('winner')}: ${s.players.find(p=>p.id===s.winnerId)?.name||''}`:'DRAW · tied wealth'):
     `${activePlayer.slot??(s.currentPlayerIndex+1)}P · ${activePlayer.name}${mine?` (${t('you')})`:''}`;
