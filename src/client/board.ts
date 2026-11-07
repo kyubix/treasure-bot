@@ -310,6 +310,10 @@ export class BoardScene extends Phaser.Scene {
         }
       }
       if(!rendered3D)this.threeLayer?.visible(false);
+      // Reveal the 3D view only after its first frame; if WebGL fails,
+      // uncover the full Phaser fallback instead of a blank screen.
+      if(rendered3D||this.threeLayer)
+        this.game.canvas.parentElement?.classList.remove('world-three-pending');
       this.world(container,w,h,rendered3D);
     }else{
       this.threeLayer?.visible(false);
@@ -607,6 +611,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
   // This class is set BEFORE Phaser.Game construction: its first synchronous
   // scene paint is covered until the lazy-loaded Three renderer draws.
   if(board3D)element.classList.add('board-three-pending');
+  if(map3D)element.classList.add('world-three-pending');
   const scene=new BoardScene(onSelect,onTravelEnd);
   // Phaser's initial canvas must match the actual responsive container,
   // not the old 640×480 desktop seed that visibly stretches on Android.
@@ -644,7 +649,10 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     void import('./world-map-three.ts').then(({createThreeWorldLayer})=>{
       if(destroyed)return;
       const layer=createThreeWorldLayer(element);
-      if(!layer)return; // WebGL unsupported: use procedural Phaser background.
+      if(!layer){
+        element.classList.remove('world-three-pending');
+        return; // WebGL unsupported: use Phaser background.
+      }
       // The renderer sits behind transparent Phaser interaction graphics.
       game.canvas.style.position='relative';
       game.canvas.style.zIndex='1';
@@ -652,6 +660,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
       scene.setThreeLayer(layer);
     }).catch(()=>{
       // An unavailable Three/WebGL renderer must not block game controls.
+      element.classList.remove('world-three-pending');
     });
   }
   return {
@@ -665,6 +674,7 @@ export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTrav
     destroy(){
       destroyed=true;
       element.classList.remove('board-three-pending');
+      element.classList.remove('world-three-pending');
       game.destroy(true);
       // The Three layer's lifecycle follows the Phaser scene and host.
       // The wrapper below also permits a late import to be cancelled.

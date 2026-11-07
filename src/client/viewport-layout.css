@@ -1,3 +1,17 @@
+/* Prevent a first-visit Phaser-to-Three World Map perspective jump.
+ * The veil is removed on the first successful Three draw or on failure.
+ * Pointer/touch hit targets remain handled by the Phaser layer below. */
+#match[data-view="world"] #board.world-three-pending::after{
+ content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+ background:linear-gradient(155deg,#4c9abb,#2b6e91 53%,#1f5377);
+}
+#match[data-view="world"] #board.world-three-pending::before{
+ content:"WORLD MAP";position:absolute;top:50%;left:50%;
+ transform:translate(-50%,-50%);z-index:5;
+ pointer-events:none;color:#f5e2ad;font:800 14px system-ui,sans-serif;
+ letter-spacing:.13em;text-shadow:0 2px 5px #15394a;
+}
+
 /* Android Board/World viewport consolidation.
  *
  * The old mobile rule mixed height:100% with flex:1 1 auto, so an

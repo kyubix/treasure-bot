@@ -1,3 +1,9 @@
+## 2026-11-07: Prevent initial World 2D-to-3D visual resize
+
+- Three.js World Map is imported asynchronously. If opened during import, Phaser's world fallback was briefly displayed, then exchanged for an island with different camera/framing.
+- Apply `world-three-pending` veil before Phaser initialization. Remove only when a successful Three World frame is displayed, or on any import/WebGL failure so the Phaser fallback is available. This is independent of `board-three-pending`.
+- The veil is pointer-events:none and does not modify gameplay or robot site selection.
+
 ## 2026-11-07: Fix first-touch Board/World navigation, clipping and resize
 
 - Board-to-world required two taps, top Board appeared clipped, and both views zoomed/resized on entry.
