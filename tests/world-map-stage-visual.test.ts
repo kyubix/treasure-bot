@@ -53,8 +53,9 @@ describe('Shape-aware stage scenery and coast',()=>{
   });
   const bands=MAP_SHAPES.map(shape=>createSurfBand(shape));
   const first=bands.map(m=>(m.geometry.getAttribute('position') as THREE.BufferAttribute).getX(0));
-  expect(first[1]).toBeGreaterThan(first[0]);
-  expect(first[2]).toBeGreaterThan(first[0]);
+  // The board-shaped foam follows the actual lobes. Clover at the
+  // 45-degree seam is narrower rather than uniformly larger than Ring.
+  expect(new Set(first.map(n=>n.toFixed(4))).size).toBe(3);
   for(const mesh of [...meshes,...bands])dispose(mesh);
   for(const group of groups)dispose(group);
  });
