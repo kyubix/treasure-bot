@@ -1,5 +1,12 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 perimeter/edge polish patch
+
+- Updated world island edge meshes without touching match logic: corrected coast-to-board apron angle mapping; replaced flat 2-lane apron with 4 colour-blended terrain-following lanes; sculpted 6 progressively eroded rock strata and widened the foot; moved surf foam beyond the rock.
+- Kept board-sealing top contour exact to avoid reintroducing exposed sea between numbered Gallery tiles and land. Added all-shape alignment checks and preserved fixed tile/click positions.
+- **Pending:** CI build/test confirmation; Android screenshot comparison at 360° for Ring/Lagoon/Clover and 3/4/5 Gallery sizes, especially outer tile seam, waterfall, FPS, and touch controls. These are not verified by mesh tests alone.
+
+
 ## 2026-11-07 Android incident: dice ghost roll, blur, oversized island rim
 
 - UI: pointerdown/up now must match a single dice-button pointer ID.
