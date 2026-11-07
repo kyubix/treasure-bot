@@ -1,3 +1,12 @@
+## 2026-11-07: Fix first-touch Board/World navigation, clipping and resize
+
+- Board-to-world required two taps, top Board appeared clipped, and both views zoomed/resized on entry.
+- `setInfoOpen(false)` no longer steals focus if already closed or during navigation; previously focused the board-only `openInfo` control and could scroll Android.
+- `view-navigation.ts` processes the first captured pointerup, schedules view swap in the next frame to finish touch/click, suppresses the duplicate click, retains keyboard activation and ignores cancellations. Applied to Map/Back Board, not dice/Send Robot.
+- `viewport-layout.css` (last imported) removes mobile Board `height:100%` + `flex:1` feedback by using zero-basis flex sizing. World keeps its absolute inset.
+- HD Board FOV now constant 46° instead of 38°→44° on first portrait resize; adjusted framing adds headroom above number row.
+- CI tests cover pointer interactions and camera invariant; Android visual QA, Cloudflare rollout and runtime gestures remain to be confirmed.
+
 ## 2026-11-07: HOTFIX — Send Robot / Map navigation must not stall behind resize
 
 - User reported tapping Send Robot / Map only slightly resized Board and World never appeared after prior first-frame fix.

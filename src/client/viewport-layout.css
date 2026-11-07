@@ -1,0 +1,37 @@
+/* Android Board/World viewport consolidation.
+ *
+ * The old mobile rule mixed height:100% with flex:1 1 auto, so an
+ * intrinsically sized Phaser canvas could inflate its flex parent after
+ * the first paint. Make the board a zero-basis flex item in Board mode
+ * and leave the existing absolutely positioned World map untouched.
+ */
+@media(max-width:900px){
+ body.in-game #match[data-view="board"] .match-grid,
+ body.in-game #match[data-view="world"] .match-grid{
+  flex:1 1 0!important;
+  min-height:0!important;
+ }
+ body.in-game #match[data-view="board"] .board-shell{
+  flex:1 1 0!important;
+  min-height:0!important;
+ }
+ body.in-game #match[data-view="board"] .board-shell #board{
+  flex:1 1 0!important;
+  height:0!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  position:relative!important;
+  inset:auto!important;
+ }
+ body.in-game #match[data-view="world"] .board-shell #board{
+  position:absolute!important;
+  inset:3px!important;
+  flex:none!important;
+  height:auto!important;
+  width:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+ }
+}

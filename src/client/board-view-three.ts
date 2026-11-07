@@ -17,6 +17,9 @@ export interface ThreeBoardVisual {
  dispose():void;
 }
 export const BOARD_CELL_WIDTH=1.25;
+/** Constant angular framing prevents a 38°→44° zoom jump and leaves
+ * room for the upper numbered tiles and scenery in portrait view. */
+export const BOARD_CAMERA_FOV=46;
 const NUM_SLOTS=17;
 /** A neutral, physically lit white number plate above a vivid colored plate. */
 export const BOARD_NUMBER_PLATE_DEPTH=1.47;
@@ -185,11 +188,11 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  sun.shadow.camera.far=55;
  sun.shadow.bias=-.0003;
  scene.add(sun);
- const camera=new THREE.PerspectiveCamera(38,1,.1,130);
+ const camera=new THREE.PerspectiveCamera(BOARD_CAMERA_FOV,1,.1,130);
  // Higher camera and deeper two-tier track give the numbered top panels and
  // vivid lower tiles the strong perspective seen in the supplied references.
- camera.position.set(0,9.2,12.7);
- camera.lookAt(0,2.25,-2.8);
+ camera.position.set(0,9.35,12.9);
+ camera.lookAt(0,2.55,-2.8);
  const world=new THREE.Group();
  scene.add(world);
  const frame=new THREE.MeshStandardMaterial({color:0x354f67,roughness:.34,metalness:.45});
@@ -416,9 +419,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     if(w!==sizeW||h!==sizeH){
      sizeW=w;sizeH=h;renderer.setSize(w,h,false);
      camera.aspect=w/h;
-     // Portrait: a closer, cinematic crop of 4-6 numbered cells.
-     // Landscape: show more board and the entire decorative backdrop.
-     camera.fov=w/h<.85?44:38;
+     // The aspect can change; zoom and FOV must not jump after first paint.
      camera.updateProjectionMatrix();
     }
     const current=state?.players[state.currentPlayerIndex];

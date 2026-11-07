@@ -7,6 +7,7 @@ import {galleryNumberAt} from '../src/engine/gallery.ts';
 import {PLAYER_COLORS,GALLERY_SLOT_ORDER,galleryPlayerSlotAt,galleryPlayerColorAt,boardTileBaseColor} from '../src/engine/player-palette.ts';
 import {
  BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
+ BOARD_CAMERA_FOV,
  boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
@@ -22,6 +23,15 @@ describe('HD Three.js Board View',()=>{
    expect(before).toEqual({width:384,height:608});
    expect(world).toEqual({width:384,height:522});
    expect(world).not.toEqual(before);
+ });
+ it('keeps Board 3D angular framing stable on portrait and landscape',()=>{
+   expect(BOARD_CAMERA_FOV).toBeGreaterThanOrEqual(44);
+   expect(BOARD_CAMERA_FOV).toBeLessThanOrEqual(50);
+   const camera=new THREE.PerspectiveCamera(BOARD_CAMERA_FOV,1,.1,130);
+   for(const aspect of [.52,.72,1.35,2.16]){
+     camera.aspect=aspect;camera.updateProjectionMatrix();
+     expect(camera.fov).toBe(BOARD_CAMERA_FOV);
+   }
  });
  it('starts mobile board at the actual measured portrait viewport',()=>{
    expect(boardViewportDimensions({clientWidth:388,clientHeight:657}))

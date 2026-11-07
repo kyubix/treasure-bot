@@ -9,8 +9,10 @@ import './shop-encounter.css';
 import './world-hud.css';
 import './board-view-three.css';
 import './gallery-dialog.css';
+import './viewport-layout.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
 import {matchingRollPointer,accessibleRollClick} from './dice-intent.ts';
+import {bindViewNavigation} from './view-navigation.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
@@ -244,20 +246,23 @@ function setSettingsOpen(open:boolean,trigger?:HTMLElement):void {
   if(open&&trigger)lastSettingsTrigger=trigger;
   el('settingsOverlay').hidden=!open;
   if(open){
-    setInfoOpen(false);
-    el<HTMLButtonElement>('closeSettings').focus();
+    setInfoOpen(false,false);
+    el<HTMLButtonElement>('closeSettings').focus({preventScroll:true});
   }else{
     lastSettingsTrigger?.focus();
     lastSettingsTrigger=null;
   }
 }
-function setInfoOpen(open:boolean):void {
+function setInfoOpen(open:boolean,restoreFocus=true):void {
+  const wasOpen=infoOpen;
+  if(open===wasOpen)return; // An already-closed drawer must not steal focus.
   infoOpen=open;
   el('gameInfo').classList.toggle('is-open',open);
   el('infoBackdrop').hidden=!open;
   el('openInfo').setAttribute('aria-expanded',String(open));
-  if(open)el<HTMLButtonElement>('closeInfo').focus();
-  else if(state&&state.phase!=='lobby')el<HTMLButtonElement>('openInfo').focus();
+  if(open)el<HTMLButtonElement>('closeInfo').focus({preventScroll:true});
+  else if(wasOpen&&restoreFocus&&state&&state.phase!=='lobby'&&viewMode==='board')
+    el<HTMLButtonElement>('openInfo').focus({preventScroll:true});
 }
 
 function diceIdle():void {
@@ -469,7 +474,7 @@ function render():void {
   el('home').hidden=active;el('lobby').hidden=!active||playing;el('match').hidden=!playing;
   el('leave').hidden=!active;
   document.body.classList.toggle('in-game',playing);
-  if(!playing&&infoOpen)setInfoOpen(false);
+  if(!playing&&infoOpen)setInfoOpen(false,false);
   if(!playing&&shopOpen)setShopOpen(false);
   if(!playing&&shopDecisionOpen)setShopDecisionOpen(false);
   if(!playing)galleryDialog.close();
@@ -700,13 +705,15 @@ function init():void {
     if(document.hidden)cancelRollPointer();
   });
   el<HTMLButtonElement>('end').onclick=()=>void sendAction({type:'END_TURN'});
-  el<HTMLButtonElement>('openWorld').onclick=()=>{
-    cancelRollPointer();setInfoOpen(false);viewMode='world';render();
-  };
+  bindViewNavigation(el<HTMLButtonElement>('openWorld'),()=>{
+    cancelRollPointer();setInfoOpen(false,false);
+    if(viewMode!=='world'){viewMode='world';render();}
+  });
   el<HTMLButtonElement>('openGallery').onclick=()=>{if(state)galleryDialog.open(state);};
-  el<HTMLButtonElement>('backBoard').onclick=()=>{
-    cancelRollPointer();setInfoOpen(false);viewMode='board';render();
-  };
+  bindViewNavigation(el<HTMLButtonElement>('backBoard'),()=>{
+    cancelRollPointer();setInfoOpen(false,false);
+    if(viewMode!=='board'){viewMode='board';render();}
+  });
   el<HTMLButtonElement>('rotateLeft').onclick=()=>board?.rotateMap(-1);
   el<HTMLButtonElement>('rotateRight').onclick=()=>board?.rotateMap(1);
   el<HTMLButtonElement>('sendRobot').onclick=()=>{
