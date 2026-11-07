@@ -1,3 +1,17 @@
+## APPROVED 2026-11-07 — NEW VISUAL DIRECTION: STYLIZED DETAILED 3D
+
+The user **explicitly rejected PS1/retro low-poly**. All future Treasure Bots
+World Map, terrain, water, waterfalls, buildings, robots and avatars must use
+**stylized detailed 3D / miniature fantasy diorama** quality.
+See authoritative `docs/VISUAL_STYLE_GUIDE.md`. Historical PS1-related
+notes are implementation history only; do not revert to that art style.
+
+Initial implementation: `world-map-terrain.ts` now computes continuous
+heightfield surface normals and uses smooth PBR lighting, without changing
+mesh topology, coastline, board path, gameplay or actor anchors.
+The mobile render loop/budget remains unchanged. Automated unit checks
+cover radial-seam normal continuity. Android visual/thermal QA remains open.
+
 # AI Agent Handoff — Treasure Bots
 
 ## 2026-11-07: World Map edge-only polish (main)
