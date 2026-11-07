@@ -1,5 +1,20 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 Stage-aware World Map V2 visual upgrade
+
+- Ring/Lagoon/Clover now reshape **actual island terrain and coast**;
+  synced skirt/beach/heightfield/foam geometry follows board shape.
+- Distinct ridge height profiles, flora/rock tint and pooled waterfall
+  routes by stage. No extra animated mesh generation per frame.
+- Dynamic scene stage rebuild only on map change, with old resources
+  disposed; animated sea reused via `ocean.setShape`.
+- Regresion: `tests/world-map-stage-visual.test.ts`.
+- **Pending** manual Android review: water/coast alignment, FPS,
+  mountain overlapping any Gallery panels, waterfall plausibility,
+  Phaser fallback differences, mobile old-room behavior.
+
+
+
 ## 2026-11-07 Map shape V1 — implementation complete, Android QA pending
 
 - **M-SHAPE-V1** selectable independent stage silhouettes:

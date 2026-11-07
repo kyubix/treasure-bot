@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {stageRadialScale} from '../engine/map-shapes.ts';
+import type {MapShapeId} from '../engine/map-shapes.ts';
 
 /**
  * Animated, original low-poly ocean for the opt-in Three.js World Map.
@@ -15,13 +17,16 @@ export function waveHeight(x:number,z:number,t:number):number{
     +.015*Math.sin((x+z)*3.11+t*1.54);
 }
 
-export function coastLight(x:number,z:number):number{
-  const r=Math.hypot(x,z);
+export function coastLight(x:number,z:number,shape:MapShapeId='RING'):number{
+  const r=Math.hypot(x,z)/stageRadialScale(Math.atan2(z,x),shape);
   const u=THREE.MathUtils.clamp((6.4-r)/2.7,0,1);
   return u*u*(3-2*u);
 }
 
-export interface AnimatedOcean { update(timeSeconds:number):void; }
+export interface AnimatedOcean {
+ update(timeSeconds:number):void;
+ setShape(shape:MapShapeId):void;
+}
 
 /** Create once per World Map. Its objects are owned/disposed with the scene. */
 export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
@@ -50,13 +55,17 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
   const glints=84;
   const segments=new Float32Array(glints*6);
   const layout=new Float32Array(glints*3);
-  for(let i=0;i<glints;i++){
-    const a=i*2.3999632297;
-    const r=3.92+3.2*((i*57%101)/101);
-    layout[i*3]=Math.cos(a)*r;
-    layout[i*3+1]=Math.sin(a)*r;
-    layout[i*3+2]=.09+.19*((i*31%79)/79);
-  }
+  const positionGlints=(shape:MapShapeId)=>{
+    for(let i=0;i<glints;i++){
+      const a=i*2.3999632297;
+      const shoreScale=stageRadialScale(a,shape);
+      const r=(3.92+3.2*((i*57%101)/101))*shoreScale;
+      layout[i*3]=Math.cos(a)*r;
+      layout[i*3+1]=Math.sin(a)*r;
+      layout[i*3+2]=.09+.19*((i*31%79)/79);
+    }
+  };
+  positionGlints('RING');
   const gleamGeometry=new THREE.BufferGeometry();
   gleamGeometry.setAttribute('position',new THREE.BufferAttribute(segments,3));
   const gleamMaterial=new THREE.LineBasicMaterial({
@@ -78,6 +87,20 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
     return {ring,material,offset:i*.5};
   });
 
+  let activeShape:MapShapeId='RING';
+  const setShape=(shape:MapShapeId)=>{
+    if(shape===activeShape)return;
+    activeShape=shape;
+    // Re-sample the shallow water once on a map change. No reallocation
+    // or extra scene meshes in the animation loop.
+    for(let i=0;i<positions.count;i++)
+      shoreLight[i]=coastLight(positions.getX(i),positions.getZ(i),shape);
+    positionGlints(shape);
+    const tones=shape==='LAGOON'?[0x167c9d,0x53c6c6,0xc4f1e7]:
+      shape==='CLOVER'?[0x156e9f,0x40acbf,0x95e2dd]:
+      [0x167da8,0x3ab8cb,0x9edbd7];
+    base.setHex(tones[0]);shallow.setHex(tones[1]);crest.setHex(tones[2]);
+  };
   const update=(t:number)=>{
     for(let i=0;i<positions.count;i++){
       const x=positions.getX(i),z=positions.getZ(i);
@@ -113,5 +136,5 @@ export function createAnimatedOcean(scene:THREE.Scene):AnimatedOcean{
     }
   };
   update(0);
-  return {update};
+  return {update,setShape};
 }

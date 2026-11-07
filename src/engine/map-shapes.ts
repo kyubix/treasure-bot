@@ -9,6 +9,18 @@ export const BOARD_PATH_RADIUS=3.48;
 export function isMapShapeId(value:unknown):value is MapShapeId{
  return value==='RING'||value==='LAGOON'||value==='CLOVER';
 }
+/** Scale of a *radial* coast ray relative to the classic ring.
+ * For an ellipse, this computes the real ray/ellipse intersection;
+ * using board-index scaling here would misalign land and shoreline.
+ */
+export function stageRadialScale(angle:number,shape:MapShapeId='RING'):number{
+ if(shape==='LAGOON'){
+  const c=Math.cos(angle),s=Math.sin(angle);
+  return 1/Math.hypot(c/1.11,s/.92);
+ }
+ if(shape==='CLOVER')return 1+.075*Math.cos(4*angle);
+ return 1;
+}
 export type BoardPathFrame={
  x:number;z:number;
  /** Unit tangent (direction of increasing tile indices). */

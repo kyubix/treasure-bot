@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {terrainHeight} from './world-map-terrain.ts';
+import type {MapShapeId} from '../engine/map-shapes.ts';
 
 /**
  * A curved, terrain-attached waterfall from the high western mesa to the
@@ -13,14 +14,18 @@ const CHANNELS=5;
 const waterDeep=new THREE.Color(0x159ab9);
 const waterFoam=new THREE.Color(0xe2ffff);
 
-export function waterfallPoint(t:number,side=0):THREE.Vector3{
+export function waterfallPoint(t:number,side=0,shape:MapShapeId='RING'):THREE.Vector3{
   const u=THREE.MathUtils.clamp(t,0,1);
-  const x=THREE.MathUtils.lerp(WATER_START.x,WATER_END.x,u);
-  const z=THREE.MathUtils.lerp(WATER_START.z,WATER_END.z,u)+Math.sin(u*Math.PI*1.6)*.037;
+  // Shape-themed creek sources stay on real mesas and all flow into
+  // the same central clearing without introducing floating water tiles.
+  const source=shape==='LAGOON'?{x:-.72,z:.90}:
+    shape==='CLOVER'?{x:-.83,z:1.01}:WATER_START;
+  const x=THREE.MathUtils.lerp(source.x,WATER_END.x,u);
+  const z=THREE.MathUtils.lerp(source.z,WATER_END.z,u)+Math.sin(u*Math.PI*1.6)*.037;
   const width=.075+.050*Math.sin(u*Math.PI);
   const zz=z+side*width;
   // Always above the actual physical terrain or the near-flat lagoon.
-  const ground=terrainHeight(x,zz);
+  const ground=terrainHeight(x,zz,shape);
   const y=Math.max(.479,ground+.065);
   return new THREE.Vector3(x,y,zz);
 }
@@ -28,12 +33,12 @@ export interface CascadingWaterfall {
   readonly mesh:THREE.Mesh;
   update(time:number):void;
 }
-export function createCascadingWaterfall(land:THREE.Group):CascadingWaterfall{
+export function createCascadingWaterfall(land:THREE.Group,shape:MapShapeId='RING'):CascadingWaterfall{
   const positions:number[]=[],indices:number[]=[],colours:number[]=[];
   for(let i=0;i<=FLOW_SEGMENTS;i++){
     const t=i/FLOW_SEGMENTS;
     for(let j=0;j<CHANNELS;j++){
-      const p=waterfallPoint(t,j/(CHANNELS-1)*2-1);
+      const p=waterfallPoint(t,j/(CHANNELS-1)*2-1,shape);
       positions.push(p.x,p.y,p.z);
       colours.push(waterDeep.r,waterDeep.g,waterDeep.b);
     }

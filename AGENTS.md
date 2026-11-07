@@ -1,5 +1,40 @@
 # AI Agent Handoff — Treasure Bots
 
+## IMPLEMENTED 2026-11-07 — stage-aware world scenery V2
+
+- The selection RING / LAGOON / CLOVER now changes the **terrain,
+  shoreline, coast cliffs/skirts, instanced plants, water colors and
+  waterfall**, not only the path tiles. Pure shape math remains in
+  `src/engine/map-shapes.ts`. `stageRadialScale(angle,shape)` is a
+  shared ray/board-conformal shoreline scale, applied to the heightfield
+  and all coastal layers. `src/client/world-map-three.ts` owns stage
+  switching and rebuilds scenery ONLY when shape changes.
+- `src/client/world-map-terrain.ts` exports backward-compatible
+  `terrainRadius(angle,shape='RING')`, `terrainHeight(x,z,shape)`,
+  `createTerrainMesh(shape)`, `createSurfBand(shape)`,
+  `addTerrainDetail(root,shape)`. The default Ring output remains
+  the 28-tile fallback design.
+- `world-map-waterfall.ts` now drapes the cascade on the current
+  terrain (not above a disconnected layered cliff) and adjusts its
+  source by stage. Its pool/foam remain at the shared central lagoon.
+- `world-map-water.ts`: `ocean.setShape(shape)` resamples shoreline
+  shimmer and re-colors the shallow sea once per stage, while reusing
+  existing wave vertex buffers. No new per-frame geometry allocations.
+- Low-cost instanced pale coastal shells/reeds (Lagoon) and mossy
+  rocky features (Clover) provide visible differentiation.
+- `siteWorldPosition()` and robot/site anchors read the chosen
+  terrain height to prevent floating expedition markers.
+- Existing rooms without `shapeId` remain RING. Gameplay, Gallery
+  colors/numbers, robot destination IDs, reverse effect and shop rules
+  are UNCHANGED. No original-game terrain copies or unverified claims.
+- `tests/world-map-stage-visual.test.ts` covers shore spacing, scene
+  mesh topology, waterfall attachment, water reuse and map shapes.
+  CI/Cloudflare are separate from required real Android screenshot QA.
+- Further work: richer hand-authored per-stage landmarks, terrain
+  thematic diversity, visual inspection of mobile waterfall/parallax.
+
+
+
 ## IMPLEMENTED 2026-11-07 — selectable stage route silhouettes
 
 - Host now selects `RING`, `LAGOON` (wide oval) or `CLOVER`

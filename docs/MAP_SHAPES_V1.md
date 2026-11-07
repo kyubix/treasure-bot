@@ -1,5 +1,57 @@
 # Selectable Map Shapes V1 — Treasure Bots
 
+## 2026-11-07 World Map visual update — board shape matches the island
+
+Previous V1 changed only the perimeter road. This update reshapes
+the **actual island geometry** and its scenery to follow the selected
+road shape without changing game rules or requiring GPU-heavy shaders.
+
+- **RING**: original lush circular island, default for saved rooms.
+- **LAGOON**: broader east-west shoreline, low/green mesas, more
+  coastal foliage and pale shells/reeds, brighter turquoise surf.
+- **CLOVER**: four-lobed shoreline, taller rocky ridges, mossy boulders
+  and a deeper blue/green coastal treatment.
+
+A continuous `stageRadialScale(angle,shape)` derives the coastal
+radius from the same equations as the board path. The actual island
+shore is intentionally set inboard of the coloured perimeter tiles.
+Heightfield, beach rim, skirt geometry and foam strip all follow the
+same radius (rather than mixing circular terrain with noncircular tiles).
+
+`terrainHeight`, `createTerrainMesh`, `createSurfBand` and the
+instanced detail placement accept an optional `shape` argument.
+The waterfall source/terrain sampling and expedition site projection
+are stage-aware; the destination pool stays central and physically
+connected to the ribbon, preventing floating waterfalls.
+
+World Map Three.js builds a new island and reuses ocean/board/actors
+when `GameState.board.shapeId` changes, disposing previous static
+stage mesh buffers. The water shader's existing vertex buffers are
+reused while near-coast color is resampled ONCE per stage; the visible
+animation budget stays 24 FPS. No new textures, HTTP asset
+dependencies, external models or shadow lights were introduced.
+
+### Verification checklist
+
+- On Android choose Ring, Lagoon, Clover with a new room for each;
+  compare the actual shoreline silhouette with the Gallery road.
+- The coast must stay inside the path with a visible land/road gap,
+  not poke over the Gallery color tiles or bury the START/Shop markers.
+- Rotate camera a full 360°; no cliff/terrain layer intersections,
+  side-wall holes or waterfall floating above a disconnected cliff.
+- Confirm trees, decorative boulders, waterfall spray and pool do not
+  overlap Gallery numbering or obscure player/robot markers.
+- Test 3/4/5 Gallery size separately; each shape reuses the same
+  server board, robot missions, Shop and Reverse Direction gameplay.
+- Toggle `?map3d=0`; Phaser fallback remains a 2.5D approximation
+  of the same road shape (not the new Three.js terrain model).
+- Check FPS on mid-range mobile, WebGL loss/recovery, returning from
+  background, new rooms, and old room without `board.shapeId`.
+
+**Still outside this phase:** exact original Glint Glitters maps,
+unique interactive island locations and treasure balancing by stage.
+
+
 Status: **CODED 2026-11-07; CI and Android QA are separate release gates.**
 Scope: distinct stage *path geometries*, not exact original game
 maps. Original Glint Glitters stage layouts are not yet verified.

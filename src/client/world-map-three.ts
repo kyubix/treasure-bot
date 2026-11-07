@@ -8,7 +8,7 @@ import {createCascadingWaterfall} from './world-map-waterfall.ts';
 import {createWorldAmbience} from './world-map-environment.ts';
 import {createWorldActors} from './world-map-actors.ts';
 import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
-import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from './world-map-terrain.ts';
+import {createTerrainMesh, addTerrainDetail, terrainHeight, terrainRadius, createSurfBand} from './world-map-terrain.ts';
 
 /**
  * One original, camera-orbitable island shared by WebGL scenery and Phaser's
@@ -18,11 +18,11 @@ import {createTerrainMesh, addTerrainDetail, terrainHeight, createSurfBand} from
 export type ScreenPoint={x:number;y:number};
 
 /** The one shared mapping between authoritative logical coordinates and 3D. */
-export function siteWorldPosition(x:number,y:number,elevation?:number):THREE.Vector3{
+export function siteWorldPosition(x:number,y:number,elevation?:number,shape:MapShapeId='RING'):THREE.Vector3{
   const wx=(x-2)*1.16,wz=(y-2)*1.16;
   // The interactive target is a point ON the island surface, not inside
   // a mountain. The explicit elevation override remains available.
-  const surfaceY=Math.max(.48,terrainHeight(wx,wz)+.10);
+  const surfaceY=Math.max(.48,terrainHeight(wx,wz,shape)+.10);
   return new THREE.Vector3(wx,elevation??surfaceY,wz);
 }
 export function boardTileWorldPosition(index:number,radius=3.48,elevation=BOARD_SURFACE_Y+.015,
@@ -148,7 +148,7 @@ function pine(root:THREE.Group,x:number,z:number,size:number,n:number):void{
     root.add(cone);
   }
 }
-function forest(root:THREE.Group,x:number,z:number,count:number,seed:number):void{
+function forest(root:THREE.Group,x:number,z:number,count:number,seed:number,shape:MapShapeId='RING'):void{
   for(let i=0;i<count;i++){
     const a=i*2.39996,r=.14+.45*Math.sqrt((i+.5)/count);
     const tx=x+Math.cos(a)*r, tz=z+Math.sin(a)*r;
@@ -159,7 +159,7 @@ function forest(root:THREE.Group,x:number,z:number,count:number,seed:number):voi
     const size=.72+.43*seeded(seed+i*3.7);
     // Each tree stands on the actual heightfield, never floats above a hill.
     const ground=new THREE.Group();
-    ground.position.y=terrainHeight(tx,tz)-.421;
+    ground.position.y=terrainHeight(tx,tz,shape)-.421;
     root.add(ground);
     if(i%5===3)pine(ground,tx,tz,size,seed+i);
     else broadTree(ground,tx,tz,size,seed+i);
@@ -183,15 +183,14 @@ function lighthouse(root:THREE.Group,x:number,z:number):void{
   const top=new THREE.Mesh(new THREE.ConeGeometry(.20,.18,9),red);
   place(top,x,.80,z);root.add(top);
 }
-function organicCylinder(top:number,bottom:number,height:number):THREE.CylinderGeometry{
+function organicCylinder(top:number,bottom:number,height:number,shape:MapShapeId='RING'):THREE.CylinderGeometry{
   const geometry=new THREE.CylinderGeometry(top,bottom,height,72,1,false);
   const positions=geometry.getAttribute('position') as THREE.BufferAttribute;
   for(let i=0;i<positions.count;i++){
     const x=positions.getX(i),z=positions.getZ(i);
     const angle=Math.atan2(z,x);
     // Same deterministic irregular shore for caps, walls and every viewpoint.
-    const scale=1+.024*Math.sin(angle*5+.33)+.016*Math.sin(angle*9-1.1)
-      +.010*Math.cos(angle*13+.3);
+    const scale=terrainRadius(angle,shape)/3.17;
     positions.setX(i,x*scale);
     positions.setZ(i,z*scale);
   }
@@ -199,26 +198,27 @@ function organicCylinder(top:number,bottom:number,height:number):THREE.CylinderG
   geometry.computeVertexNormals();
   return geometry;
 }
-function island(scene:THREE.Scene):THREE.Group{
+function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
   const root=new THREE.Group();
+  root.name='stage-island-'+shape.toLowerCase();
   scene.add(root);
 
   // The same coastline mesh is rotated, never four independently generated views.
-  const under=new THREE.Mesh(organicCylinder(3.50,3.62,.62),[rockShade,rockShade,rockShade]);
+  const under=new THREE.Mesh(organicCylinder(3.50,3.62,.62,shape),[rockShade,rockShade,rockShade]);
   under.castShadow=true;
   place(under,0,-.17,0);root.add(under);
   // Foam follows the same irregular coastline instead of a perfect circle.
-  root.add(createSurfBand());
-  const beach=new THREE.Mesh(organicCylinder(3.49,3.52,.19),[sandy,rim,rock]);
+  root.add(createSurfBand(shape));
+  const beach=new THREE.Mesh(organicCylinder(3.49,3.52,.19,shape),[sandy,rim,rock]);
   place(beach,0,.14,0);root.add(beach);
-  const turf=new THREE.Mesh(organicCylinder(3.18,3.33,.24),[darkGrass,grass,rock]);
+  const turf=new THREE.Mesh(organicCylinder(3.18,3.33,.24,shape),[darkGrass,grass,rock]);
   turf.receiveShadow=true;
   place(turf,0,.29,0);root.add(turf);
 
   // One continuous original heightfield replaces the old cylinder mesas.
   // The island remains a single physical object from every camera angle.
-  root.add(createTerrainMesh());
-  addTerrainDetail(root);
+  root.add(createTerrainMesh(shape));
+  addTerrainDetail(root,shape);
 
   // Single compact turquoise lagoon in a clearing with a real shoreline.
   root.add(disk(.69,sandy,.446,.75,.61));
@@ -228,19 +228,46 @@ function island(scene:THREE.Scene):THREE.Group{
   // V6 waterfall follows the same heightfield as the cliff and ends inside
   // the lagoon. The previous free-standing vertical blue boxes are removed.
 
-  forest(root,-1.64,-.52,11,7);
-  forest(root,-2.02,1.25,11,18);
-  forest(root,.78,-2.22,13,32);
-  forest(root,1.92,1.23,12,45);
-  forest(root,-.26,2.10,11,58);
+  forest(root,-1.64,-.52,11,7,shape);
+  forest(root,-2.02,1.25,11,18,shape);
+  forest(root,.78,-2.22,13,32,shape);
+  forest(root,1.92,1.23,12,45,shape);
+  forest(root,-.26,2.10,11,58,shape);
+  // More scenic differentiation with only ONE additional draw call.
+  // Coastal boulders on Clover; pale shells and reeds on Lagoon.
+  if(shape!=='RING'){
+    const palette=shape==='LAGOON'?[0xe6d0a4,0x8bc9a7,0x72b3b5]:
+      [0x7a9b75,0x6f826a,0xb6bc8a];
+    const amount=shape==='LAGOON'?28:32;
+    const geometry=shape==='LAGOON'?
+      new THREE.IcosahedronGeometry(.105,0):
+      new THREE.DodecahedronGeometry(.145,0);
+    const material=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true});
+    const props=new THREE.InstancedMesh(geometry,material,amount);
+    props.name='stage-coast-details-'+shape.toLowerCase();
+    const instance=new THREE.Object3D(),colour=new THREE.Color();
+    for(let i=0;i<amount;i++){
+      const a=i*2.3999632297;
+      const radius=terrainRadius(a,shape)-.48-(i%3)*.08;
+      const x=Math.cos(a)*radius,z=Math.sin(a)*radius;
+      instance.position.set(x,terrainHeight(x,z,shape)+.04,z);
+      instance.rotation.set(0,i*.79,0);
+      instance.scale.setScalar(.65+(i%5)*.12);
+      instance.updateMatrix();props.setMatrixAt(i,instance.matrix);
+      props.setColorAt(i,colour.setHex(palette[i%palette.length]));
+    }
+    props.instanceMatrix.needsUpdate=true;
+    if(props.instanceColor)props.instanceColor.needsUpdate=true;
+    props.frustumCulled=false;root.add(props);
+  }
 
   // Put scenic buildings on the new physical terrain, not on the old disk.
   const ruinBase=new THREE.Group();
-  ruinBase.position.y=terrainHeight(2.10,-1.50)-.16;
+  ruinBase.position.y=terrainHeight(2.10,-1.50,shape)-.16;
   root.add(ruinBase);
   ruins(ruinBase,2.10,-1.50);
   const lightBase=new THREE.Group();
-  lightBase.position.y=terrainHeight(1.86,2.28)-.05;
+  lightBase.position.y=terrainHeight(1.86,2.28,shape)-.05;
   root.add(lightBase);
   lighthouse(lightBase,1.86,2.28);
 
@@ -251,7 +278,7 @@ function island(scene:THREE.Scene):THREE.Group{
     const x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x-.75,z-.61)<.85)continue;
     const m=new THREE.Mesh(new THREE.DodecahedronGeometry(.085+.055*seeded(i*5+2),0),stone);
-    place(m,x,terrainHeight(x,z)+.09,z);root.add(m);
+    place(m,x,terrainHeight(x,z,shape)+.09,z);root.add(m);
   }
   return root;
 }
@@ -291,16 +318,43 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const ocean=createAnimatedOcean(scene);
-  const land=island(scene);
-  const waterfall=createCascadingWaterfall(land);
+  let land=island(scene);
+  let waterfall=createCascadingWaterfall(land);
   const board3D=createWorldBoard3D(scene);
   let tileCount=28,shapeId:MapShapeId='RING';
-  const ambience=createWorldAmbience(land,new THREE.Vector3(1.86,terrainHeight(1.86,2.28)+.63,2.28));
+  const makeAmbience=(root:THREE.Group,stage:MapShapeId)=>
+    createWorldAmbience(root,new THREE.Vector3(
+      1.86,terrainHeight(1.86,2.28,stage)+.63,2.28));
+  let ambience=makeAmbience(land,shapeId);
+  /** Rebuild terrain once when the stage changes, NEVER per draw/update. */
+  const syncEnvironment=(nextShape:MapShapeId)=>{
+    if(shapeId===nextShape)return;
+    const old=land;
+    scene.remove(old);
+    const geometries=new Set<THREE.BufferGeometry>();
+    const materials=new Set<THREE.Material>();
+    old.traverse(node=>{
+      if(node instanceof THREE.InstancedMesh)node.dispose();
+      if(node instanceof THREE.Mesh){
+        geometries.add(node.geometry);
+        for(const mat of Array.isArray(node.material)?node.material:[node.material])materials.add(mat);
+      }
+    });
+    for(const geometry of geometries)geometry.dispose();
+    // Some static materials are shared. Disposal simply forces a clean
+    // re-upload when the new island is rendered; it does not destroy them.
+    for(const material of materials)material.dispose();
+    land=island(scene,nextShape);
+    waterfall=createCascadingWaterfall(land,nextShape);
+    ambience=makeAmbience(land,nextShape);
+    ocean.setShape(nextShape);
+    shapeId=nextShape;
+  };
   // The same coordinates drive both the 3D characters and the 2D overlays.
   // No per-angle screenspace offsets or actor images are needed.
   const actors=createWorldActors(scene,{
     tile:index=>boardTileWorldPosition(index,3.48,BOARD_SURFACE_Y+.015,tileCount,shapeId),
-    site:(x,y)=>siteWorldPosition(x,y)
+    site:(x,y)=>siteWorldPosition(x,y,undefined,shapeId)
   });
   const camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,100);
   let yaw=Math.PI/4;
@@ -379,7 +433,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   // Game model coordinates are mapped ONCE onto the Three island. They are
   // never rotated independently of the orbit camera.
   const sitePoint=(x:number,y:number,elevation?:number)=>{
-    const p=siteWorldPosition(x,y,elevation);
+    const p=siteWorldPosition(x,y,elevation,shapeId);
     return screen(p.x,p.y,p.z);
   };
   const tileWorld=(angle:number,radius:number,elevation=.48)=>{
@@ -409,7 +463,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     syncActors(state){
       if(dead)return;
       tileCount=boardTiles(state).length;
-      shapeId=state?.board?.shapeId??'RING';
+      syncEnvironment(state?.board?.shapeId??'RING');
       actors.sync(state);
       board3D.sync(state);
     },
