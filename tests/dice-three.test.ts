@@ -34,7 +34,7 @@ describe('Three.js two-die roll visualization',()=>{
   expect(main).toContain('id="diceThreeHost"');
   expect(main).toContain('id="rollLabel"');
   expect(main).toContain("syncDiceThree('holding')");
-  expect(main).toContain("syncDiceThree('waiting')");
+  expect(main).toContain("syncDiceThree('throwing')");
   expect(main).toContain("syncDiceThree('result',[first,second])");
   expect(main).toContain("sendAction({type:'ROLL'})");
   expect(main).not.toContain("el<HTMLButtonElement>('roll').textContent=");
