@@ -1,3 +1,12 @@
+## 2026-11-07: V7 original GLB landmark upgrade
+
+- Target **stylized detailed 3D**, never PS1. Read `docs/VISUAL_STYLE_GUIDE.md` and `docs/WORLD_MAP_V7_GLB_LANDMARKS.md`.
+- Six original self-contained PBR GLB hero landmark files under `public/assets/worldmap/landmarks/`, reproducible by `node scripts/generate-world-landmarks.mjs`.
+- The Three World Map now loads those landmark sets via `GLTFLoader` and caches read-only templates. Instance geometry/materials are cloned and disposed per stage.
+- Stage-level procedural fallback remains until all required assets finish loading; full rollback on load failure and cancellation during shape switch. No additional gameplay state, backend calls, or Gallery No. landmark buildings.
+- Ring: camp, ruins, lighthouse; Lagoon: dock/boat; Clover: crystal shrine and standing stones.
+- Tests cover GLB parsing and fallback races. Android 360°, performance, shader/texture acceptance and cloud deployment still need manual inspection. GLB models are scripted original geometry with PBR colors; a professional baked texture/normal-map pass is still open.
+
 ## 2026-11-07: V6 stylized detailed 3D environment upgrade (Android QA pending)
 
 - **Not PS1**. Read `docs/VISUAL_STYLE_GUIDE.md` and `docs/WORLD_MAP_V6_DETAILED_ENVIRONMENT.md` before continuing.

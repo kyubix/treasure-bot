@@ -11,6 +11,8 @@ import {createAnimatedOcean,WAVE_INTERVAL_MS} from './world-map-water.ts';
 import {createTerrainMesh, addTerrainDetail, terrainHeight, terrainRadius} from './world-map-terrain.ts';
 import {createStageFoundation,createStageApron,createStageDecorations} from './world-map-stage.ts';
 import {createDetailedForest} from './world-map-vegetation.ts';
+import {createDetailedStageLandmarks} from './world-map-landmarks.ts';
+import type {DetailedLandmarkStage} from './world-map-landmarks.ts';
 
 /**
  * One original, camera-orbitable island shared by WebGL scenery and Phaser's
@@ -47,7 +49,7 @@ export interface WorldThreeLayer {
   dispose():void;
 }
 
- const sandy = new THREE.MeshStandardMaterial({color:0xf4d49a,roughness:1,flatShading:true});
+const sandy = new THREE.MeshStandardMaterial({color:0xf4d49a,roughness:1});
 const rim = new THREE.MeshStandardMaterial({color:0xc29d63,roughness:.94});
 const water = new THREE.MeshStandardMaterial({color:0x28a1bf,roughness:.32,metalness:.09,flatShading:true});
 const foam = new THREE.MeshBasicMaterial({color:0xb7e9dc,transparent:true,opacity:.70,side:THREE.DoubleSide});
@@ -135,19 +137,24 @@ function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
     props.frustumCulled=false;root.add(props);
   }
 
-  // Unique stage landmarks rather than reusing the same two structures
-  // in Ring/Lagoon/Clover. Shapes can be recognized even on small phones.
+  // Keep all legacy stage landmarks grouped as a guaranteed fallback.
+  // Modern same-origin GLB landmarks replace this group atomically only
+  // after every asset for the stage loads successfully.
+  const fallback=new THREE.Group();
+  fallback.name='stage-legacy-landmarks';
   if(shape==='RING'){
     const ruinBase=new THREE.Group();
     ruinBase.position.y=terrainHeight(2.10,-1.50,shape)-.16;
-    root.add(ruinBase);
+    fallback.add(ruinBase);
     ruins(ruinBase,2.10,-1.50);
     const lightBase=new THREE.Group();
     lightBase.position.y=terrainHeight(1.86,2.28,shape)-.05;
-    root.add(lightBase);
+    fallback.add(lightBase);
     lighthouse(lightBase,1.86,2.28);
   }
-  root.add(createStageDecorations(shape));
+  fallback.add(createStageDecorations(shape));
+  root.add(fallback);
+  root.userData.landmarkController=createDetailedStageLandmarks(root,shape,fallback);
 
   // Sparse rocks and flowers stay decorative, independent from site IDs.
   const stone = new THREE.MeshStandardMaterial({color:0xb4a581,roughness:1,flatShading:true});
@@ -203,12 +210,13 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   let tileCount=28,shapeId:MapShapeId='RING';
   const makeAmbience=(root:THREE.Group,stage:MapShapeId)=>
     createWorldAmbience(root,new THREE.Vector3(
-      1.86,terrainHeight(1.86,2.28,stage)+.63,2.28),stage==='RING');
+      1.86,terrainHeight(1.86,2.28,stage)+.88,2.28),stage==='RING');
   let ambience=makeAmbience(land,shapeId);
   /** Rebuild terrain once when the stage changes, NEVER per draw/update. */
   const syncEnvironment=(nextShape:MapShapeId)=>{
     if(shapeId===nextShape)return;
     const old=land;
+    (old.userData.landmarkController as DetailedLandmarkStage|undefined)?.dispose();
     scene.remove(old);
     const geometries=new Set<THREE.BufferGeometry>();
     const materials=new Set<THREE.Material>();
@@ -316,7 +324,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     return screen(p.x,p.y,p.z);
   };
   const tileWorld=(angle:number,radius:number,elevation=.48)=>{
-    // Azimuth offset matches the PS1-inspired default angle: tile 0 is at
+    // Azimuth offset matches the original default angle: tile 0 is at
     // the near / bottom edge of the island, not the back or water.
     const a=angle-Math.PI/4;
     return new THREE.Vector3(Math.cos(a)*radius,elevation,Math.sin(a)*radius);
@@ -399,6 +407,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       // Actors dispose their private geometry/materials and detach from
       // the scene before the static-environment disposal walk.
       actors.dispose();
+      (land.userData.landmarkController as DetailedLandmarkStage|undefined)?.dispose();
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
         if(o instanceof THREE.InstancedMesh)o.dispose();
