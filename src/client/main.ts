@@ -13,6 +13,7 @@ import './viewport-layout.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
 import {matchingRollPointer,accessibleRollClick} from './dice-intent.ts';
 import {bindViewNavigation} from './view-navigation.ts';
+import {resetMatchViewportScroll} from './match-viewport.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
@@ -471,9 +472,24 @@ function cpuStatusText(s:PublicState):string {
 }
 function render():void {
   const active=!!state;const playing=active&&state!.phase!=='lobby';
+  // The Start button can be far down the scrollable lobby on Android.
+  // Switching to a 100dvh, overflow-hidden match without clearing the
+  // previous scroll offset clips the TOP of both Board and World views.
+  const wasPlaying=document.body.classList.contains('in-game');
+  const viewportModeChanged=wasPlaying!==playing;
+  if(playing&&!wasPlaying){
+    const focused=document.activeElement;
+    if(focused instanceof HTMLElement&&
+       (el('lobby').contains(focused)||el('home').contains(focused)))
+      focused.blur();
+  }
   el('home').hidden=active;el('lobby').hidden=!active||playing;el('match').hidden=!playing;
   el('leave').hidden=!active;
   document.body.classList.toggle('in-game',playing);
+  document.documentElement.classList.toggle('treasure-game-active',playing);
+  if(viewportModeChanged)resetMatchViewportScroll(
+    document.documentElement,document.body,(x,y)=>window.scrollTo(x,y)
+  );
   if(!playing&&infoOpen)setInfoOpen(false,false);
   if(!playing&&shopOpen)setShopOpen(false);
   if(!playing&&shopDecisionOpen)setShopDecisionOpen(false);

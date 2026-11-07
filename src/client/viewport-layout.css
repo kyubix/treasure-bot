@@ -49,3 +49,44 @@
   min-height:0!important;
  }
 }
+
+// Critical mobile fix: keep the entire game pinned to the VISIBLE viewport.
+// The lobby is a scrollable page; when entering a match from a scrolled
+// Start button, its previous scroll offset must not shift Board/World up.
+@media(max-width:900px){
+ html.treasure-game-active{
+  height:100%;
+  overflow:hidden!important;
+  overscroll-behavior:none;
+ }
+ body.in-game{
+  height:100dvh;
+  min-height:0;
+  max-height:100dvh;
+  overflow:hidden!important;
+ }
+ body.in-game #app{
+  position:fixed!important;
+  inset:0!important;
+  width:100%!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex;
+  flex-direction:column;
+ }
+ body.in-game #app > main{
+  flex:1 1 0!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:100%;
+  overflow:hidden!important;
+ }
+ body.in-game #match{
+  flex:1 1 0!important;
+  min-height:0!important;
+  max-height:100%;
+  overflow:hidden;
+ }
+}

@@ -1,3 +1,11 @@
+## 2026-11-07: HOTFIX — Shared viewport top clipped in both Board/World
+
+- User reports that the TOP of both game views is invisible, as though the whole screen shifted UP. Do not keep changing each Three.js camera to compensate for a common viewport offset.
+- In `src/client/main.ts`, on entering/leaving the game, detect the `in-game` transition, blur any lobby/home focused element before it becomes hidden, reset **html scrollTop, body scrollTop, window scroll position to (0,0)**, and synchronize `treasure-game-active` on the document element.
+- In last-loaded `src/client/viewport-layout.css`, mobile `body.in-game #app` is fixed to visual viewport via `position:fixed; inset:0; height:100dvh` and main/#match use zero-basis flex/overflow containment. This prevents previously scrolled lobby from offsetting the match's top edge on Android.
+- New regression tests cover both scroll roots and fullscreen CSS invariants. No gameplay, robot, dice, action dispatch, canvas camera or tile changes.
+- GitHub CI and Workers Builds are necessary but not sufficient. Manual Android cold-start/lobby scrolled to Start, Board top HUD, World top energy bar, Back Board, rotation and browser-chrome changes must be checked.
+
 ## 2026-11-07: Prevent initial World 2D-to-3D visual resize
 
 - Three.js World Map is imported asynchronously. If opened during import, Phaser's world fallback was briefly displayed, then exchanged for an island with different camera/framing.
