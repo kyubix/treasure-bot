@@ -9,7 +9,9 @@ describe('V3 procedural PS1-style island terrain',()=>{
     expect(terrainHeight(.75,.61)).toBeLessThan(.50);
     for(let i=0;i<24;i++){
       const a=i*Math.PI/12,r=terrainRadius(a);
-      expect(r).toBeGreaterThan(3.00);
+      // The V2 shoreline is intentionally inset by ~5 cm to prevent
+      // cliffs and grass intersecting the Gallery tile board.
+      expect(r).toBeGreaterThan(2.95);
       expect(r).toBeLessThan(3.35);
       const y=terrainHeight(Math.cos(a)*r,Math.sin(a)*r);
       expect(y).toBeGreaterThan(.37);
