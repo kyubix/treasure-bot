@@ -40,6 +40,10 @@ describe('V7 original detailed GLB landmarks',()=>{
    const camp=WORLD_LANDMARKS.RING.find(x=>x.id==='camp')!;
    expect(camp.x).toBe(RING_CAMP_CLEARING.x);
    expect(camp.z).toBe(RING_CAMP_CLEARING.z);
+   // Keep the campsite between, not on top of, mission site markers.
+   for(let x=0;x<5;x++)for(let z=0;z<5;z++)
+     expect(Math.hypot(camp.x-(x-2)*1.16,camp.z-(z-2)*1.16))
+      .toBeGreaterThan(.75);
    const r=.44;
    const heights=[terrainHeight(camp.x,camp.z,'RING'),
     ...[-r,r].flatMap(dx=>[-r,r].map(dz=>

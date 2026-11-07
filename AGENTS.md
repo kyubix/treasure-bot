@@ -1,8 +1,8 @@
 ## 2026-11-07: Board first-view resizing + Ring mountain/tent overlap fix
 
 - On Android, Phaser Board initialization no longer starts at 640×480 and visibly resizes. Seed RESIZE scale from actual board host dimensions; defer first paint until three stable layout frames and do not reveal a stale-sized board frame. Preserve Phaser and Three fallback, all Board input/turn/dice logic.
-- Ring tent was at (-1.45,1.53) inside the western mountain slope. Now shares a flat clearing at (-2.30,0) between `world-map-landmark-layout.ts`, GLB positions and legacy procedural tent. Instanced trees are excluded from the campsite.
-- Tests check cold-start viewport seed and campsite terrain variance, mountain separation, forest clearance. CI/deployment and real Android QA still required.
+- Ring tent was at (-1.45,1.53) inside the western mountain slope. Now shares a flat clearing at (-1.74,-.58) between `world-map-landmark-layout.ts`, GLB positions and legacy procedural tent. Instanced trees are excluded from the campsite.
+- Tests check cold-start viewport seed and campsite terrain variance, mountain separation, site marker clearance, forest clearance. CI/deployment and real Android QA still required.
 
 ## 2026-11-07: V8 PBR microtextures, UV-bearing original GLBs and filmic lighting
 
