@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {boardPathFrame} from '../engine/map-shapes.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
 import {terrainRadius,terrainHeight} from './world-map-terrain.ts';
+import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
 /** A stage's solid edge follows EXACTLY the same parametric curve as
  * the board. This closes the exposed water seam between the island and
@@ -19,8 +20,9 @@ export function stageBoundaryPoint(progress:number,shape:MapShapeId='RING',
  * ocean leaking through Gallery cell joins.
  */
 
-export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
- const positions:number[]=[],colors:number[]=[],indices:number[]=[];
+export function createStageFoundation(shape:MapShapeId='RING',
+ surfaces?:WorldSurfaceLibrary):THREE.Mesh{
+ const positions:number[]=[],colors:number[]=[],uvs:number[]=[],indices:number[]=[];
  const top=.414;
  const edge=new THREE.Color(shape==='LAGOON'?0xb88d62:
   shape==='CLOVER'?0x716958:0x98724a);
@@ -30,10 +32,11 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  // Keep the TOP contour exact: it closes the sea seam at every Gallery tile.
  // Only the rock below the trim can erode. The foot widens gently into the
  // ocean rather than forming a uniform, unsupported brown cylinder.
- positions.push(0,top,0);colors.push(cap.r,cap.g,cap.b);
+ positions.push(0,top,0);colors.push(cap.r,cap.g,cap.b);uvs.push(0,0);
  for(let i=0;i<=SEGMENTS;i++){
   const pt=stageBoundaryPoint(i/SEGMENTS,shape);
   positions.push(pt.x,top,pt.y);
+  uvs.push(pt.x*.82,pt.y*.82);
   colors.push(cap.r,cap.g,cap.b);
  }
  for(let i=0;i<SEGMENTS;i++)indices.push(0,i+1,i+2);
@@ -59,6 +62,7 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
    const strata=band.rough*(.6*Math.sin(11*a+level*.83)
     +.4*Math.cos(23*a-level*.43));
    positions.push(pt.x,band.y+strata,pt.y);
+   uvs.push(u*12,(band.y+strata)*2.5);
    const grain=.94+.045*Math.sin(7*a+level*.81)
     +.015*Math.cos(31*a-level*.36);
    tint.copy(edge).multiplyScalar(band.tone*grain);
@@ -78,10 +82,13 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  geometry.setIndex(indices);
  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
  geometry.computeVertexNormals();
- const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({
-  vertexColors:true,roughness:1,flatShading:true,side:THREE.DoubleSide
- }));
+ const material=new THREE.MeshStandardMaterial({
+  vertexColors:true,roughness:.94,flatShading:false,side:THREE.DoubleSide
+ });
+ if(surfaces)surfaces.apply(material,'stone');
+ const mesh=new THREE.Mesh(geometry,material);
  mesh.name='stage-solid-foundation';
  mesh.castShadow=true;mesh.receiveShadow=true;
  return mesh;
@@ -91,8 +98,9 @@ export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  * covering any Gallery tile color or its embossed numeral.
  */
 
-export function createStageApron(shape:MapShapeId='RING'):THREE.Mesh{
- const positions:number[]=[],colors:number[]=[],indices:number[]=[];
+export function createStageApron(shape:MapShapeId='RING',
+ surfaces?:WorldSurfaceLibrary):THREE.Mesh{
+ const positions:number[]=[],colors:number[]=[],uvs:number[]=[],indices:number[]=[];
  const grass=new THREE.Color(shape==='LAGOON'?0x81af70:
   shape==='CLOVER'?0x55844e:0x73a153);
  const earth=new THREE.Color(shape==='LAGOON'?0x9b9c69:
@@ -120,6 +128,7 @@ export function createStageApron(shape:MapShapeId='RING'):THREE.Mesh{
    const lift=.008*Math.sin(Math.PI*fraction)*Math.sin(a*7+.4);
    const y=THREE.MathUtils.lerp(landY,.429,ease)+lift;
    positions.push(x,y,z);
+   uvs.push(x*.87,z*.87);
    if(fraction<.6)tint.copy(grass).lerp(earth,(fraction/.6)**2);
    else tint.copy(earth).lerp(rim,((fraction-.6)/.4)**2);
    tint.multiplyScalar(.97+.03*Math.sin(a*11+.6));
@@ -137,10 +146,13 @@ export function createStageApron(shape:MapShapeId='RING'):THREE.Mesh{
  geometry.setIndex(indices);
  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
  geometry.computeVertexNormals();
- const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({
-  vertexColors:true,roughness:1,side:THREE.DoubleSide
- }));
+ const material=new THREE.MeshStandardMaterial({
+  vertexColors:true,roughness:.96,side:THREE.DoubleSide
+ });
+ if(surfaces)surfaces.apply(material,'soil');
+ const mesh=new THREE.Mesh(geometry,material);
  mesh.name='stage-land-to-board-apron';
  mesh.receiveShadow=true;
  return mesh;

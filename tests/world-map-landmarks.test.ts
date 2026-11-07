@@ -15,7 +15,7 @@ describe('V7 original detailed GLB landmarks',()=>{
    const bytes=readFileSync(new URL('../public/assets/worldmap/landmarks/'+id+'.glb',import.meta.url));
    combined+=bytes.length;
    expect(bytes.subarray(0,4).toString('ascii')).toBe('glTF');
-   expect(bytes.length).toBeLessThan(200_000);
+   expect(bytes.length).toBeLessThan(260_000);
    const buffer=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
    const gltf=await new GLTFLoader().parseAsync(buffer,'');
    const meshes:THREE.Mesh[]=[];
@@ -24,13 +24,15 @@ describe('V7 original detailed GLB landmarks',()=>{
    for(const mesh of meshes){
     expect(mesh.geometry.getAttribute('position').count).toBeGreaterThan(0);
     expect(mesh.geometry.getAttribute('normal')).toBeDefined();
+    expect(mesh.geometry.getAttribute('uv')).toBeDefined();
+    expect(mesh.geometry.getAttribute('uv').count).toBe(mesh.geometry.getAttribute('position').count);
     expect(mesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
     mesh.geometry.dispose();
     for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])
      material.dispose();
    }
   }
-  expect(combined).toBeLessThan(750_000);
+  expect(combined).toBeLessThan(900_000);
  });
  it('grounds all models within their stage boundaries and avoids gallery tile centers',()=>{
   for(const shape of MAP_SHAPES){

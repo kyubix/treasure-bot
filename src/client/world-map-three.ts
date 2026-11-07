@@ -13,6 +13,8 @@ import {createStageFoundation,createStageApron,createStageDecorations} from './w
 import {createDetailedForest} from './world-map-vegetation.ts';
 import {createDetailedStageLandmarks} from './world-map-landmarks.ts';
 import type {DetailedLandmarkStage} from './world-map-landmarks.ts';
+import {createWorldSurfaceLibrary} from './world-map-materials.ts';
+import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
 /**
  * One original, camera-orbitable island shared by WebGL scenery and Phaser's
@@ -85,7 +87,8 @@ function lighthouse(root:THREE.Group,x:number,z:number):void{
   const top=new THREE.Mesh(new THREE.ConeGeometry(.20,.18,9),red);
   place(top,x,.80,z);root.add(top);
 }
-function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
+function island(scene:THREE.Scene,shape:MapShapeId='RING',
+ surfaces?:WorldSurfaceLibrary):THREE.Group{
   const root=new THREE.Group();
   root.name='stage-island-'+shape.toLowerCase();
   scene.add(root);
@@ -93,9 +96,9 @@ function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
   // A solid platform follows the EXACT board path, including its four
   // lobes/ellipse. The foundation closes the previously exposed ocean seam.
   // One apron joins the organic terrain edge to the inner board trim.
-  root.add(createStageFoundation(shape));
-  root.add(createStageApron(shape));
-  root.add(createTerrainMesh(shape));
+  root.add(createStageFoundation(shape,surfaces));
+  root.add(createStageApron(shape,surfaces));
+  root.add(createTerrainMesh(shape,surfaces));
   addTerrainDetail(root,shape);
 
   // Single compact turquoise lagoon in a clearing with a real shoreline.
@@ -154,7 +157,8 @@ function island(scene:THREE.Scene,shape:MapShapeId='RING'):THREE.Group{
   }
   fallback.add(createStageDecorations(shape));
   root.add(fallback);
-  root.userData.landmarkController=createDetailedStageLandmarks(root,shape,fallback);
+  root.userData.landmarkController=createDetailedStageLandmarks(
+    root,shape,fallback,undefined,surfaces);
 
   // Sparse rocks and flowers stay decorative, independent from site IDs.
   const stone = new THREE.MeshStandardMaterial({color:0xb4a581,roughness:1,flatShading:true});
@@ -180,6 +184,10 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   // Phaser/HUD remain independently sharp and interactive.
   renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio||1,1),1.5));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
+  // Filmic mapping retains warm highlights and shadow detail without
+  // costly postprocessing passes on mobile GPUs.
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.04;
   const canvas=renderer.domElement;
   canvas.className='world-map-three';
   canvas.setAttribute('aria-hidden','true');
@@ -190,12 +198,12 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
 
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x1c7baa);
-  scene.add(new THREE.HemisphereLight(0xedf8fa,0x745a3c,2.0));
-  scene.add(new THREE.AmbientLight(0xffffff,.23));
-  const sun=new THREE.DirectionalLight(0xffeed0,2.4);
+  scene.add(new THREE.HemisphereLight(0xeaf3ff,0x73806b,1.40));
+  scene.add(new THREE.AmbientLight(0xffffff,.17));
+  const sun=new THREE.DirectionalLight(0xffe7bf,2.25);
   sun.position.set(-5,10,6);
   sun.castShadow=true;
-  sun.shadow.mapSize.set(768,768);
+  sun.shadow.mapSize.set(1024,1024);
   sun.shadow.camera.left=-5;sun.shadow.camera.right=5;
   sun.shadow.camera.top=5;sun.shadow.camera.bottom=-5;
   sun.shadow.camera.near=1;sun.shadow.camera.far=23;
@@ -203,8 +211,9 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   scene.add(sun);
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  const surfaces=createWorldSurfaceLibrary();
   const ocean=createAnimatedOcean(scene);
-  let land=island(scene);
+  let land=island(scene,'RING',surfaces);
   let waterfall=createCascadingWaterfall(land);
   const board3D=createWorldBoard3D(scene);
   let tileCount=28,shapeId:MapShapeId='RING';
@@ -231,7 +240,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
     // Some static materials are shared. Disposal simply forces a clean
     // re-upload when the new island is rendered; it does not destroy them.
     for(const material of materials)material.dispose();
-    land=island(scene,nextShape);
+    land=island(scene,nextShape,surfaces);
     waterfall=createCascadingWaterfall(land,nextShape);
     ambience=makeAmbience(land,nextShape);
     ocean.setShape(nextShape);
@@ -420,6 +429,7 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
       });
       for(const geometry of geometries)geometry.dispose();
       for(const material of materials)material.dispose();
+      surfaces.dispose();
       sun.shadow.dispose();
       renderer.dispose();
       renderer.forceContextLoss();

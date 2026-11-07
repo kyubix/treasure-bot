@@ -1,3 +1,12 @@
+## 2026-11-07: V8 PBR microtextures, UV-bearing original GLBs and filmic lighting
+
+- **Stylized Detailed 3D only**, not PS1. Read `docs/VISUAL_STYLE_GUIDE.md` and `docs/WORLD_MAP_V8_MATERIAL_LIGHTING.md`.
+- Six original GLBs regenerated with face-oriented UV attributes for proper texture/normal sampling, all still self-contained and local.
+- New world-owned `world-map-materials.ts` builds tileable 96×96 neutral albedo+normal DataTextures for stone, wood, fabric, foliage, soil, applying them to matched GLB surface names and to terrain/stage foundation/apron. Metals, crystal, glass keep clean PBR shading.
+- Shared textures are allocated once on the Three World Map layer and disposed with it, not per island shape or animation frame. Render uses ACES tone mapping, warm key/cool sky fill, soft shadow map 1024.
+- All Gallery/board path logic, actors, input, economy, robot turns and Phaser fallback unchanged.
+- Texture/UV/material and gameplay tests in CI. Must **not** claim phone visual/FPS acceptance without real Android screenshot and 360° QA.
+
 ## 2026-11-07: V7 original GLB landmark upgrade
 
 - Target **stylized detailed 3D**, never PS1. Read `docs/VISUAL_STYLE_GUIDE.md` and `docs/WORLD_MAP_V7_GLB_LANDMARKS.md`.

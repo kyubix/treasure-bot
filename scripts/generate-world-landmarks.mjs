@@ -116,14 +116,23 @@ function generateLandmarkAssets(){
         m.emissiveFactor=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255*material[2][1]);
       }
       mats.push(m);
-      const positions=[],normals=[];
+      const positions=[],normals=[],uvs=[];
       for(let i=0;i<verts.length;i+=6){
         positions.push(verts[i],verts[i+1],verts[i+2]);
         normals.push(verts[i+3],verts[i+4],verts[i+5]);
+        // UV projection by face orientation: horizontal faces use XZ,
+        // vertical X faces use ZY and vertical Z faces use XY.
+        // Per-triangle vertices are independent, so seams stay local.
+        const x=verts[i],y=verts[i+1],z=verts[i+2];
+        const nx=Math.abs(verts[i+3]),ny=Math.abs(verts[i+4]),nz=Math.abs(verts[i+5]);
+        if(ny>=nx&&ny>=nz)uvs.push(x*2.75,z*2.75);
+        else if(nx>=nz)uvs.push(z*2.75,y*2.75);
+        else uvs.push(x*2.75,y*2.75);
       }
-      const pv=pushFloats(positions),nv=pushFloats(normals);
+      const pv=pushFloats(positions),nv=pushFloats(normals),uv=pushFloats(uvs);
       const positionView=views.push({...pv,buffer:0,target:34962})-1;
       const normalView=views.push({...nv,buffer:0,target:34962})-1;
+      const uvView=views.push({...uv,buffer:0,target:34962})-1;
       const bounds=[[Infinity,Infinity,Infinity],[-Infinity,-Infinity,-Infinity]];
       for(let i=0;i<positions.length;i+=3)for(let a=0;a<3;a++){
         bounds[0][a]=Math.min(bounds[0][a],positions[i+a]);
@@ -131,7 +140,8 @@ function generateLandmarkAssets(){
       }
       const posAcc=accessors.push({bufferView:positionView,componentType:5126,count:positions.length/3,type:"VEC3",min:bounds[0],max:bounds[1]})-1;
       const nAcc=accessors.push({bufferView:normalView,componentType:5126,count:normals.length/3,type:"VEC3"})-1;
-      const meshIdx=meshes.push({name:id,primitives:[{attributes:{POSITION:posAcc,NORMAL:nAcc},mode:4,material:materialIndex}]})-1;
+      const uvAcc=accessors.push({bufferView:uvView,componentType:5126,count:uvs.length/2,type:"VEC2"})-1;
+      const meshIdx=meshes.push({name:id,primitives:[{attributes:{POSITION:posAcc,NORMAL:nAcc,TEXCOORD_0:uvAcc},mode:4,material:materialIndex}]})-1;
       nodes.push({mesh:meshIdx,name:this.name+"-"+id});
     }
     pad();

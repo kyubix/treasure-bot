@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {terrainHeight} from './world-map-terrain.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
+import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
 /**
  * Authored, original GLB miniature landmarks. The procedural stage remains
@@ -58,7 +59,8 @@ function disposeModel(root:THREE.Group):void{
  for(const g of geometries)g.dispose();
  for(const m of materials)m.dispose();
 }
-function instantiate(template:THREE.Group,spec:LandmarkSpec,shape:MapShapeId):THREE.Group{
+function instantiate(template:THREE.Group,spec:LandmarkSpec,shape:MapShapeId,
+ surfaces?:WorldSurfaceLibrary):THREE.Group{
  const instance=template.clone(true);
  // Every visible GLB mesh is scene-owned, not shared with cached templates.
  // A shape change may dispose it without affecting newly spawned islands.
@@ -67,6 +69,10 @@ function instantiate(template:THREE.Group,spec:LandmarkSpec,shape:MapShapeId):TH
    obj.geometry=obj.geometry.clone();
    obj.material=Array.isArray(obj.material)?
     obj.material.map(m=>m.clone()):obj.material.clone();
+   if(surfaces){
+    for(const material of Array.isArray(obj.material)?obj.material:[obj.material])
+     surfaces.apply(material);
+   }
    obj.castShadow=true;obj.receiveShadow=true;
   }
  });
@@ -86,13 +92,14 @@ export interface DetailedLandmarkStage {
  */
 export function createDetailedStageLandmarks(
  stage:THREE.Group,shape:MapShapeId,fallback:THREE.Group,
- loader:LandmarkLoader=defaultLoader
+ loader:LandmarkLoader=defaultLoader,
+ surfaces?:WorldSurfaceLibrary
 ):DetailedLandmarkStage{
  let disposed=false;
  let installed:THREE.Group[]=[];
  const specs=WORLD_LANDMARKS[shape];
  const ready=Promise.allSettled(specs.map(async spec=>
-  instantiate(await loader(spec.id),spec,shape)
+  instantiate(await loader(spec.id),spec,shape,surfaces)
  )).then(results=>{
   const loaded=results
    .filter((result):result is PromiseFulfilledResult<THREE.Group>=>result.status==='fulfilled')

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {stageRadialScale,boardPathFrame} from '../engine/map-shapes.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
+import type {WorldSurfaceLibrary} from './world-map-materials.ts';
 
 /**
  * Original, deterministic stylized-detailed 3D landscape.
@@ -72,10 +73,11 @@ const terrainMat=new THREE.MeshStandardMaterial({
   vertexColors:true,flatShading:false,roughness:.94,metalness:0,
   side:THREE.DoubleSide
 });
-export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
+export function createTerrainMesh(shape:MapShapeId='RING',
+ surfaces?:WorldSurfaceLibrary):THREE.Mesh{
   // Radial topology follows the exact irregular rim without square grid cuts.
   const sectors=120,rings=45;
-  const positions:number[]=[],colors:number[]=[],normals:number[]=[],indices:number[]=[];
+  const positions:number[]=[],colors:number[]=[],normals:number[]=[],uvs:number[]=[],indices:number[]=[];
   const tint=new THREE.Color(),rockTint=new THREE.Color();
   for(let j=0;j<=rings;j++){
     const fraction=j/rings;
@@ -84,6 +86,7 @@ export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
       const x=Math.cos(a)*r,z=Math.sin(a)*r;
       const h=terrainHeight(x,z,shape);
       positions.push(x,h,z);
+      uvs.push(x*.87,z*.87);
       const e=.067;
       // Analytic heightfield normals avoid lighting seams at the radial mesh
       // duplicate vertices (including 0/2π and the polar center).
@@ -121,7 +124,10 @@ export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
-  const mesh=new THREE.Mesh(geometry,terrainMat);
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  const material=surfaces?terrainMat.clone():terrainMat;
+  if(surfaces)surfaces.apply(material,'soil');
+  const mesh=new THREE.Mesh(geometry,material);
   mesh.castShadow=true;mesh.receiveShadow=true;
   return mesh;
 }
