@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {useThreeWorldMap,useThreeBoardView} from './render-mode.ts';
 import {boardViewportDimensions} from './board-viewport.ts';
+import {BOARD_MOTION_INTERVAL_MS} from './board-motion.ts';
 import { TILES, boardTiles } from '../engine/types.ts';
 import {galleryNumberAt,playerDisplay} from '../engine/gallery.ts';
 import {boardTileBaseColor} from '../engine/player-palette.ts';
@@ -218,10 +219,12 @@ export class BoardScene extends Phaser.Scene {
           const progress=tween.getValue();
           if(progress===null)return;
           this.visualPosition=earlier.position+progress*direction;
-          // Limit scene recreation: inexpensive motion without 60 FPS object churn.
-          if(this.time.now-this.lastMotionPaint>38){
+          // Refresh Three movement at screen cadence, without rebuilding
+          // Phaser touch targets each frame. 2D fallback stays capped.
+          if(this.time.now-this.lastMotionPaint>=
+             (this.boardThree?BOARD_MOTION_INTERVAL_MS:34)){
             this.lastMotionPaint=this.time.now;
-            this.paint();
+            this.paintMotionFrame();
           }
         },
         onComplete:()=>{
@@ -233,6 +236,23 @@ export class BoardScene extends Phaser.Scene {
         }
       });
     }else if(this.sys.isActive()&&!this.layoutFrame)this.paint();
+  }
+  /** Lightweight Three motion redraw, without a Phaser container rebuild. */
+  private paintMotionFrame():void{
+    if(!this.sys.isActive()||this.layoutFrame)return;
+    if(this.view==='board'&&this.boardThree&&this.match){
+      const active=this.match.players[this.match.currentPlayerIndex];
+      const focus=this.travelingPlayer===active?.id&&
+        this.visualPosition!==null?this.visualPosition:(active?.position??0);
+      try{
+        if(this.boardThree.draw(this.match,this.scale.width,this.scale.height,
+          focus,this.travelingPlayer,this.launchProgress,this.launchPlayerId)){
+          this.game.canvas.parentElement?.classList.remove('board-three-pending');
+          return;
+        }
+      }catch{/* WebGL failure: continue through the Phaser fallback. */}
+    }
+    this.paint();
   }
   setView(value:GameView):void {
     if(this.view===value)return;

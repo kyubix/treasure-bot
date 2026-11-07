@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type {BoardBiome} from './board-environment.ts';
 import {BOARD_BIOME_PALETTE} from './board-environment.ts';
+import {createBoardBackdropDetail} from './board-view-background-detail.ts';
 
 const biomes:Record<BoardBiome,{rock:number;grass:number;forest:number;accent:number}>={
  meadow:{rock:0xa3b49c,grass:0x74b388,forest:0x3c8868,accent:0xf3db9a},
@@ -23,6 +24,13 @@ export function buildBoardBackdrop(biome:BoardBiome):THREE.Group{
  const group=new THREE.Group();group.name='board-hd-scenery';
  const c=biomes[biome],p=BOARD_BIOME_PALETTE[biome];
  const cols=70,rows=28;
+ // One surface equation positions scenery and terrain consistently.
+ const terrainY=(x:number,z:number):number=>{
+  const far=THREE.MathUtils.clamp((-3.1-z)/(rows*.74),0,1);
+  const ridge=Math.max(0,noise(x,z)+Math.sin(x*.19+z*.20)*.6);
+  return .20+far*(2.6+(biome==='cliffs'||biome==='volcano'?2:0))
+   +ridge*(.3+far*2.4);
+ };
  const positions:number[]=[],colors:number[]=[],index:number[]=[];
  const soil=new THREE.Color(c.grass),stone=new THREE.Color(c.rock);
  for(let j=0;j<=rows;j++){
@@ -30,8 +38,7 @@ export function buildBoardBackdrop(biome:BoardBiome):THREE.Group{
   for(let i=0;i<=cols;i++){
    const x=(i/cols-.5)*54;
    const ridge=Math.max(0,noise(x,z)+Math.sin(x*.19+z*.20)*.6);
-   const y=.20+far*(2.6+(biome==='cliffs'||biome==='volcano'?2:0))
-     +ridge*(.3+far*2.4);
+   const y=terrainY(x,z);
    positions.push(x,y,z);
    const color=soil.clone().lerp(stone,Math.min(.86,far*.6+ridge*.20));
    const light=1+Math.sin(i*4.3+j*6.9)*.035;
@@ -64,7 +71,7 @@ export function buildBoardBackdrop(biome:BoardBiome):THREE.Group{
   const x=((i*31%103)/103-.5)*49;
   const z=-4-((i*47%97)/97)*18;
   const size=.55+((i*23%37)/37)*.70;
-  const height=.45+Math.max(0,noise(x,z))*.55;
+  const height=terrainY(x,z);
   obj.position.set(x,height+size*1.20,z);
   obj.scale.set(size*.77,size*.79,size*.77);
   obj.rotation.y=i*.23;obj.updateMatrix();leaves.setMatrixAt(i,obj.matrix);
@@ -87,6 +94,7 @@ export function buildBoardBackdrop(biome:BoardBiome):THREE.Group{
    0,.07,-9);
   water.rotation.x=-Math.PI/2;water.castShadow=false;
  }
+ group.add(createBoardBackdropDetail(biome,c,terrainY));
  group.userData.sky=p.sky;
  return group;
 }

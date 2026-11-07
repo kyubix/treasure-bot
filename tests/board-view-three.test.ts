@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {boardViewportDimensions} from '../src/client/board-viewport.ts';
+import {BOARD_MOTION_INTERVAL_MS} from '../src/client/board-motion.ts';
 import {describe,it,expect} from 'vitest';
 import {TILES} from '../src/engine/types.ts';
 import type {GameState} from '../src/engine/types.ts';
@@ -15,6 +16,10 @@ import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
 import {boardScenery} from '../src/client/board-environment.ts';
 
 describe('HD Three.js Board View',()=>{
+ it('updates moving 3D actors faster than the 2D fallback cadence',()=>{
+   expect(BOARD_MOTION_INTERVAL_MS).toBeGreaterThan(0);
+   expect(BOARD_MOTION_INTERVAL_MS).toBeLessThanOrEqual(1000/60);
+ });
  it('uses settled host dimensions across Board to World size changes',()=>{
    // The navigated view gets its real CSS dimensions immediately; a
    // deferred stable-layout pass may adjust the view again afterwards.

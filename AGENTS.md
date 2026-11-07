@@ -1,3 +1,13 @@
+## 2026-11-07: Board motion and scenery polish; simplify World commands
+
+- **Visual direction:** premium Stylized Detailed 3D, not PS1. See `docs/BOARD_MOTION_BACKGROUND_POLISH.md`.
+- Removed the "Robot dispatched" success toast from `playDispatch()`; retained actual portal animation, server-authoritative send, CPU dispatch and error toasts.
+- Removed World Map rotate buttons and handlers. HTML world commands only Back Board and Send Robot; Three's pointer drag orbit and pinch zoom remain unchanged.
+- 3D Board walking uses the standalone `board-motion.ts` interval of ~15 ms when moving with 3D, with a direct 3D `paintMotionFrame` fast path that avoids remounting Phaser interaction objects. 2D mode keeps 34 ms throttle and game-state/tween/destination unchanged.
+- Three Board actor mixer accumulates elapsed rAF time; skips redundant GPU submission if tween just rendered; HUD minimap is cached between tile changes. Parallax shift is a smooth 28-tile-periodic sine instead of a four-tile jump.
+- `board-view-background-detail.ts` adds deterministic layered gradient sky, long ridges, instanced clouds/rocks/grass/flowers, and every tree anchor is grounded by the same terrain height formula. Biome colors and disposal remain in `board-view-environment.ts`.
+- Tests in `tests/board-view-three.test.ts` and `tests/board-view-background-detail.test.ts` verify 60Hz movement setting, background across all biomes, control removal and scene lifecycle. CI/build verification required; actual Android FPS/visual acceptance not claimed.
+
 ## 2026-11-07: First-tap Map + no first-load camera shift (mobile)
 
 - Top-of-screen alignment fix remains in place.

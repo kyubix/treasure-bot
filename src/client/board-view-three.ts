@@ -227,6 +227,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  const loaded=new Map<ActorKind,ActorModel>();
  let destroyed=false,visible=false,contextLost=false;
  let sizeW=0,sizeH=0,raf=0,lastTime=0,lastRender=0;
+ let mixerElapsed=0,lastExternalDraw=-Infinity,lastHudKey='';
  let animate=true;
  const handleLost=(event:Event)=>{event.preventDefault();contextLost=true;stop();canvas.style.display='none';hud.style.display='none';};
  const handleRestored=()=>{contextLost=false;if(visible)start();};
@@ -283,7 +284,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  function start():void{
   if(!visible||destroyed||contextLost||document.hidden)return;
   if(raf)return;
-  animate=true;lastTime=0;lastRender=0;
+  animate=true;lastTime=0;lastRender=0;mixerElapsed=0;
   raf=requestAnimationFrame(tick);
  }
  const onVisibility=()=>{if(document.hidden)stop();else if(visible)start();};
@@ -293,18 +294,27 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
   if(!visible||destroyed||contextLost||document.hidden)return;
   const delta=lastTime?Math.min(.05,(timestamp-lastTime)/1000):0;
   lastTime=timestamp;
-  if(timestamp-lastRender>=1000/30){
+  mixerElapsed+=delta;
+  const walking=[...actors.values()].some(pair=>pair.player.active==='walk');
+  const interval=1000/(walking?60:30);
+  if(timestamp-lastRender>=interval){
    lastRender=timestamp;
+   // Accumulate elapsed time across skipped callback frames.
+   const frameDelta=Math.min(.10,mixerElapsed);mixerElapsed=0;
    for(const pair of actors.values()){
-    pair.player.mixer.update(delta);
-    pair.robot.mixer.update(delta);
+    pair.player.mixer.update(frameDelta);
+    pair.robot.mixer.update(frameDelta);
    }
    if(landmark&&currentLandmark==='event'){
     const obj=landmark.children[1];
     if(obj)obj.rotation.y=timestamp*.00035;
    }
-   try{renderer.render(scene,camera);}
-   catch{visible=false;stop();canvas.style.display='none';hud.style.display='none';return;}
+   // The Phaser walk tween already rendered this frame; avoid a second
+   // expensive GPU submission while preserving autonomous idle animation.
+   if(timestamp-lastExternalDraw>=interval*.70){
+    try{renderer.render(scene,camera);}
+    catch{visible=false;stop();canvas.style.display='none';hud.style.display='none';return;}
+   }
   }
   raf=requestAnimationFrame(tick);
  }
@@ -387,7 +397,13 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  portalGlow.position.set(0,1.1,.1);portal.add(portalGlow);
  portal.visible=false;
  const drawHud=(state:GameState|null,focus:number)=>{
-  if(!state){hud.innerHTML='';return;}
+  if(!state){hud.innerHTML='';lastHudKey='';return;}
+  // SVG minimap is static until a tile/player changes, so do not
+  // rebuild DOM on every intermediate movement frame.
+  const key=[state.turn,state.currentPlayerIndex,Math.floor(focus),
+   ...state.players.map(p=>p.id+':'+p.position+':'+p.color+':'+p.name)].join('|');
+  if(key===lastHudKey)return;
+  lastHudKey=key;
   const current=state.players[state.currentPlayerIndex];
   const tile=boardVisualTile(focus,0,state),n=galleryNumberAt(tile,state);
   const type=boardTiles(state)[tile];
@@ -441,7 +457,8 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     if(encounter!==null)
       setLandmark(boardTiles(state)[encounter],galleryNumberAt(encounter,state));
     // Background moves at a lower rate for an actual 3D parallax effect.
-    backdropRoot.position.x=(view%4)*.12;
+    // A 28-tile-periodic parallax curve has no reset jump at each biome.
+    backdropRoot.position.x=Math.sin(view*Math.PI/14)*.36;
     syncActors(state??({players:[],currentPlayerIndex:0} as unknown as GameState),view,traveler,launch,launchId);
     portal.visible=launch!==null;
     if(launch!==null){
@@ -452,6 +469,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
     }
     drawHud(state,view);
     renderer.render(scene,camera);
+    lastExternalDraw=performance.now();
     canvas.style.display='block';hud.style.display='block';
     visible=true;start();
     return true;

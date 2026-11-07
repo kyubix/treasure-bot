@@ -136,3 +136,18 @@
 #match[data-view="world"] #board.viewport-settling::after{
  background:linear-gradient(155deg,#4c9abb,#2b6e91 53%,#1f5377);
 }
+
+/* Robot World Map: just Back and Send. Drag/pinch orbit remains in Three.js.
+ * This stylesheet is loaded after the old World HUD declarations. */
+#match[data-view="world"] #worldCommands{
+ display:grid!important;
+ grid-template-columns:minmax(0,1fr) minmax(0,1.24fr)!important;
+ gap:8px!important;
+ align-items:stretch;
+}
+#match[data-view="world"] #worldCommands #backBoard{
+ grid-column:1!important;grid-row:1!important;
+}
+#match[data-view="world"] #worldCommands #sendRobot{
+ grid-column:2!important;grid-row:1!important;
+}
