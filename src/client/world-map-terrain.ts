@@ -3,7 +3,7 @@ import {stageRadialScale,boardPathFrame} from '../engine/map-shapes.ts';
 import type {MapShapeId} from '../engine/map-shapes.ts';
 
 /**
- * Original, deterministic PS1-inspired landscape.
+ * Original, deterministic stylized-detailed 3D landscape.
  *
  * Matches the current stage shoreline (radius ~3.12, floor y=.42), the
  * real board path (radius 3.29-3.68) and the lagoon at (.75,.61).
@@ -62,13 +62,16 @@ const lagoonTint=new THREE.Color(0x62baa0);
 const cloverTint=new THREE.Color(0x3a8465);
 const soil=new THREE.Color(0x4c8c43);
 const terrainMat=new THREE.MeshStandardMaterial({
-  vertexColors:true,flatShading:true,roughness:1,side:THREE.DoubleSide
+  // Organic landforms need continuous surface shading; hard facets are not
+  // the target art direction. Rock detail comes from geometry and color.
+  vertexColors:true,flatShading:false,roughness:.94,metalness:0,
+  side:THREE.DoubleSide
 });
 export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
   // Radial topology follows the exact irregular rim without square grid cuts.
   const sectors=120,rings=45;
-  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
-  const tint=new THREE.Color();
+  const positions:number[]=[],colors:number[]=[],normals:number[]=[],indices:number[]=[];
+  const tint=new THREE.Color(),rockTint=new THREE.Color();
   for(let j=0;j<=rings;j++){
     const fraction=j/rings;
     for(let i=0;i<=sectors;i++){
@@ -77,14 +80,19 @@ export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
       const h=terrainHeight(x,z,shape);
       positions.push(x,h,z);
       const e=.067;
-      const slope=Math.hypot(terrainHeight(x+e,z,shape)-terrainHeight(x-e,z,shape),
-        terrainHeight(x,z+e,shape)-terrainHeight(x,z-e,shape))/(e*2);
+      // Analytic heightfield normals avoid lighting seams at the radial mesh
+      // duplicate vertices (including 0/2π and the polar center).
+      const dx=(terrainHeight(x+e,z,shape)-terrainHeight(x-e,z,shape))/(2*e);
+      const dz=(terrainHeight(x,z+e,shape)-terrainHeight(x,z-e,shape))/(2*e);
+      const slope=Math.hypot(dx,dz);
+      const inv=1/Math.hypot(dx,1,dz);
+      normals.push(-dx*inv,inv,-dz*inv);
       const rocky=smooth(.43,.93,slope);
       const colourNoise=fbm(x*3.9,z*3.9);
       tint.copy(baseGrass).lerp(sunGrass,.22+.62*colourNoise);
       tint.lerp(soil,Math.max(0,.18-.15*colourNoise));
-      tint.lerp(rock.clone().lerp(rockLight,.20+.45*colourNoise),
-        rocky*(.80+.15*smooth(.7,1.4,h)));
+      rockTint.copy(rock).lerp(rockLight,.20+.45*colourNoise);
+      tint.lerp(rockTint,rocky*(.80+.15*smooth(.7,1.4,h)));
       // Each stage has a recognisable original colour treatment while
       // maintaining the same gallery/road color identities.
       if(shape==='LAGOON')tint.lerp(lagoonTint,.12);
@@ -104,7 +112,7 @@ export function createTerrainMesh(shape:MapShapeId='RING'):THREE.Mesh{
   geometry.setIndex(indices);
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  geometry.computeVertexNormals();
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
   const mesh=new THREE.Mesh(geometry,terrainMat);
   mesh.castShadow=true;mesh.receiveShadow=true;
   return mesh;
