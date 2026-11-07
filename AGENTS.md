@@ -1,3 +1,7 @@
+## 2026-11-07: Board viewport regression test import correction
+
+- The cold-board viewport dimension helper is a standalone pure module `src/client/board-viewport.ts`, imported by Phaser's board.ts and by the node test. Previously the test imported it from board-view-three.ts, causing a CI TypeError; no gameplay changes.
+
 ## 2026-11-07: Board first-view resizing + Ring mountain/tent overlap fix
 
 - On Android, Phaser Board initialization no longer starts at 640×480 and visibly resizes. Seed RESIZE scale from actual board host dimensions; defer first paint until three stable layout frames and do not reveal a stale-sized board frame. Preserve Phaser and Three fallback, all Board input/turn/dice logic.

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {boardViewportDimensions} from '../src/client/board-viewport.ts';
 import {describe,it,expect} from 'vitest';
 import {TILES} from '../src/engine/types.ts';
 import type {GameState} from '../src/engine/types.ts';
@@ -6,8 +7,7 @@ import {galleryNumberAt} from '../src/engine/gallery.ts';
 import {PLAYER_COLORS,GALLERY_SLOT_ORDER,galleryPlayerSlotAt,galleryPlayerColorAt,boardTileBaseColor} from '../src/engine/player-palette.ts';
 import {
  BOARD_CELL_WIDTH,BOARD_NUMBER_PLATE_DEPTH,BOARD_COLOR_PLATE_DEPTH,
- boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile,
- boardViewportDimensions
+ boardVisualColor,boardVisualTile,boardVisualXForIndex,stoppedEncounterTile
 } from '../src/client/board-view-three.ts';
 import {buildBoardBackdrop,makeBoardLandmark,disposeEnvironment}
  from '../src/client/board-view-environment.ts';

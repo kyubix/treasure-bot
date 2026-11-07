@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {useThreeWorldMap,useThreeBoardView} from './render-mode.ts';
+import {boardViewportDimensions} from './board-viewport.ts';
 import { TILES, boardTiles } from '../engine/types.ts';
 import {galleryNumberAt,playerDisplay} from '../engine/gallery.ts';
 import {boardTileBaseColor} from '../engine/player-palette.ts';
@@ -563,17 +564,6 @@ export class BoardScene extends Phaser.Scene {
       }
     });
   }
-}
-
-/** Initial dimensions before Phaser's first scale/resize dispatch. */
-export function boardViewportDimensions(
- host:Pick<HTMLElement,'clientWidth'|'clientHeight'>
-):{width:number;height:number}{
- const w=Math.round(host.clientWidth),h=Math.round(host.clientHeight);
- return {
-  width:Number.isFinite(w)&&w>=40?w:640,
-  height:Number.isFinite(h)&&h>=40?h:480
- };
 }
 
 export function mountBoard(element:HTMLElement,onSelect:(id:string)=>void,onTravelEnd:()=>void=()=>{}):{
