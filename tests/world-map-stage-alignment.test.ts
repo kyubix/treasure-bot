@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import {describe,it,expect} from 'vitest';
 import {MAP_SHAPES,boardPathFrame} from '../src/engine/map-shapes.ts';
 import {boardPathQuad} from '../src/engine/map-shapes.ts';
-import {terrainRadius} from '../src/client/world-map-terrain.ts';
+import {terrainRadius,terrainHeight} from '../src/client/world-map-terrain.ts';
 import {createStageFoundation,createStageApron,createStageDecorations,
- stageBoundaryPoint,STAGE_FOUNDATION_OUTSET} from '../src/client/world-map-stage.ts';
+ stageBoundaryPoint,STAGE_FOUNDATION_OUTSET,STAGE_APRON_INSET} from '../src/client/world-map-stage.ts';
 import {createSurfBand} from '../src/client/world-map-terrain.ts';
 
 describe('World Map V3 connected stage foundation and themed islands',()=>{
@@ -66,7 +66,7 @@ describe('World Map V3 connected stage foundation and themed islands',()=>{
     const u=i/144,frame=boardPathFrame(u,shape);
     const a=Math.atan2(frame.z,frame.x),r=terrainRadius(a,shape)-.04;
     const land=new THREE.Vector2(Math.cos(a)*r,Math.sin(a)*r);
-    const board=stageBoundaryPoint(u,shape,-.198);
+    const board=stageBoundaryPoint(u,shape,STAGE_APRON_INSET);
     const first=i*4;
     expect(new THREE.Vector2(p.getX(first),p.getZ(first)).distanceTo(land)).toBeLessThan(.00001);
     expect(new THREE.Vector2(p.getX(first+3),p.getZ(first+3)).distanceTo(board)).toBeLessThan(.00001);
