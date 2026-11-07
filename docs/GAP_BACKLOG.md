@@ -1,5 +1,24 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 Map shape V1 — implementation complete, Android QA pending
+
+- **M-SHAPE-V1** selectable independent stage silhouettes:
+  `RING` classic, `LAGOON` oval, `CLOVER` four-lobed loop.
+  Shapes are server-persisted, independent of 3/4/5 Gallery count
+  and rendered consistently by World Map 3D, actor/robot anchors,
+  interactive tile polygons, Gallery digits and Phaser fallback.
+- The lobby now includes a shape selector and vector silhouette preview.
+  All ring/shape geometry uses `src/engine/map-shapes.ts`; saved
+  rooms without a shape default to `RING`. Gameplay rules unchanged.
+- **Still outstanding:** original-specific map designs, different
+  island landforms and waterfall/terrain backgrounds per stage,
+  more complex non-loop paths, mobile screenshots and device QA.
+  Do not call the three geometries exact original game maps.
+- Verification: `tests/map-shapes.test.ts`, all smoke/unit tests,
+  TypeScript/build, Cloudflare, and actual Android visual review.
+
+
+
 ## 2026-11-07 Reverse Direction — implemented, manual QA pending
 
 - M04: global reverse event, server-owned 3-cycle trigger-player timer,

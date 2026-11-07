@@ -1,5 +1,17 @@
 # Match Setup, Winning Goals and Reverse-Direction Events
 
+## 2026-11-07 Stage route shapes (new implementation)
+
+`START.mapShapeId` selects a validated stage loop independently of
+the 3/4/5 Gallery layout. Valid shapes are `RING`, `LAGOON`,
+`CLOVER`; the immutable choice persists in `GameState.board.shapeId`.
+Saved rooms without `shapeId` use the classic RING. Shared
+`boardPathFrame` and `boardPathQuad` make 3D meshes, character
+movement anchors, Gallery numbers, hit polygons and Phaser fallback
+consistent. No original-specific landform or artwork is claimed.
+See `docs/MAP_SHAPES_V1.md` for user-facing controls and tests.
+
+
 ## 2026-11-07 Reverse Direction implementation (M04/M05)
 
 Code shipped in `src/engine/game.ts`, `src/engine/types.ts`,

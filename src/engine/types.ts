@@ -1,4 +1,5 @@
 import type { Expedition, IslandSpot } from './island.ts';
+import type {MapShapeId} from './map-shapes.ts';
 export type TileType = 'START' | 'SHOP' | 'GALLERY' | 'EVENT' | 'SUPPORT' | 'PLAIN';
 export type Terrain = 'RUINS' | 'FOREST' | 'COAST';
 export type RobotType = 'NORMAL' | 'FIGHTER' | 'SEARCHER' | 'DIVER' | 'MULTI' | 'HUNTER' | 'DASH';
@@ -29,6 +30,8 @@ export interface Gallery {
 export interface GameLog { id: number; message: string; turn: number }
 export interface BoardLayout {
  galleryCount:3|4|5;
+ /** Undefined on older saved boards; they render with the classic ring. */
+ shapeId?:MapShapeId;
  tiles:TileType[];
  galleryNumbers:(number|null)[];
  gallerySlots:(1|2|3|4|null)[];
@@ -52,7 +55,7 @@ export interface GameState {
   botEvent?: {playerId:string; kind:'SEND'|'ROLL'|'ENTER_SHOP'|'BUY'|'SKIP_SHOP'|'LEAVE_SHOP'|'END'; step:number};
 }
 export type GameAction =
-  | { type: 'START'; bots: number; galleryCount?:3|4|5; winningRule?:WinRule }
+  | { type: 'START'; bots: number; galleryCount?:3|4|5; mapShapeId?:MapShapeId; winningRule?:WinRule }
   | { type: 'SET_PROFILE'; slot:PlayerSlot; color:string; avatarId:AvatarId }
   | { type: 'ROLL' }
   | { type: 'END_TURN' }

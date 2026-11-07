@@ -1,5 +1,33 @@
 # AI Agent Handoff — Treasure Bots
 
+## IMPLEMENTED 2026-11-07 — selectable stage route silhouettes
+
+- Host now selects `RING`, `LAGOON` (wide oval) or `CLOVER`
+  (four-lobed path) independently of 3/4/5 Gallery count in the
+  mobile-friendly lobby. A live SVG path preview is derived from the
+  same immutable mathematical geometry used at game start.
+- Server validates `START.mapShapeId`, persists the chosen value in
+  `state.board.shapeId` and defaults to `RING` for older generated
+  boards and pre-upgrade/legacy 28-cell rooms.
+- `src/engine/map-shapes.ts` is the ONE source of truth for the periodic
+  loop path and frame/tangent/outward normal. `src/client/world-map-board.ts`
+  builds colored tile meshes, side walls, trim, start/shop symbols and
+  Gallery 3D numerals from it. `world-map-three.ts` positions
+  avatars, robots and interactive tile polygons using identical
+  shape geometry. `world-map-geometry.ts` maps the same path into
+  Phaser fallback; `world-map.ts` passes the shape ID.
+- Stage shapes are **Treasure Bots original-inspired variants**, NOT a
+  verified copy of any particular original Glint Glitters map. Island
+  terrain, waterfall, World Map scenery and expedition spots remain
+  the shared stage. Different island terrain themes and non-loop
+  topologies need a separate future implementation.
+- Game rules, Gallery numbering, B-B/G-G/Y-Y/M-M fair distribution,
+  dice order, timed reverse effect and robot missions remain unchanged.
+  Read `docs/MAP_SHAPES_V1.md` for geometry and Android verification.
+  CI success does NOT establish visual correctness on a mobile device.
+
+
+
 ## 2026-11-07 Reverse Direction M04 — IMPLEMENTED (Android QA needed)
 
 - Server event resolver now has a **provisional fourth event outcome**

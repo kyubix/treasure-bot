@@ -13,6 +13,8 @@ import {mountGalleryDialog} from './gallery-dialog.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
+import {boardPathFrame} from '../engine/map-shapes.ts';
+import type {MapShapeId} from '../engine/map-shapes.ts';
 import { getRobotStats } from '../engine/game.ts';
 import { terrainGrade, terrainTroubleChance } from '../engine/island.ts';
 import type { GameAction, PublicState } from '../engine/types.ts';
@@ -99,8 +101,23 @@ root.innerHTML=`
       <button id="share" class="secondary" data-i18n="invite"></button>
       <div id="hostControls" class="host-controls">
         <h3>Match rules</h3><p id="cpuFill" class="muted">CPU players fill the remaining slots</p>
-        <label for="galleryCount">Map size (ring layout)</label>
+        <label for="galleryCount">Map size · Gallery count</label>
         <select id="galleryCount" aria-label="Map size"><option value="3" selected>Small · 3 Galleries</option><option value="4">Medium · 4 Galleries</option><option value="5">Large · 5 Galleries</option></select>
+        <label for="mapShape">Board route shape</label>
+        <select id="mapShape" aria-label="Board route shape">
+          <option value="RING">Ring · Classic loop</option>
+          <option value="LAGOON">Lagoon · Wide oval</option>
+          <option value="CLOVER">Clover · Four-lobed route</option>
+        </select>
+        <div class="map-shape-preview" aria-label="Preview of the selected board route">
+          <svg viewBox="-100 -100 200 200" role="img" aria-label="Board route silhouette">
+            <circle r="59" fill="#235344" opacity=".47"></circle>
+            <path id="mapShapePreviewPath" fill="none" stroke="#f3d28d" stroke-width="10"
+              stroke-linejoin="round" stroke-linecap="round"></path>
+            <circle id="mapShapeStart" r="7" fill="#f9f8d7" stroke="#314457" stroke-width="2"></circle>
+          </svg>
+          <span id="mapShapePreviewText" class="muted">Ring route · Gallery count is selected separately.</span>
+        </div>
         <label for="winMode">Victory condition</label><select id="winMode" aria-label="Victory condition">
           <option value="WEALTH_TARGET">First to reach total wealth</option>
           <option value="TURN_LIMIT">Highest wealth after fixed rounds</option>
@@ -584,6 +601,21 @@ function render():void {
     el<HTMLButtonElement>('roll').disabled=true;
   }
 }
+function updateMapShapePreview():void{
+ const shape=el<HTMLSelectElement>('mapShape').value as MapShapeId;
+ const count=96;
+ const points=Array.from({length:count},(_,i)=>boardPathFrame(i/count,shape,73));
+ const description:Record<MapShapeId,string>={
+  RING:'Ring · Classic circular board.',
+  LAGOON:'Lagoon · Wide oval route around the island.',
+  CLOVER:'Clover · Four-lobed scenic route.'
+ };
+ const path=points.map((p,i)=>(i===0?'M':'L')+p.x.toFixed(2)+' '+p.z.toFixed(2)).join(' ')+' Z';
+ el('mapShapePreviewPath').setAttribute('d',path);
+ el('mapShapeStart').setAttribute('cx',String(points[0].x));
+ el('mapShapeStart').setAttribute('cy',String(points[0].z));
+ el('mapShapePreviewText').textContent=description[shape]+' Gallery count is independent.';
+}
 function init():void {
   el<HTMLButtonElement>('create').onclick=()=>void createRoom();
   el<HTMLButtonElement>('join').onclick=()=>void joinRoom();
@@ -601,6 +633,8 @@ function init():void {
     input.min=byRound?'1':'1000';input.max=byRound?'500':'10000000';
     input.step=byRound?'1':'1000';input.value=byRound?'20':'20000';
   };
+  el<HTMLSelectElement>('mapShape').onchange=updateMapShapePreview;
+  updateMapShapePreview();
   el<HTMLSelectElement>('winMode').onchange=syncWinMode;
   el<HTMLButtonElement>('start').onclick=()=>{
     if(!state)return;
@@ -610,7 +644,9 @@ function init():void {
     const winningRule=mode==='TURN_LIMIT'?{kind:'TURN_LIMIT' as const,rounds:number}:
       {kind:'WEALTH_TARGET' as const,amount:number};
     void sendAction({type:'START',bots:4-state.players.length,
-      galleryCount:Number(el<HTMLSelectElement>('galleryCount').value) as 3|4|5,winningRule});
+      galleryCount:Number(el<HTMLSelectElement>('galleryCount').value) as 3|4|5,
+      mapShapeId:el<HTMLSelectElement>('mapShape').value as 'RING'|'LAGOON'|'CLOVER',
+      winningRule});
   };
   const rollButton=el<HTMLButtonElement>('roll');
   rollButton.addEventListener('pointerdown',event=>{

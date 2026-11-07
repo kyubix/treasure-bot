@@ -12,3 +12,9 @@
 .lobby-card .person{gap:10px;min-height:43px;flex-wrap:wrap}
 .lobby-card .person small{margin-left:auto;font-size:.72rem}
 @media(max-width:520px){.lobby-card{margin:12px auto;padding:16px;gap:12px}.lobby-profile{padding:12px}.lobby-card h2{font-size:1.8rem}}
+
+/* Same periodic path preview used by the actual World Map meshes. */
+.map-shape-preview{display:flex;gap:14px;align-items:center;min-height:104px;padding:10px 12px;border-radius:14px;border:1px solid #355775;background:linear-gradient(125deg,#12253b,#193951)}
+.map-shape-preview svg{width:108px;height:108px;flex:none;filter:drop-shadow(0 5px 8px #0005)}
+.map-shape-preview .muted{font-size:.78rem;line-height:1.45;flex:1}
+@media(max-width:380px){.map-shape-preview{gap:8px;padding:8px}.map-shape-preview svg{width:86px;height:86px}}

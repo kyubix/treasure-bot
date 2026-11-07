@@ -1,6 +1,7 @@
 import { initialIsland, findSpot, travelTurns, searchSuccess, battleVictory, terrainGrade, terrainTroubleChance, terrainEnergyCost, terrainTravelPenalty } from './island.ts';
 import { ROBOTS, TILES, boardTiles } from './types.ts';
 import {generateBoardLayout,isGalleryCount} from './board-layout.ts';
+import {isMapShapeId} from './map-shapes.ts';
 import {PLAYER_COLORS} from './player-palette.ts';
 import {
   GALLERY_CAPACITY, galleryNumberAt, galleryForNumber, galleryForTile,
@@ -160,6 +161,10 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     if(action.winningRule!==undefined)state.winningRule=validateWinRule(action.winningRule);
     if(action.galleryCount!==undefined&&!isGalleryCount(action.galleryCount))
       throw new GameError('Gallery count must be 3, 4, or 5.');
+    if(action.mapShapeId!==undefined&&!isMapShapeId(action.mapShapeId))
+      throw new GameError('Map shape must be Ring, Lagoon, or Clover.');
+    if(action.mapShapeId!==undefined&&action.galleryCount===undefined)
+      throw new GameError('Map shape requires a Gallery count.');
     for(let i=0;i<action.bots;i++){
       const index=state.players.length;
       const bot=createPlayer(`bot-${index}-${state.code}`,`CPU ${i+1}`,true,index);
@@ -174,7 +179,7 @@ export function applyAction(state: GameState, actorId: string, action: GameActio
     // Existing rooms and legacy START calls stay on the original 28-tile map.
     if(action.galleryCount!==undefined){
       if(!isGalleryCount(action.galleryCount))throw new GameError('Gallery count must be 3, 4, or 5.');
-      state.board=generateBoardLayout(action.galleryCount);
+      state.board=generateBoardLayout(action.galleryCount,action.mapShapeId??'RING');
       state.galleries=newGalleries(state);
     }
     state.phase='playing';

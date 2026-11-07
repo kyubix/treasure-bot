@@ -326,7 +326,7 @@ export function drawWorldIsland(args:{
   const sitePoint=(x:number,y:number)=>args.project3D?.projectSite(x,y) ??
     mapProjection(x,y,rotation,center,rx,ry);
   const tilePoint=(i:number)=>args.project3D?.projectTile(i) ??
-    perimeterPoint(i,center,rx*.97,ry*.92,rotation,tiles.length);
+    perimeterPoint(i,center,rx*.97,ry*.92,rotation,tiles.length,state?.board?.shapeId??'RING');
   // Only static scenery switches renderer in Three preview. The entire
   // state-driven perimeter, routes, players and touch targets stay Phaser.
   let g=scene.add.graphics();parent.add(g);
