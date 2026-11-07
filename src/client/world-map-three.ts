@@ -270,18 +270,19 @@ export function createThreeWorldLayer(host:HTMLElement):WorldThreeLayer|null{
   let renderer:THREE.WebGLRenderer;
   try{
     renderer=new THREE.WebGLRenderer({
-      alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:false
+      alpha:false,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:false
     });
   }catch{return null;} // WebGL unavailable: full procedural Phaser fallback.
   // PS1-inspired fixed visual language. No toggle or additional UI control:
   // only the 3D background is rendered coarsely; Phaser/HUD remain sharp.
-  renderer.setPixelRatio(.85);
+  renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio||1,1),1.5));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const canvas=renderer.domElement;
   canvas.className='world-map-three';
-  canvas.style.imageRendering='pixelated';
   canvas.setAttribute('aria-hidden','true');
   canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none';
+  // Keep retro geometry, but use smooth native-resolution rasterization.
+  canvas.style.imageRendering='auto';
   host.insertBefore(canvas,host.firstChild);
 
   const scene=new THREE.Scene();

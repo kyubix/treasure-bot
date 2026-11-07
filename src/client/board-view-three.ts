@@ -161,7 +161,7 @@ export function createThreeBoardView(host:HTMLElement):ThreeBoardVisual|null{
  renderer.toneMappingExposure=1.18;
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
- renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
+ renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio||1,1),1.65));
  const canvas=renderer.domElement;
  canvas.className='board-view-three';
  canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none';

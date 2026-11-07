@@ -1,5 +1,22 @@
 # Gap Backlog — Treasure Bots
 
+## 2026-11-07 Android incident: dice ghost roll, blur, oversized island rim
+
+- UI: pointerdown/up now must match a single dice-button pointer ID.
+  Moving to World Map, returning to Board View or selecting Send Robot
+  cancels pending gesture. Pointer-generated click cannot auto-ROLL.
+- Quality: world Three.js renders at capped mobile DPR (1.5) instead
+  of .85 pixel ratio; enable antialiasing and smooth CSS sampling.
+  Board View 3D receives slight 1.65 DPR cap.
+- Appearance: foundation vertical slab replaced by four layered,
+  tapering PS1-style rock banks, keeping ocean below the under-wall
+  and terrain/board apron sealed. No game economy changes.
+- Tests: `tests/dice-intent.test.ts`,
+  `tests/world-map-stage-alignment.test.ts`.
+- Open: actual device multi-view touch regression (touch on World
+  Map must NOT roll dice); compare 3/4/5 Galleries, Ring/Lagoon/
+  Clover; inspect 360° edge, FPS, water animation and browser zoom.
+
 ## 2026-11-07 Mobile screenshot review — board / island geometry
 
 - User observed blue ocean slivers between outer island wall and board,

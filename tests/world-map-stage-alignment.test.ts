@@ -37,7 +37,7 @@ describe('World Map V3 connected stage foundation and themed islands',()=>{
    const f=foundation.geometry.getAttribute('position') as THREE.BufferAttribute;
    const p=apron.geometry.getAttribute('position') as THREE.BufferAttribute;
    const sea=foam.geometry.getAttribute('position') as THREE.BufferAttribute;
-   expect(f.count).toBe(1+145+290);
+   expect(f.count).toBe(1+145+4*145);
    expect(p.count).toBe(290);
    expect(sea.count).toBe(242);
    expect(f.getY(0)).toBeCloseTo(.414);

@@ -1,5 +1,21 @@
 # Selectable Map Shapes V1 — Treasure Bots
 
+## 2026-11-07 island edge polish after Android screenshots
+
+The previous V3 geometry corrected the ocean seam but created an
+artificial-looking thick vertical brown wall. The improved platform
+uses four tapered stone strata (top lip .232 outward normal,
+progressively smaller offsets lower down), a top surface beneath the
+tile board and a submerged foot. The heightfield/apron remains joined
+to the inside trim. This is deliberately PS1-inspired art direction,
+not a physically exact shoreline.
+
+World renderer had `setPixelRatio(.85)` (below CSS resolution),
+`antialias:false` and pixelated sampling. The revised
+`devicePixelRatio` cap of 1.5, antialiasing and normal image
+sampling improve sharpness without using full 3× phone DPR. Water
+animations still run at 24 FPS. Device visual/FPS QA remains needed.
+
 ## Screenshot-driven board/coast repair
 
 Earlier shaped islands used radial coastline cylinders that did not

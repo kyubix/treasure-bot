@@ -1,5 +1,29 @@
 # AI Agent Handoff — Treasure Bots
 
+## 2026-11-07: Android gameplay and fidelity hotfix
+
+- Users observed dice apparently ROLL when they touched World Map /
+  Send Robot. Cause was a permissive `rollButton.click` fallback that
+  treated Android pointer-synthesized click as a new roll, even with
+  view transitions. Fix: arm a specific pointer ID on the physical
+  dice button and release only that pointer while Board View is
+  active. World navigation and Send Robot cancel any held roll.
+  Accessible synthetic clicks are allowed **only when detail===0 and
+  the dice button has focus in Board View**. Server still validates
+  dice actions. Regression: `tests/dice-intent.test.ts`.
+- World Map was rendering at fixed **0.85× CSS pixel ratio** with
+  antialiasing off, then upscaled, blurring HD models. It now uses
+  capped device pixel ratio (1–1.5) and MSAA; no pixelated canvas
+  upscaling. Board Three.js cap slightly increased to 1.65.
+  24 FPS water cap and visible-only rendering are unchanged.
+- Previous continuous foundation looked like an oversized brown slab.
+  `createStageFoundation` now makes a narrower overhang and four
+  tapering, colored cliff bands down to the ocean, while maintaining
+  continuous, board-aligned coast geometry. Top remains below tiles.
+  `tests/world-map-stage-alignment.test.ts` checks the new topology.
+- New code requires CI+Workers validation and mobile Android QA.
+  Do not claim manual visual acceptance from automated tests alone.
+
 ## 2026-11-07 screenshot-driven World Map edge/decor fix
 
 - User Android screenshots showed **blue sea peeking between the perimeter

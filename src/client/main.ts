@@ -10,6 +10,7 @@ import './world-hud.css';
 import './board-view-three.css';
 import './gallery-dialog.css';
 import {mountGalleryDialog} from './gallery-dialog.ts';
+import {matchingRollPointer,accessibleRollClick} from './dice-intent.ts';
 import {gallerySlotTotal} from '../engine/gallery.ts';
 import { mountBoard } from './board.ts';
 import { TILES } from '../engine/types.ts';
@@ -649,19 +650,33 @@ function init():void {
       winningRule});
   };
   const rollButton=el<HTMLButtonElement>('roll');
+  // Require the same pointer to start and finish on the dice control.
+  // Android can dispatch an extra click after World Map reflows.
+  let rollPointerId:number|null=null;
+  const cancelRollPointer=()=>{
+    rollPointerId=null;
+    cancelDiceHold();
+  };
   rollButton.addEventListener('pointerdown',event=>{
-    if(event.button!==0||rollButton.disabled)return;
+    if(event.button!==0||rollButton.disabled||viewMode!=='board'||busy)return;
     event.preventDefault();
+    rollPointerId=event.pointerId;
     rollButton.setPointerCapture(event.pointerId);
     beginDiceHold();
   });
   rollButton.addEventListener('pointerup',event=>{
+    if(!matchingRollPointer(rollPointerId,event.pointerId,viewMode==='board')){
+      cancelRollPointer();return;
+    }
+    rollPointerId=null;
     if(!diceHeld)return;
     event.preventDefault();
     releaseDiceHold();
   });
-  rollButton.addEventListener('pointercancel',cancelDiceHold);
-  rollButton.addEventListener('lostpointercapture',()=>{if(diceHeld)cancelDiceHold();});
+  rollButton.addEventListener('pointercancel',cancelRollPointer);
+  rollButton.addEventListener('lostpointercapture',()=>{
+    if(rollPointerId!==null)cancelRollPointer();
+  });
   rollButton.addEventListener('keydown',event=>{
     if((event.code==='Space'||event.code==='Enter')&&!event.repeat){
       event.preventDefault();beginDiceHold();
@@ -672,21 +687,31 @@ function init():void {
       event.preventDefault();releaseDiceHold();
     }
   });
-  rollButton.addEventListener('click',()=>{
-    // Screen readers may synthesize click without pointer/keyboard events.
-    if(Date.now()-lastRollRelease>600&&!busy&&!diceHeld){
-      beginDiceHold();releaseDiceHold();
-    }
+  rollButton.addEventListener('click',event=>{
+    // Only focused accessibility/keyboard clicks may use fallback;
+    // pointer-generated or ghost clicks must never submit a dice roll.
+    if(!accessibleRollClick(event.detail,document.activeElement===rollButton,
+       viewMode==='board')||Date.now()-lastRollRelease<600||busy||diceHeld)return;
+    beginDiceHold();
+    if(diceHeld)releaseDiceHold();
   });
-  window.addEventListener('blur',cancelDiceHold);
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDiceHold();});
+  window.addEventListener('blur',cancelRollPointer);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)cancelRollPointer();
+  });
   el<HTMLButtonElement>('end').onclick=()=>void sendAction({type:'END_TURN'});
-  el<HTMLButtonElement>('openWorld').onclick=()=>{setInfoOpen(false);viewMode='world';render();};
+  el<HTMLButtonElement>('openWorld').onclick=()=>{
+    cancelRollPointer();setInfoOpen(false);viewMode='world';render();
+  };
   el<HTMLButtonElement>('openGallery').onclick=()=>{if(state)galleryDialog.open(state);};
-  el<HTMLButtonElement>('backBoard').onclick=()=>{setInfoOpen(false);viewMode='board';render();};
+  el<HTMLButtonElement>('backBoard').onclick=()=>{
+    cancelRollPointer();setInfoOpen(false);viewMode='board';render();
+  };
   el<HTMLButtonElement>('rotateLeft').onclick=()=>board?.rotateMap(-1);
   el<HTMLButtonElement>('rotateRight').onclick=()=>board?.rotateMap(1);
   el<HTMLButtonElement>('sendRobot').onclick=()=>{
+    // Never carry an armed dice gesture through Send Robot navigation.
+    cancelRollPointer();
     if(selectedSiteId)void sendAction({type:'SEND_ROBOT',siteId:selectedSiteId},()=>{
       viewMode='board';
       selectedSiteId='';

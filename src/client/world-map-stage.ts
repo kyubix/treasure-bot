@@ -7,7 +7,7 @@ import {terrainRadius,terrainHeight} from './world-map-terrain.ts';
  * the board. This closes the exposed water seam between the island and
  * the outermost brown board wall at every camera angle and map shape.
  */
-export const STAGE_FOUNDATION_OUTSET=.238;
+export const STAGE_FOUNDATION_OUTSET=.232;
 export const STAGE_APRON_INSET=-.198;
 const SEGMENTS=144;
 export function stageBoundaryPoint(progress:number,shape:MapShapeId='RING',
@@ -20,33 +20,52 @@ export function stageBoundaryPoint(progress:number,shape:MapShapeId='RING',
  */
 export function createStageFoundation(shape:MapShapeId='RING'):THREE.Mesh{
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
- const top=.414,bottom=-.535;
+ const top=.414;
  const edge=new THREE.Color(shape==='LAGOON'?0xb88d62:
-  shape==='CLOVER'?0x635a4a:0x88643c);
+  shape==='CLOVER'?0x716958:0x98724a);
  const cap=new THREE.Color(shape==='LAGOON'?0xb7ad77:
   shape==='CLOVER'?0x6b845b:0x75a05d);
- const color=new THREE.Color();
- // center top vertex
+ const tint=new THREE.Color();
+ // The top disc is hidden beneath the walkable tiles and grass apron.
  positions.push(0,top,0);colors.push(cap.r,cap.g,cap.b);
  for(let i=0;i<=SEGMENTS;i++){
-  const p=stageBoundaryPoint(i/SEGMENTS,shape);
-  const shade=(i%11===0)?1.05:1;
-  positions.push(p.x,top,p.y);
-  color.copy(cap).multiplyScalar(shade);
-  colors.push(color.r,color.g,color.b);
+  const pt=stageBoundaryPoint(i/SEGMENTS,shape);
+  positions.push(pt.x,top,pt.y);
+  colors.push(cap.r,cap.g,cap.b);
  }
  for(let i=0;i<SEGMENTS;i++)indices.push(0,i+1,i+2);
  const sideIndex=positions.length/3;
- for(let i=0;i<=SEGMENTS;i++){
-  const p=stageBoundaryPoint(i/SEGMENTS,shape);
-  positions.push(p.x,top,p.y,p.x,bottom,p.y);
-  const dark=.74+.14*Math.sin(i*.68)**2;
-  color.copy(edge).multiplyScalar(dark);
-  colors.push(edge.r,edge.g,edge.b,color.r,color.g,color.b);
+ // Four sloped layers are more natural than the previous perfectly
+ // vertical, dark-brown cylinder. Only the narrow top lip overhangs
+ // the coloured board's outside trim, with rock tapering into the sea.
+ const levels=[
+  {y:top,outset:STAGE_FOUNDATION_OUTSET,tone:1.07},
+  {y:.175,outset:.175,tone:.97},
+  {y:-.105,outset:.116,tone:.80},
+  {y:-.416,outset:.063,tone:.62}
+ ];
+ for(let level=0;level<levels.length;level++){
+  const band=levels[level];
+  for(let i=0;i<=SEGMENTS;i++){
+   const u=i/SEGMENTS;
+   const pt=stageBoundaryPoint(u,shape,band.outset);
+   const ripple=level===0||level===3?0:
+     Math.sin(u*Math.PI*2*11)*.014+
+     Math.cos(u*Math.PI*2*7)*.009-.009;
+   positions.push(pt.x,band.y+ripple,pt.y);
+   const grain=.96+.06*Math.sin(u*Math.PI*2*17);
+   tint.copy(edge).multiplyScalar(band.tone*grain);
+   if(level===0)tint.lerp(cap,.17);
+   colors.push(tint.r,tint.g,tint.b);
+  }
  }
- for(let i=0;i<SEGMENTS;i++){
-  const n=sideIndex+i*2;
-  indices.push(n,n+1,n+2,n+2,n+1,n+3);
+ for(let layer=0;layer<levels.length-1;layer++){
+  const first=sideIndex+layer*(SEGMENTS+1);
+  const second=first+SEGMENTS+1;
+  for(let i=0;i<SEGMENTS;i++){
+   const a=first+i,b=second+i;
+   indices.push(a,b,a+1,a+1,b,b+1);
+  }
  }
  const geometry=new THREE.BufferGeometry();
  geometry.setIndex(indices);
