@@ -1,5 +1,13 @@
 # AI Agent Handoff — Treasure Bots
 
+## 2026-11-07: World Map edge-only polish (main)
+
+- Corrected the apron mapping: each coast vertex now uses the angular direction of its paired `boardPathFrame`; it previously used raw 0..2π progress despite the board's angle offset, which twisted the road-to-land transition (especially Lagoon/Clover).
+- Replaced two-point flat apron with four continuous lanes, sampled terrain heights and blended grass/earth/sandy trim colours. The border remains underneath the board top, and interactive tiles, Gallery numbers, actors and logic are unchanged.
+- Gave the solid stage foundation six sculpted rock bands with gentle periodic erosion and a wider submerged foot, while keeping its top seal EXACTLY board-conformal to avoid sea slivers. Foam now starts beyond the eroded foot.
+- Updated `tests/world-map-stage-alignment.test.ts` to verify closed geometry, coast/board correspondence around all three shapes, and clear foam placement. Requires CI and real Android 360° QA (3/4/5 Galleries, touch targets, clipping, FPS); do not assume deployment or visual acceptance.
+
+
 ## 2026-11-07: Android gameplay and fidelity hotfix
 
 - Users observed dice apparently ROLL when they touched World Map /
