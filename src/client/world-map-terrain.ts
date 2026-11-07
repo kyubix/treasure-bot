@@ -180,7 +180,9 @@ export function createSurfBand(shape:MapShapeId='RING'):THREE.Mesh{
     // The foam hugs the *true* board-facing stone foundation, not
     // a scaled circular beach. It never disappears underneath the ring.
     const frame=boardPathFrame(i/count,shape);
-    for(const width of [.24,.355]){
+    // Foam now starts just OUTSIDE the eroded rock foot (.268 +/- .012).
+    // The old .24 offset crossed the exposed rock face at waterline.
+    for(const width of [.294,.404]){
       positions.push(frame.x+frame.nx*width,-.393,
         frame.z+frame.nz*width);
     }
